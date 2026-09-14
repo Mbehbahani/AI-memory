@@ -1,0 +1,58 @@
+# GitHub Big Picture Map
+
+> **Renames since this snapshot (noted 2026-09-08).** Three repositories were renamed and the old
+> URLs below now 301-redirect: `job-agent-backend` to `joblab-agent-api`, `job-market-pipeline` to
+> `joblab-data-pipeline`, `job-analytics-frontend` to `joblab-analytics-frontend`. The links still
+> work, but use the new names in anything outward-facing. The CV and Career Evidence Base were
+> updated; this file is a dated snapshot and is left as captured. Also note `joblab-lakehouse` is
+> public and live: https://github.com/Mbehbahani/joblab-lakehouse
+
+This note maps all GitHub repositories visible to the authenticated GitHub connection at generation time. It includes public and private repositories, top-level structure signals, descriptions, domain grouping, and a recommended portfolio/file-system structure.
+
+> [!info] Standards
+> The canonical configuration + documentation rules for every repo live in [[Repository Standard]].
+> Use [[README Skeleton]] for new READMEs and [[About and Topics Cheatsheet]] for filling the GitHub About panel.
+
+> Snapshot source: `gh repo list --limit 200` + top-level repository contents. Private repository contents are summarized only as structure metadata in this local vault note.
+
+## Executive Summary
+
+- **Total repositories scanned:** 52
+- **Public repositories:** 27
+- **Private repositories:** 25
+- **Forked repositories:** 7
+- **Primary account/owner:** `Mbehbahani`
+
+### Language Distribution
+
+- **Python:** 20
+- **TypeScript:** 9
+- **MATLAB:** 4
+- **JavaScript:** 3
+- **Vue:** 3
+- **Svelte:** 2
+- **R:** 2
+- **TeX:** 2
+- **Dockerfile:** 2
+- **Unknown:** 2
+- **Jupyter Notebook:** 1
+- **PowerShell:** 1
+- **HTML:** 1
+
+## Big Picture: Repository Domains
+
+### AI Engineering / Agents / RAG (11)
+
+- **[RAG-Boilerplate](https://github.com/Mbehbahani/RAG-Boilerplate)** — `PUBLIC`, `Python`, branch `main` fork  
+  - RAG boilerplate with semantic/propositional chunking, hybrid search (BM25 + dense), LLM reranking, query enhancement agents, CrewAI orchestration, Qdrant vector search, Redis/Mongo sessioning, Celery ingestion pipeline, Gradio UI, and an evaluation suite (Hit-Rate, MRR, hybrid configs).
+- **[tax-authority-enterprise-rag](https://github.com/Mbehbahani/tax-authority-enterprise-rag)** — `PUBLIC`, `Python`, branch `main`  
+  - Enterprise RAG architecture and evaluation repository for regulated tax-domain QA ΓÇö secure OpenSearch retrieval, Bedrock-based grading, zero-hallucination citation design, and Jaeger observability.
+- **[JobPilot](https://github.com/Mbehbahani/JobPilot)** — `PUBLIC`, `Svelte`, branch `main`  
+  - AI-powered job orchestration platform with Kanban workflows, LLM agents, and production-oriented system architecture.
+- **[Tax-Authority-RAG](https://github.com/Mbehbahani/Tax-Authority-RAG)** — `PUBLIC`, `Python`, branch `main`  
+  - Enterprise RAG architecture for a secure, citation-first Tax Authority assistant with RBAC, hybrid retrieval, and CRAG.
+- **[mlflow-tracking-server](https://github.com/Mbehbahani/mlflow-tracking-server)** — `PUBLIC`, `Python`, branch `main`  
+  - Self-hosted MLflow tracking server for experiments, traces, and prompt optimization.
+- **[job-agent-backend](https://github.com/Mbehbahani/job-agent-backend)** — `PUBLIC`, `Python`, branch `main`  
+  - FastAPI backend for AI-powered job search, CV matching, and chat-based workflow automation.
+- **[RAGents](https://github.com/Mbehbahani/RAGents)** — `PUBLIC`, `Python`, branch `master` fork

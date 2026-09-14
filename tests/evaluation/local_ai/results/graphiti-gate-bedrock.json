@@ -1,0 +1,778 @@
+{
+ "started_at": "2026-09-14T19:44:58.756142+00:00",
+ "group_id": "p4-graphiti-gate-bedrock",
+ "max_tokens": 2048,
+ "llm_provider": "bedrock",
+ "structured_output_mode": "anthropic_tool_use",
+ "unhandled_exceptions": 0,
+ "graphiti_version": "unknown",
+ "schema_baseline": {
+  "indexes": [
+   "application_id",
+   "concept_id",
+   "dataset_id",
+   "decision_id",
+   "device_id",
+   "document_id",
+   "entity_fulltext",
+   "entity_name",
+   "entity_project",
+   "entity_valid_to",
+   "episode_id",
+   "experiment_id",
+   "finding_id",
+   "index_343aff4e",
+   "index_f7700477",
+   "infra_id",
+   "organization_id",
+   "person_id",
+   "project_id",
+   "repository_id",
+   "requirement_id",
+   "source_id",
+   "task_id",
+   "technology_id"
+  ],
+  "constraints": [
+   "application_id",
+   "concept_id",
+   "dataset_id",
+   "decision_id",
+   "device_id",
+   "document_id",
+   "episode_id",
+   "experiment_id",
+   "finding_id",
+   "infra_id",
+   "organization_id",
+   "person_id",
+   "project_id",
+   "repository_id",
+   "requirement_id",
+   "source_id",
+   "task_id",
+   "technology_id"
+  ]
+ },
+ "nodes_before": 0,
+ "build_indices_s": 0.66,
+ "sequential": [
+  {
+   "name": "E01",
+   "chars": 2604,
+   "seconds": 0.78,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n",
+   "key": "E01",
+   "relative_path": "01 Projects/JobLab Product/JobLab DE Lakehouse.md"
+  }
+ ],
+ "concurrent_wall_s": 0.04,
+ "concurrent": [
+  {
+   "name": "E02",
+   "chars": 3478,
+   "seconds": 0.02,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n",
+   "key": "E02",
+   "relative_path": "01 Projects/Oploy Website/Oploy Landing Page.md"
+  },
+  {
+   "name": "E03",
+   "chars": 3286,
+   "seconds": 0.03,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n",
+   "key": "E03",
+   "relative_path": "02 Areas/Career Development/Career Target - AI Engineering.md"
+  }
+ ],
+ "fixture": [
+  {
+   "name": "architecture-decision-a",
+   "chars": 476,
+   "seconds": 0.02,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n"
+  },
+  {
+   "name": "architecture-decision-b",
+   "chars": 584,
+   "seconds": 0.02,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n"
+  }
+ ],
+ "c3_scores": {},
+ "c4_edges": [],
+ "c4_all_expired": [
+  {
+   "c": 0
+  }
+ ],
+ "c6_vector_dims": [],
+ "c6_edge_vector_dims": [],
+ "c6_indexes": [
+  {
+   "name": "application_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "community_group_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "community_name",
+   "type": "FULLTEXT",
+   "entityType": "NODE",
+   "properties": [
+    "name",
+    "group_id"
+   ]
+  },
+  {
+   "name": "community_uuid",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "concept_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "created_at_edge_index",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "created_at"
+   ]
+  },
+  {
+   "name": "created_at_entity_index",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "created_at"
+   ]
+  },
+  {
+   "name": "created_at_episodic_index",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "created_at"
+   ]
+  },
+  {
+   "name": "dataset_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "decision_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "device_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "document_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "edge_name_and_fact",
+   "type": "FULLTEXT",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "name",
+    "fact",
+    "group_id"
+   ]
+  },
+  {
+   "name": "entity_fulltext",
+   "type": "FULLTEXT",
+   "entityType": "NODE",
+   "properties": [
+    "name",
+    "summary"
+   ]
+  },
+  {
+   "name": "entity_group_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "entity_name",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "name"
+   ]
+  },
+  {
+   "name": "entity_project",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "project_id"
+   ]
+  },
+  {
+   "name": "entity_uuid",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "entity_valid_to",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "valid_to"
+   ]
+  },
+  {
+   "name": "episode_content",
+   "type": "FULLTEXT",
+   "entityType": "NODE",
+   "properties": [
+    "content",
+    "source",
+    "source_description",
+    "group_id"
+   ]
+  },
+  {
+   "name": "episode_group_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "episode_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "episode_uuid",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "experiment_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "expired_at_edge_index",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "expired_at"
+   ]
+  },
+  {
+   "name": "finding_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "has_episode_group_id",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "has_episode_uuid",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "has_member_uuid",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "index_343aff4e",
+   "type": "LOOKUP",
+   "entityType": "NODE",
+   "properties": null
+  },
+  {
+   "name": "index_f7700477",
+   "type": "LOOKUP",
+   "entityType": "RELATIONSHIP",
+   "properties": null
+  },
+  {
+   "name": "infra_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "invalid_at_edge_index",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "invalid_at"
+   ]
+  },
+  {
+   "name": "mention_group_id",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "mention_uuid",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "name_edge_index",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "name"
+   ]
+  },
+  {
+   "name": "next_episode_group_id",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "next_episode_uuid",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "node_name_and_summary",
+   "type": "FULLTEXT",
+   "entityType": "NODE",
+   "properties": [
+    "name",
+    "summary",
+    "group_id"
+   ]
+  },
+  {
+   "name": "organization_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "person_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "project_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "relation_group_id",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "relation_uuid",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "repository_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "requirement_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "saga_group_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "group_id"
+   ]
+  },
+  {
+   "name": "saga_name",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "name"
+   ]
+  },
+  {
+   "name": "saga_uuid",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "uuid"
+   ]
+  },
+  {
+   "name": "source_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "task_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "technology_id",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "id"
+   ]
+  },
+  {
+   "name": "valid_at_edge_index",
+   "type": "RANGE",
+   "entityType": "RELATIONSHIP",
+   "properties": [
+    "valid_at"
+   ]
+  },
+  {
+   "name": "valid_at_episodic_index",
+   "type": "RANGE",
+   "entityType": "NODE",
+   "properties": [
+    "valid_at"
+   ]
+  }
+ ],
+ "c6_constraints": [
+  {
+   "name": "application_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Application"
+   ]
+  },
+  {
+   "name": "concept_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Concept"
+   ]
+  },
+  {
+   "name": "dataset_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Dataset"
+   ]
+  },
+  {
+   "name": "decision_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Decision"
+   ]
+  },
+  {
+   "name": "device_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Device"
+   ]
+  },
+  {
+   "name": "document_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Document"
+   ]
+  },
+  {
+   "name": "episode_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Episode"
+   ]
+  },
+  {
+   "name": "experiment_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Experiment"
+   ]
+  },
+  {
+   "name": "finding_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "ResearchFinding"
+   ]
+  },
+  {
+   "name": "infra_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "InfrastructureComponent"
+   ]
+  },
+  {
+   "name": "organization_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Organization"
+   ]
+  },
+  {
+   "name": "person_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Person"
+   ]
+  },
+  {
+   "name": "project_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Project"
+   ]
+  },
+  {
+   "name": "repository_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Repository"
+   ]
+  },
+  {
+   "name": "requirement_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Requirement"
+   ]
+  },
+  {
+   "name": "source_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Source"
+   ]
+  },
+  {
+   "name": "task_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Task"
+   ]
+  },
+  {
+   "name": "technology_id",
+   "type": "UNIQUENESS",
+   "labelsOrTypes": [
+    "Technology"
+   ]
+  }
+ ],
+ "node_counts": [],
+ "llm_stats": {
+  "logical_calls": 5,
+  "logical_failures": 5,
+  "parse_rate_pct": 0.0,
+  "physical_attempts": 15,
+  "physical_failures": 15,
+  "failure_kinds": {
+   "TypeError": 20
+  },
+  "median_call_s": 0.0
+ },
+ "finished_at": "2026-09-14T19:45:08.985575+00:00",
+ "criteria": {
+  "C1_schema_reliability": {
+   "pass": false,
+   "parse_rate_pct": 0.0,
+   "threshold": ">= 90 % and 0 unhandled exceptions",
+   "episodes_ok": "0/3"
+  },
+  "C2_latency": {
+   "pass": false,
+   "median_s": null,
+   "p90_s": null,
+   "threshold": "median <= 240 s, p90 <= 480 s"
+  },
+  "C3_quality": {
+   "pass": false,
+   "mean_entity_recall_pct": null,
+   "mean_relationship_recall_pct": null,
+   "threshold": ">= 60 % entities, >= 50 % relationships"
+  },
+  "C4_temporal": {
+   "pass": false,
+   "fixture_episodes_ok": false,
+   "invalidated_or_expired_edges": 0,
+   "threshold": "old edge invalidated, new edge current"
+  },
+  "C5_concurrency": {
+   "pass": false,
+   "threshold": "2 parallel episodes complete without deadlock/corruption"
+  },
+  "C6_storage": {
+   "pass": false,
+   "vector_dims": [],
+   "n_indexes": 54,
+   "n_constraints": 18,
+   "threshold": "384-d vectors stored; indices/constraints created"
+  },
+  "VERDICT": "native"
+ },
+ "cleanup": {
+  "tagged": 0,
+  "deleted": 0,
+  "remaining_with_group_id": 0,
+  "dropped_schema": [
+   "index:community_group_id",
+   "index:community_name",
+   "index:community_uuid",
+   "index:created_at_edge_index",
+   "index:created_at_entity_index",
+   "index:created_at_episodic_index",
+   "index:edge_name_and_fact",
+   "index:entity_group_id",
+   "index:entity_uuid",
+   "index:episode_content",
+   "index:episode_group_id",
+   "index:episode_uuid",
+   "index:expired_at_edge_index",
+   "index:has_episode_group_id",
+   "index:has_episode_uuid",
+   "index:has_member_uuid",
+   "index:invalid_at_edge_index",
+   "index:mention_group_id",
+   "index:mention_uuid",
+   "index:name_edge_index",
+   "index:next_episode_group_id",
+   "index:next_episode_uuid",
+   "index:node_name_and_summary",
+   "index:relation_group_id",
+   "index:relation_uuid",
+   "index:saga_group_id",
+   "index:saga_name",
+   "index:saga_uuid",
+   "index:valid_at_edge_index",
+   "index:valid_at_episodic_index"
+  ],
+  "failed_to_drop": [],
+  "nodes_left_in_database": 0
+ }
+}

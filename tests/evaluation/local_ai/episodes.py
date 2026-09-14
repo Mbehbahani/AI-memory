@@ -47,13 +47,21 @@ EPISODE_FILES: tuple[str, ...] = (
     "AIOS/Maps/project-graph.md",
 )
 
+# Excluded on purpose: ``03 Resources/Tableau/Tableau Public Profile.md`` was the original E14.
+# Reading it for P4-T02 showed it contains a bare password-shaped token pasted under its "Profile"
+# heading. Plan section T and ADR-0012 both require that ``secret_suspected`` text is never sent to an
+# extraction provider - and under ADR-0012 one of the two providers is a cloud API. It is replaced by
+# ``GitHub Big Picture Map.md`` (same folder family, same size class) so that BOTH providers still see
+# 20 identical episodes. The finding is recorded in reports/local-ai-validation.md; the token itself is
+# not reproduced anywhere in this repository.
+
 # P4-T02 needs 20 *distinct* prompts (temperature 0 makes a repeat of the same prompt a repeat of
 # the same answer, which would measure nothing). These ten add to the gate's ten.
 BENCHMARK_EXTRA_FILES: tuple[str, ...] = (
     "00 Inbox/web-extention/Monitor AI coding agents with Grafana.md",
     "03 Resources/GitHub/About and Topics Cheatsheet.md",
     "03 Resources/GitHub/Profile README Draft.md",
-    "03 Resources/Tableau/Tableau Public Profile.md",
+    "03 Resources/GitHub/GitHub Big Picture Map.md",
     "06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md",
     "06 Outputs/Career Docs/CV - Current.md",
     "06 Outputs/YouTube/YouTube Channel - Oploy.md",

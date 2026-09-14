@@ -13,7 +13,13 @@ from __future__ import annotations
 
 from .episodes import Episode
 
-__all__ = ["CONCISE_SUFFIX", "EPISODE_SYSTEM_PROMPT", "episode_prompt"]
+__all__ = [
+    "CONCISE_SUFFIX",
+    "EPISODE_SYSTEM_PROMPT",
+    "RELATION_SYSTEM_PROMPT",
+    "episode_prompt",
+    "relation_prompt",
+]
 
 # Mitigation variant measured in P4-T02 run B. The schema's own caps (40 entities / 30 artifacts /
 # 1200-char statements) allow an object far larger than ``LLM_NUM_PREDICT=1024`` tokens; when the
@@ -53,4 +59,37 @@ def episode_prompt(episode: Episode) -> str:
         f"{episode.text}\n"
         "---\n"
         "Extract the document as JSON."
+    )
+
+
+NEWLINE = chr(10)
+
+# --------------------------------------------------------------------------------------------------
+# Call 2 - relationship extraction (schemas/extraction/relationship_extraction.schema.json).
+# Added for P4-T02: plan section O scores relationship recall, and the episode schema has none in it.
+# Same shape as call 1: the schema is enforced by the provider (Ollama ``format=``, Bedrock forced
+# tool use), so the prompt only supplies the task and the entity list.
+# --------------------------------------------------------------------------------------------------
+
+RELATION_SYSTEM_PROMPT = """You extract relationships between already-identified entities in one document.
+Rules:
+- subject and object must both be taken verbatim from the provided entity list.
+- Only state a relationship the document actually supports. Never invent one.
+- predicate must be one of the allowed relationship types.
+- statement: one sentence, grounded in the document.
+- At most 25 facts. Output JSON only."""
+
+
+def relation_prompt(episode: Episode, entity_names: list[str]) -> str:
+    """Entity list + episode text, exactly as the native engine's call 2 will assemble it."""
+    listing = NEWLINE.join(f"- {name}" for name in entity_names) or "- (none)"
+    return (
+        f"Document title: {episode.title}" + NEWLINE
+        + f"Source: {episode.source_uri}" + NEWLINE
+        + "Entities found in this document:" + NEWLINE
+        + listing + NEWLINE
+        + "---" + NEWLINE
+        + episode.text + NEWLINE
+        + "---" + NEWLINE
+        + "Return the relationships between these entities as JSON."
     )

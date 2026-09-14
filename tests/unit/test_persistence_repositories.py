@@ -6,21 +6,18 @@ loopback-published one for host runs) - if it cannot be reached the whole module
 than failing, since P5-T01's own migration state (schema at head) is also a precondition these tests
 assume but do not themselves create (see ``tests/integration/test_migrations.py`` for that).
 
-A12 owns ``tests/conftest.py`` and had not landed shared fixtures when this file was written, so the
-session-per-test fixture lives here, self-contained; if a shared ``pg_session`` fixture appears in
-``tests/conftest.py`` later, this file's fixture can be deleted in favour of it without changing any
-test body (see the HANDOFF note in P5-T01's result).
+A12 has since landed shared ``db_engine``/``pg_session`` fixtures in ``tests/conftest.py``; the two
+fixtures below are now thin wrappers over those (kept under their original names, ``_require_postgres``
+and ``session``, so no test body below needed to change - see the P2-T04 HANDOFF).
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
-from aimemory.common.config import get_settings
 from aimemory.domain.enums import (
     ArtifactType,
     ChangeType,
@@ -57,7 +54,6 @@ from aimemory.domain.models import (
     SourceVersion,
 )
 from aimemory.domain.provenance import Provenance
-from aimemory.persistence.db import register_pgvector
 from aimemory.persistence.repositories import (
     ArtifactRepo,
     AuditRepo,
@@ -72,7 +68,7 @@ from aimemory.persistence.repositories import (
     RunRepo,
     SourceRepo,
 )
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 pytestmark = pytest.mark.usefixtures("_require_postgres")
@@ -81,38 +77,17 @@ NOW = datetime.now(UTC)
 DEVICE_ID = "local-development-machine"
 
 
-@pytest.fixture(scope="module")
-def _engine() -> Iterator[sa.Engine]:
-    engine = sa.create_engine(get_settings().postgres.dsn, future=True)
-    register_pgvector(engine)
-    try:
-        with engine.connect() as probe:
-            probe.execute(sa.text("SELECT 1"))
-    except OperationalError:
-        engine.dispose()
-        pytest.skip("PostgreSQL is not reachable from this test run.")
-    yield engine
-    engine.dispose()
+@pytest.fixture()
+def _require_postgres(postgres_available: bool) -> None:
+    """``postgres_available`` (tests/conftest.py) already skips when unreachable; this name is kept
+    so the ``pytestmark`` line above did not need to change."""
 
 
 @pytest.fixture()
-def _require_postgres(_engine: sa.Engine) -> None:
-    return None
-
-
-@pytest.fixture()
-def session(_engine: sa.Engine) -> Iterator[Session]:
-    """A session bound to a connection whose outer transaction is always rolled back."""
-    connection = _engine.connect()
-    transaction = connection.begin()
-    db_session = Session(bind=connection, autoflush=False, expire_on_commit=False)
-    try:
-        yield db_session
-    finally:
-        db_session.close()
-        if transaction.is_active:
-            transaction.rollback()
-        connection.close()
+def session(pg_session: Session) -> Session:
+    """Renamed wrapper over the shared ``pg_session`` fixture (tests/conftest.py) - every test below
+    keeps using the parameter name ``session`` unchanged."""
+    return pg_session
 
 
 @pytest.fixture()

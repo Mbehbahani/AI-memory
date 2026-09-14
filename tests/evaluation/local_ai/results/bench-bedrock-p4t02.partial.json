@@ -1,0 +1,2053 @@
+{
+ "provider": "bedrock",
+ "tag": "p4t02",
+ "started_at": "2026-09-14T19:31:46.641647+00:00",
+ "validator_backend": "jsonschema 4.26.0",
+ "model": {
+  "id": "bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "provider": "bedrock",
+  "name": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "digest": null,
+  "parameters": {
+   "region": "us-east-1",
+   "max_tokens": 4096,
+   "temperature": 0.0,
+   "structured_output": "forced_tool_use"
+  },
+  "created_at": "2026-09-14T19:31:46.641626Z"
+ },
+ "settings": {
+  "num_ctx": 8192,
+  "num_predict": 1024,
+  "temperature": 0.0,
+  "timeout_seconds": 300,
+  "max_retries": 2,
+  "keep_alive": "5m",
+  "concise_prompt": true,
+  "bedrock_model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "bedrock_region": "us-east-1",
+  "bedrock_max_tokens": 4096
+ },
+ "schemas": {
+  "episode": "schemas\\extraction\\episode_extraction.schema.json",
+  "relation": "schemas\\extraction\\relationship_extraction.schema.json"
+ },
+ "episodes": [
+  {
+   "key": "E01",
+   "relative_path": "01 Projects/JobLab Product/JobLab DE Lakehouse.md",
+   "chars": 2604
+  },
+  {
+   "key": "E02",
+   "relative_path": "01 Projects/Oploy Website/Oploy Landing Page.md",
+   "chars": 3478
+  },
+  {
+   "key": "E03",
+   "relative_path": "02 Areas/Career Development/Career Target - AI Engineering.md",
+   "chars": 3286
+  },
+  {
+   "key": "E04",
+   "relative_path": "02 Areas/Home Infrastructure/Ubuntu Server - Admin Dashboards.md",
+   "chars": 3447
+  },
+  {
+   "key": "E05",
+   "relative_path": "02 Areas/Oploy Business/Oploy Website - System Map.md",
+   "chars": 2858
+  },
+  {
+   "key": "E06",
+   "relative_path": "03 Resources/GitHub/Repository Standard.md",
+   "chars": 3481
+  },
+  {
+   "key": "E07",
+   "relative_path": "03 Resources/Ubuntu Server/Ubuntu Server Setup and Usage Guide.md",
+   "chars": 3573
+  },
+  {
+   "key": "E08",
+   "relative_path": "07 Workflows/Context - JobLab Product.md",
+   "chars": 3326
+  },
+  {
+   "key": "E09",
+   "relative_path": "07 Workflows/Operating Manual.md",
+   "chars": 3471
+  },
+  {
+   "key": "E10",
+   "relative_path": "AIOS/Maps/project-graph.md",
+   "chars": 3496
+  },
+  {
+   "key": "E11",
+   "relative_path": "00 Inbox/web-extention/Monitor AI coding agents with Grafana.md",
+   "chars": 3477
+  },
+  {
+   "key": "E12",
+   "relative_path": "03 Resources/GitHub/About and Topics Cheatsheet.md",
+   "chars": 3598
+  },
+  {
+   "key": "E13",
+   "relative_path": "03 Resources/GitHub/Profile README Draft.md",
+   "chars": 3007
+  },
+  {
+   "key": "E14",
+   "relative_path": "03 Resources/GitHub/GitHub Big Picture Map.md",
+   "chars": 3492
+  },
+  {
+   "key": "E15",
+   "relative_path": "06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md",
+   "chars": 3567
+  },
+  {
+   "key": "E16",
+   "relative_path": "06 Outputs/Career Docs/CV - Current.md",
+   "chars": 3596
+  },
+  {
+   "key": "E17",
+   "relative_path": "06 Outputs/YouTube/YouTube Channel - Oploy.md",
+   "chars": 3460
+  },
+  {
+   "key": "E18",
+   "relative_path": "07 Workflows/Context Router.md",
+   "chars": 3112
+  },
+  {
+   "key": "E19",
+   "relative_path": "AIOS/Maps/vault-map.md",
+   "chars": 3121
+  },
+  {
+   "key": "E20",
+   "relative_path": "AIOS/me.md",
+   "chars": 3229
+  }
+ ],
+ "size_sweep": [],
+ "runs": [
+  {
+   "key": "E01",
+   "relative_path": "01 Projects/JobLab Product/JobLab DE Lakehouse.md",
+   "chars": 2604,
+   "wall_s": 9.19,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2377,
+   "prompt_tok_s": null,
+   "eval_count": 1067,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 8,
+   "n_artifacts": 5,
+   "doc_kind": "design_doc",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 8,
+    "found_entities": 6,
+    "entity_recall_pct": 75.0,
+    "entities_found": [
+     "JobLab DE Lakehouse",
+     "Supabase",
+     "PySpark",
+     "Databricks",
+     "Snowflake",
+     "Tableau Public"
+    ],
+    "entities_missed": [
+     "Delta",
+     "Parquet"
+    ],
+    "type_scored": 6,
+    "type_correct": 6,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 8
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 9191.08039996354,
+     "prompt_eval_count": 2377,
+     "eval_count": 1067,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3419,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2377,
+   "tokens_out_total": 1067,
+   "cost_usd": 0.007712
+  },
+  {
+   "key": "E02",
+   "relative_path": "01 Projects/Oploy Website/Oploy Landing Page.md",
+   "chars": 3478,
+   "wall_s": 6.52,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2404,
+   "prompt_tok_s": null,
+   "eval_count": 761,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 6,
+   "n_artifacts": 4,
+   "doc_kind": "design_doc",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 5,
+    "found_entities": 5,
+    "entity_recall_pct": 100.0,
+    "entities_found": [
+     "Oploy",
+     "Oploy Landing Page",
+     "Mohammad",
+     "decision intelligence",
+     "AI engineering"
+    ],
+    "entities_missed": [],
+    "type_scored": 5,
+    "type_correct": 5,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 6
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6523.32589996513,
+     "prompt_eval_count": 2404,
+     "eval_count": 761,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2583,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2404,
+   "tokens_out_total": 761,
+   "cost_usd": 0.006209
+  },
+  {
+   "key": "E03",
+   "relative_path": "02 Areas/Career Development/Career Target - AI Engineering.md",
+   "chars": 3286,
+   "wall_s": 7.65,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2349,
+   "prompt_tok_s": null,
+   "eval_count": 1140,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "career",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 12,
+    "found_entities": 8,
+    "entity_recall_pct": 66.7,
+    "entities_found": [
+     "Mohammad",
+     "Senior AI Engineer",
+     "Bedrock",
+     "JobLab",
+     "Oploy",
+     "AWS",
+     "Digikala",
+     "RAG"
+    ],
+    "entities_missed": [
+     "FastAPI",
+     "Docker",
+     "Python",
+     "Utrecht University"
+    ],
+    "type_scored": 8,
+    "type_correct": 8,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 7649.802699976135,
+     "prompt_eval_count": 2349,
+     "eval_count": 1140,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3595,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2349,
+   "tokens_out_total": 1140,
+   "cost_usd": 0.008049
+  },
+  {
+   "key": "E04",
+   "relative_path": "02 Areas/Home Infrastructure/Ubuntu Server - Admin Dashboards.md",
+   "chars": 3447,
+   "wall_s": 8.66,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2633,
+   "prompt_tok_s": null,
+   "eval_count": 1283,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "notes",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 10,
+    "found_entities": 6,
+    "entity_recall_pct": 60.0,
+    "entities_found": [
+     "Ubuntu Server",
+     "Cockpit",
+     "Portainer",
+     "Docker",
+     "oploy.eu",
+     "Huawei laptop"
+    ],
+    "entities_missed": [
+     "Cloudflare Tunnel",
+     "Railway",
+     "Wagtail",
+     "ufw"
+    ],
+    "type_scored": 6,
+    "type_correct": 5,
+    "type_correct_pct": 83.3,
+    "type_errors": [
+     {
+      "expected": "Docker",
+      "got_type": "Application",
+      "acceptable": "Technology|InfrastructureComponent",
+      "as_name": "Docker Manager"
+     }
+    ],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 8659.581299987622,
+     "prompt_eval_count": 2633,
+     "eval_count": 1283,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3813,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2633,
+   "tokens_out_total": 1283,
+   "cost_usd": 0.009048
+  },
+  {
+   "key": "E05",
+   "relative_path": "02 Areas/Oploy Business/Oploy Website - System Map.md",
+   "chars": 2858,
+   "wall_s": 6.81,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2524,
+   "prompt_tok_s": null,
+   "eval_count": 994,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 4,
+   "doc_kind": "design_doc",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 6,
+    "found_entities": 4,
+    "entity_recall_pct": 66.7,
+    "entities_found": [
+     "oploy.eu",
+     "Wagtail",
+     "Django",
+     "wagtailio"
+    ],
+    "entities_missed": [
+     "Wagtail admin",
+     "Wagtail API"
+    ],
+    "type_scored": 4,
+    "type_correct": 4,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6810.276000003796,
+     "prompt_eval_count": 2524,
+     "eval_count": 994,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2918,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2524,
+   "tokens_out_total": 994,
+   "cost_usd": 0.007494
+  },
+  {
+   "key": "E06",
+   "relative_path": "03 Resources/GitHub/Repository Standard.md",
+   "chars": 3481,
+   "wall_s": 7.65,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2605,
+   "prompt_tok_s": null,
+   "eval_count": 1059,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 6,
+   "n_artifacts": 5,
+   "doc_kind": "specification",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 7,
+    "found_entities": 5,
+    "entity_recall_pct": 71.4,
+    "entities_found": [
+     "GitHub",
+     "Mbehbahani",
+     "GitHub Repository Standard",
+     "README Skeleton",
+     "About and Topics Cheatsheet"
+    ],
+    "entities_missed": [
+     "MIT",
+     "CITATION.cff"
+    ],
+    "type_scored": 5,
+    "type_correct": 4,
+    "type_correct_pct": 80.0,
+    "type_errors": [
+     {
+      "expected": "GitHub Repository Standard",
+      "got_type": "Technology",
+      "acceptable": "Document",
+      "as_name": "GitHub"
+     }
+    ],
+    "n_produced_entities": 6
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 7650.374700024258,
+     "prompt_eval_count": 2605,
+     "eval_count": 1059,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3496,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2605,
+   "tokens_out_total": 1059,
+   "cost_usd": 0.0079
+  },
+  {
+   "key": "E07",
+   "relative_path": "03 Resources/Ubuntu Server/Ubuntu Server Setup and Usage Guide.md",
+   "chars": 3573,
+   "wall_s": 6.52,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2747,
+   "prompt_tok_s": null,
+   "eval_count": 952,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 7,
+   "n_artifacts": 5,
+   "doc_kind": "tutorial",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 8,
+    "found_entities": 6,
+    "entity_recall_pct": 75.0,
+    "entities_found": [
+     "Ubuntu Server",
+     "netplan",
+     "SSH",
+     "Huawei laptop",
+     "Windows laptop",
+     "ssh-keygen"
+    ],
+    "entities_missed": [
+     "PowerShell",
+     "sudo"
+    ],
+    "type_scored": 6,
+    "type_correct": 6,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 7
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6519.918799982406,
+     "prompt_eval_count": 2747,
+     "eval_count": 952,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2883,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2747,
+   "tokens_out_total": 952,
+   "cost_usd": 0.007507
+  },
+  {
+   "key": "E08",
+   "relative_path": "07 Workflows/Context - JobLab Product.md",
+   "chars": 3326,
+   "wall_s": 8.19,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2437,
+   "prompt_tok_s": null,
+   "eval_count": 1382,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 12,
+   "n_artifacts": 5,
+   "doc_kind": "notes",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 12,
+    "found_entities": 9,
+    "entity_recall_pct": 75.0,
+    "entities_found": [
+     "JobLab",
+     "JobPilot",
+     "SvelteKit",
+     "Convex",
+     "FastAPI",
+     "Supabase",
+     "Databricks",
+     "Snowflake",
+     "Tableau Public"
+    ],
+    "entities_missed": [
+     "Next.js",
+     "PySpark",
+     "Nova"
+    ],
+    "type_scored": 9,
+    "type_correct": 9,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 12
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 8189.08250000095,
+     "prompt_eval_count": 2437,
+     "eval_count": 1382,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4332,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2437,
+   "tokens_out_total": 1382,
+   "cost_usd": 0.009347
+  },
+  {
+   "key": "E09",
+   "relative_path": "07 Workflows/Operating Manual.md",
+   "chars": 3471,
+   "wall_s": 7.83,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2625,
+   "prompt_tok_s": null,
+   "eval_count": 1100,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "readme",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 8,
+    "found_entities": 6,
+    "entity_recall_pct": 75.0,
+    "entities_found": [
+     "Weekly Review",
+     "vault-map",
+     "Claude Code",
+     "00 Inbox",
+     "01 Projects",
+     "06 Outputs"
+    ],
+    "entities_missed": [
+     "Operating Manual",
+     "Context Router"
+    ],
+    "type_scored": 6,
+    "type_correct": 3,
+    "type_correct_pct": 50.0,
+    "type_errors": [
+     {
+      "expected": "00 Inbox",
+      "got_type": "InfrastructureComponent",
+      "acceptable": "Document|Concept",
+      "as_name": "00 Inbox"
+     },
+     {
+      "expected": "01 Projects",
+      "got_type": "InfrastructureComponent",
+      "acceptable": "Document|Concept",
+      "as_name": "01 Projects"
+     },
+     {
+      "expected": "06 Outputs",
+      "got_type": "InfrastructureComponent",
+      "acceptable": "Document|Concept",
+      "as_name": "06 Outputs"
+     }
+    ],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 7833.942700002808,
+     "prompt_eval_count": 2625,
+     "eval_count": 1100,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3227,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2625,
+   "tokens_out_total": 1100,
+   "cost_usd": 0.008125
+  },
+  {
+   "key": "E10",
+   "relative_path": "AIOS/Maps/project-graph.md",
+   "chars": 3496,
+   "wall_s": 9.94,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2623,
+   "prompt_tok_s": null,
+   "eval_count": 1225,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "decision_record",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 12,
+    "found_entities": 6,
+    "entity_recall_pct": 50.0,
+    "entities_found": [
+     "Mohammad",
+     "JobLab Data Pipeline",
+     "JobLab Agent Backend",
+     "JobLab Analytics Frontend",
+     "Oploy",
+     "HMM-REM"
+    ],
+    "entities_missed": [
+     "Terraform",
+     "Bedrock",
+     "MLflow",
+     "Next.js",
+     "Supabase",
+     "project-graph"
+    ],
+    "type_scored": 6,
+    "type_correct": 6,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 9937.407099991105,
+     "prompt_eval_count": 2623,
+     "eval_count": 1225,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3566,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2623,
+   "tokens_out_total": 1225,
+   "cost_usd": 0.008748
+  },
+  {
+   "key": "E11",
+   "relative_path": "00 Inbox/web-extention/Monitor AI coding agents with Grafana.md",
+   "chars": 3477,
+   "wall_s": 5.02,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2534,
+   "prompt_tok_s": null,
+   "eval_count": 777,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 8,
+   "n_artifacts": 4,
+   "doc_kind": "tutorial",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 10,
+    "found_entities": 8,
+    "entity_recall_pct": 80.0,
+    "entities_found": [
+     "Grafana",
+     "GitHub Copilot",
+     "Claude Code",
+     "OpenClaw",
+     "OpenTelemetry",
+     "OpenTelemetry Collector",
+     "Application Insights",
+     "Azure Monitor"
+    ],
+    "entities_missed": [
+     "OTLP",
+     "Log Analytics"
+    ],
+    "type_scored": 8,
+    "type_correct": 8,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 8
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 5019.105999963358,
+     "prompt_eval_count": 2534,
+     "eval_count": 777,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2334,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2534,
+   "tokens_out_total": 777,
+   "cost_usd": 0.006419
+  },
+  {
+   "key": "E12",
+   "relative_path": "03 Resources/GitHub/About and Topics Cheatsheet.md",
+   "chars": 3598,
+   "wall_s": 5.92,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2652,
+   "prompt_tok_s": null,
+   "eval_count": 705,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 7,
+   "n_artifacts": 3,
+   "doc_kind": "readme",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 6,
+    "found_entities": 5,
+    "entity_recall_pct": 83.3,
+    "entities_found": [
+     "Repository Standard",
+     "README Skeleton",
+     "GitHub Big Picture Map",
+     "GitHub",
+     "JobPilot"
+    ],
+    "entities_missed": [
+     "About and Topics Cheatsheet"
+    ],
+    "type_scored": 5,
+    "type_correct": 4,
+    "type_correct_pct": 80.0,
+    "type_errors": [
+     {
+      "expected": "GitHub",
+      "got_type": "Concept",
+      "acceptable": "Organization|Technology|Application",
+      "as_name": "GitHub About panel"
+     }
+    ],
+    "n_produced_entities": 7
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 5917.050699994434,
+     "prompt_eval_count": 2652,
+     "eval_count": 705,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2138,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2652,
+   "tokens_out_total": 705,
+   "cost_usd": 0.006177
+  },
+  {
+   "key": "E13",
+   "relative_path": "03 Resources/GitHub/Profile README Draft.md",
+   "chars": 3007,
+   "wall_s": 8.82,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2551,
+   "prompt_tok_s": null,
+   "eval_count": 1242,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 12,
+   "n_artifacts": 5,
+   "doc_kind": "readme",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 17,
+    "found_entities": 11,
+    "entity_recall_pct": 64.7,
+    "entities_found": [
+     "Mohammad Behbahani",
+     "Oploy",
+     "JobPilot",
+     "joblab-agent-api",
+     "mlflow-tracking-server",
+     "tax-authority-enterprise-rag",
+     "AWS Bedrock",
+     "MLflow",
+     "FastAPI",
+     "OpenSearch",
+     "RAG"
+    ],
+    "entities_missed": [
+     "Senior AI Engineer",
+     "joblab-analytics-frontend",
+     "joblab-data-pipeline",
+     "2sHMMREM",
+     "Next.js",
+     "AWS Lambda"
+    ],
+    "type_scored": 11,
+    "type_correct": 11,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 12
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 8816.744799958542,
+     "prompt_eval_count": 2551,
+     "eval_count": 1242,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4166,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2551,
+   "tokens_out_total": 1242,
+   "cost_usd": 0.008761
+  },
+  {
+   "key": "E14",
+   "relative_path": "03 Resources/GitHub/GitHub Big Picture Map.md",
+   "chars": 3492,
+   "wall_s": 9.07,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2661,
+   "prompt_tok_s": null,
+   "eval_count": 1395,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 12,
+   "n_artifacts": 5,
+   "doc_kind": "registry",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 16,
+    "found_entities": 11,
+    "entity_recall_pct": 68.8,
+    "entities_found": [
+     "Mbehbahani",
+     "Repository Standard",
+     "README Skeleton",
+     "joblab-agent-api",
+     "joblab-data-pipeline",
+     "joblab-analytics-frontend",
+     "joblab-lakehouse",
+     "JobPilot",
+     "tax-authority-enterprise-rag",
+     "RAG-Boilerplate",
+     "mlflow-tracking-server"
+    ],
+    "entities_missed": [
+     "GitHub Big Picture Map",
+     "GitHub",
+     "About and Topics Cheatsheet",
+     "Python",
+     "TypeScript"
+    ],
+    "type_scored": 11,
+    "type_correct": 11,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 12
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 9064.447599987034,
+     "prompt_eval_count": 2661,
+     "eval_count": 1395,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4172,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2661,
+   "tokens_out_total": 1395,
+   "cost_usd": 0.009636
+  },
+  {
+   "key": "E15",
+   "relative_path": "06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md",
+   "chars": 3567,
+   "wall_s": 9.46,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2513,
+   "prompt_tok_s": null,
+   "eval_count": 1363,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "career",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 14,
+    "found_entities": 8,
+    "entity_recall_pct": 57.1,
+    "entities_found": [
+     "Mohammad",
+     "Oploy",
+     "Personal Harness",
+     "Databricks",
+     "MLflow",
+     "Delta",
+     "knowledge graph",
+     "RAG"
+    ],
+    "entities_missed": [
+     "Unity Catalog",
+     "PySpark",
+     "Snowflake",
+     "Tableau",
+     "LinkedIn",
+     "MCP"
+    ],
+    "type_scored": 8,
+    "type_correct": 7,
+    "type_correct_pct": 87.5,
+    "type_errors": [
+     {
+      "expected": "Personal Harness",
+      "got_type": "Technology",
+      "acceptable": "Project|Application|SubProject",
+      "as_name": "Harness"
+     }
+    ],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 9459.91520001553,
+     "prompt_eval_count": 2513,
+     "eval_count": 1363,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4582,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2513,
+   "tokens_out_total": 1363,
+   "cost_usd": 0.009328
+  },
+  {
+   "key": "E16",
+   "relative_path": "06 Outputs/Career Docs/CV - Current.md",
+   "chars": 3596,
+   "wall_s": 7.83,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2468,
+   "prompt_tok_s": null,
+   "eval_count": 1365,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 12,
+   "n_artifacts": 5,
+   "doc_kind": "career",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 14,
+    "found_entities": 12,
+    "entity_recall_pct": 85.7,
+    "entities_found": [
+     "Mohammad Behbahani",
+     "Utrecht University",
+     "Digikala",
+     "Oploy",
+     "MLflow",
+     "Databricks",
+     "FastAPI",
+     "Python",
+     "Docker",
+     "AWS",
+     "Personal Harness",
+     "Hidden Markov Models"
+    ],
+    "entities_missed": [
+     "RAG",
+     "MCP"
+    ],
+    "type_scored": 12,
+    "type_correct": 12,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 12
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 7830.734800023492,
+     "prompt_eval_count": 2468,
+     "eval_count": 1365,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4654,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2468,
+   "tokens_out_total": 1365,
+   "cost_usd": 0.009293
+  },
+  {
+   "key": "E17",
+   "relative_path": "06 Outputs/YouTube/YouTube Channel - Oploy.md",
+   "chars": 3460,
+   "wall_s": 10.71,
+   "attempts": 2,
+   "first_attempt_valid": false,
+   "final_valid": true,
+   "prompt_eval_count": 2632,
+   "prompt_tok_s": null,
+   "eval_count": 850,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 3,
+   "doc_kind": "registry",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 12,
+    "found_entities": 7,
+    "entity_recall_pct": 58.3,
+    "entities_found": [
+     "Oploy",
+     "YouTube",
+     "JobPilot",
+     "FastAPI",
+     "Railway",
+     "MLflow",
+     "RAG"
+    ],
+    "entities_missed": [
+     "Vercel",
+     "Netlify",
+     "PostgreSQL",
+     "ChatGPT",
+     "Gmail Job Tracker"
+    ],
+    "type_scored": 7,
+    "type_correct": 7,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6474.67060002964,
+     "prompt_eval_count": 2632,
+     "eval_count": 850,
+     "valid": false,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [
+      "entities/2/type: 'Product' is not one of ['Project', 'SubProject', 'Person', 'Organization', 'Technology', 'Concept', 'Document', 'Repository', 'Decision', 'Requirement', 'Task', 'Experiment', 'Dataset', 'ResearchFinding', 'Application', 'InfrastructureComponent']"
+     ],
+     "content_chars": 2805,
+     "stop_reason": "tool_use"
+    },
+    {
+     "attempt": 2,
+     "wall_ms": 4235.031199990772,
+     "prompt_eval_count": 3378,
+     "eval_count": 689,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2813,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 6010,
+   "tokens_out_total": 1539,
+   "cost_usd": 0.013705
+  },
+  {
+   "key": "E18",
+   "relative_path": "07 Workflows/Context Router.md",
+   "chars": 3112,
+   "wall_s": 6.68,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2482,
+   "prompt_tok_s": null,
+   "eval_count": 1047,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 11,
+   "n_artifacts": 3,
+   "doc_kind": "decision_record",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 13,
+    "found_entities": 9,
+    "entity_recall_pct": 69.2,
+    "entities_found": [
+     "Context Router",
+     "AIOS",
+     "me.md",
+     "vault-map",
+     "Context - Content Production",
+     "Context - YouTube Channel",
+     "Context - Oploy Website",
+     "Context - JobLab Product",
+     "oploy.eu"
+    ],
+    "entities_missed": [
+     "skill-map",
+     "Personal Harness",
+     "Wagtail",
+     "Weekly Review"
+    ],
+    "type_scored": 9,
+    "type_correct": 9,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 11
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6680.25650002528,
+     "prompt_eval_count": 2482,
+     "eval_count": 1047,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3328,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2482,
+   "tokens_out_total": 1047,
+   "cost_usd": 0.007717
+  },
+  {
+   "key": "E19",
+   "relative_path": "AIOS/Maps/vault-map.md",
+   "chars": 3121,
+   "wall_s": 6.79,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2461,
+   "prompt_tok_s": null,
+   "eval_count": 980,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 5,
+   "doc_kind": "readme",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 16,
+    "found_entities": 9,
+    "entity_recall_pct": 56.2,
+    "entities_found": [
+     "vault-map",
+     "me",
+     "00 Inbox",
+     "01 Projects",
+     "02 Areas",
+     "03 Resources",
+     "YouTube Channel - Oploy",
+     "Oploy Website - System Map",
+     "GitHub Big Picture Map"
+    ],
+    "entities_missed": [
+     "project-graph",
+     "skill-map",
+     "04 Archives",
+     "05 Templates",
+     "CV - Current",
+     "Repository Standard",
+     "README Skeleton"
+    ],
+    "type_scored": 9,
+    "type_correct": 5,
+    "type_correct_pct": 55.6,
+    "type_errors": [
+     {
+      "expected": "vault-map",
+      "got_type": "Repository",
+      "acceptable": "Document|Concept",
+      "as_name": "vault"
+     },
+     {
+      "expected": "YouTube Channel - Oploy",
+      "got_type": "Project",
+      "acceptable": "Document",
+      "as_name": "Oploy"
+     },
+     {
+      "expected": "Oploy Website - System Map",
+      "got_type": "Project",
+      "acceptable": "Document",
+      "as_name": "Oploy"
+     },
+     {
+      "expected": "GitHub Big Picture Map",
+      "got_type": "Technology",
+      "acceptable": "Document",
+      "as_name": "GitHub"
+     }
+    ],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6792.3127000103705,
+     "prompt_eval_count": 2461,
+     "eval_count": 980,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3090,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2461,
+   "tokens_out_total": 980,
+   "cost_usd": 0.007361
+  },
+  {
+   "key": "E20",
+   "relative_path": "AIOS/me.md",
+   "chars": 3229,
+   "wall_s": 6.13,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2432,
+   "prompt_tok_s": null,
+   "eval_count": 990,
+   "gen_tok_s": null,
+   "stop": "tool_use",
+   "n_entities": 10,
+   "n_artifacts": 3,
+   "doc_kind": "readme",
+   "errors": [],
+   "transport_error": null,
+   "quality": {
+    "expected_entities": 23,
+    "found_entities": 9,
+    "entity_recall_pct": 39.1,
+    "entities_found": [
+     "Mohammad",
+     "Oploy",
+     "JobLab",
+     "JobPilot",
+     "Personal Harness",
+     "HMM-REM",
+     "LangChain",
+     "Databricks",
+     "AIOS"
+    ],
+    "entities_missed": [
+     "Python",
+     "TypeScript",
+     "FastAPI",
+     "Next.js",
+     "SvelteKit",
+     "Delta Lake",
+     "Unity Catalog",
+     "MLflow",
+     "AWS",
+     "Obsidian",
+     "Claude Code",
+     "vault-map",
+     "project-graph",
+     "skill-map"
+    ],
+    "type_scored": 9,
+    "type_correct": 9,
+    "type_correct_pct": 100.0,
+    "type_errors": [],
+    "n_produced_entities": 10
+   },
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6133.732000016607,
+     "prompt_eval_count": 2432,
+     "eval_count": 990,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2976,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "truncated_at_num_predict": false,
+   "tokens_in_total": 2432,
+   "tokens_out_total": 990,
+   "cost_usd": 0.007382
+  }
+ ],
+ "relation_runs": [
+  {
+   "key": "E01",
+   "wall_s": 4.94,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 1996,
+   "eval_count": 822,
+   "n_facts": 11,
+   "entity_names_given": 8,
+   "quality": {
+    "expected_relationships": 5,
+    "found_relationships": 5,
+    "relationship_recall_pct": 100.0,
+    "relationships_found": [
+     [
+      "JobLab DE Lakehouse",
+      "Databricks"
+     ],
+     [
+      "JobLab DE Lakehouse",
+      "Snowflake"
+     ],
+     [
+      "JobLab DE Lakehouse",
+      "PySpark"
+     ],
+     [
+      "JobLab DE Lakehouse",
+      "Tableau Public"
+     ],
+     [
+      "JobLab DE Lakehouse",
+      "Supabase"
+     ]
+    ],
+    "relationships_missed": [],
+    "n_produced_facts": 11
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 4941.781900008209,
+     "prompt_eval_count": 1996,
+     "eval_count": 822,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2279,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 1996,
+   "tokens_out_total": 822,
+   "cost_usd": 0.006106
+  },
+  {
+   "key": "E02",
+   "wall_s": 3.8,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2005,
+   "eval_count": 543,
+   "n_facts": 8,
+   "entity_names_given": 6,
+   "quality": {
+    "expected_relationships": 3,
+    "found_relationships": 2,
+    "relationship_recall_pct": 66.7,
+    "relationships_found": [
+     [
+      "Oploy Landing Page",
+      "Oploy"
+     ],
+     [
+      "Oploy",
+      "decision intelligence"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "Mohammad",
+      "AI engineering"
+     ]
+    ],
+    "n_produced_facts": 8
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 3796.5624000062235,
+     "prompt_eval_count": 2005,
+     "eval_count": 543,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 1670,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2005,
+   "tokens_out_total": 543,
+   "cost_usd": 0.00472
+  },
+  {
+   "key": "E03",
+   "wall_s": 5.22,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 1969,
+   "eval_count": 1057,
+   "n_facts": 17,
+   "entity_names_given": 10,
+   "quality": {
+    "expected_relationships": 5,
+    "found_relationships": 3,
+    "relationship_recall_pct": 60.0,
+    "relationships_found": [
+     [
+      "Mohammad",
+      "Senior AI Engineer"
+     ],
+     [
+      "Mohammad",
+      "Digikala"
+     ],
+     [
+      "JobLab",
+      "Bedrock"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "Mohammad",
+      "Utrecht University"
+     ],
+     [
+      "Mohammad",
+      "Python"
+     ]
+    ],
+    "n_produced_facts": 17
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 5217.119500041008,
+     "prompt_eval_count": 1969,
+     "eval_count": 1057,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3091,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 1969,
+   "tokens_out_total": 1057,
+   "cost_usd": 0.007254
+  },
+  {
+   "key": "E04",
+   "wall_s": 4.24,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2263,
+   "eval_count": 790,
+   "n_facts": 12,
+   "entity_names_given": 10,
+   "quality": {
+    "expected_relationships": 5,
+    "found_relationships": 3,
+    "relationship_recall_pct": 60.0,
+    "relationships_found": [
+     [
+      "Ubuntu Server",
+      "Cockpit"
+     ],
+     [
+      "Ubuntu Server",
+      "Portainer"
+     ],
+     [
+      "Portainer",
+      "Docker"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "oploy.eu",
+      "Railway"
+     ],
+     [
+      "oploy.eu",
+      "Cloudflare Tunnel"
+     ]
+    ],
+    "n_produced_facts": 12
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 4235.979499993846,
+     "prompt_eval_count": 2263,
+     "eval_count": 790,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2038,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2263,
+   "tokens_out_total": 790,
+   "cost_usd": 0.006213
+  },
+  {
+   "key": "E05",
+   "wall_s": 7.82,
+   "attempts": 2,
+   "first_attempt_valid": false,
+   "final_valid": true,
+   "prompt_eval_count": 2154,
+   "eval_count": 742,
+   "n_facts": 11,
+   "entity_names_given": 10,
+   "quality": {
+    "expected_relationships": 4,
+    "found_relationships": 0,
+    "relationship_recall_pct": 0.0,
+    "relationships_found": [],
+    "relationships_missed": [
+     [
+      "oploy.eu",
+      "Wagtail"
+     ],
+     [
+      "oploy.eu",
+      "Django"
+     ],
+     [
+      "wagtailio",
+      "Django"
+     ],
+     [
+      "wagtailio",
+      "oploy.eu"
+     ]
+    ],
+    "n_produced_facts": 11
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 4422.249199997168,
+     "prompt_eval_count": 2154,
+     "eval_count": 742,
+     "valid": false,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [
+      "facts: '[\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"USES\",\\n    \"object\": \"Django\",\\n    \"statement\": \"The Oploy Website is built using Django as its web framework.\"\\n  },\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"USES\",\\n    \"object\": \"Wagtail CMS\",\\n    \"statement\": \"The Oploy Website uses Wagtail CMS for content management.\"\\n  },\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"DEPLOYED_ON\",\\n    \"object\": \"oploy.eu\",\\n    \"statement\": \"The Oploy Website is deployed and accessible at the domain oploy.eu.\"\\n  },\\n  {\\n    \"subject\": \"wagtailio\",\\n    \"predicate\": \"PART_OF\",\\n    \"object\": \"Oploy Website\",\\n    \"statement\": \"wagtailio is the Django project package that forms the core of the Oploy Website.\"\\n  },\\n  {\\n    \"subject\": \"Wagtail CMS\",\\n    \"predicate\": \"DEPENDS_ON\",\\n    \"object\": \"Django\",\\n    \"statement\": \"Wagtail CMS is built on top of Django and depends on it for its functionality.\"\\n  },\\n  {\\n    \"subject\": \"D:\\\\AWS2\\\\Wagtail\",\\n    \"predicate\": \"PART_OF\",\\n    \"object\": \"Oploy Website\",\\n    \"statement\": \"The local project folder D:\\\\\\\\AWS2\\\\\\\\Wagtail contains the source code for the Oploy Website.\"\\n  },\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"USES\",\\n    \"object\": \"Webpack\",\\n    \"statement\": \"The Oploy Website uses Webpack for frontend build processes.\"\\n  },\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"USES\",\\n    \"object\": \"Sass\",\\n    \"statement\": \"The Oploy Website uses Sass for styling in its frontend build.\"\\n  },\\n  {\\n    \"subject\": \"Oploy Website\",\\n    \"predicate\": \"USES\",\\n    \"object\": \"TypeScript\",\\n    \"statement\": \"The Oploy Website uses TypeScript and JavaScript for frontend development.\"\\n  },\\n  {\\n    \"subject\": \"wagtailio\",\\n    \"predicate\": \"RELATED_TO\",\\n    \"object\": \"wagtail.org\",\\n    \"statement\": \"The wagtailio Django project appears to be derived from and adapted from the public wagtail.org website project.\"\\n  },\\n  {\\n    \"subject\": \"D:\\\\AWS2\\\\Wagtail\",\\n    \"predicate\": \"RELATED_TO\",\\n    \"object\": \"wagtail.org\",\\n    \"statement\": \"The Oploy Website codebase is derived from the wagtail.org project, as evidenced by inherited structure and naming conventions.\"\\n  }\\n]' is not of type 'array'"
+     ],
+     "content_chars": 2406,
+     "stop_reason": "tool_use"
+    },
+    {
+     "attempt": 2,
+     "wall_ms": 3399.3741000304,
+     "prompt_eval_count": 3827,
+     "eval_count": 742,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 1913,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 5981,
+   "tokens_out_total": 1484,
+   "cost_usd": 0.013401
+  },
+  {
+   "key": "E06",
+   "wall_s": 2.67,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2216,
+   "eval_count": 361,
+   "n_facts": 5,
+   "entity_names_given": 6,
+   "quality": {
+    "expected_relationships": 4,
+    "found_relationships": 4,
+    "relationship_recall_pct": 100.0,
+    "relationships_found": [
+     [
+      "GitHub Repository Standard",
+      "GitHub"
+     ],
+     [
+      "GitHub Repository Standard",
+      "README Skeleton"
+     ],
+     [
+      "GitHub Repository Standard",
+      "About and Topics Cheatsheet"
+     ],
+     [
+      "Mbehbahani",
+      "GitHub"
+     ]
+    ],
+    "relationships_missed": [],
+    "n_produced_facts": 5
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 2668.8237999915145,
+     "prompt_eval_count": 2216,
+     "eval_count": 361,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 1044,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2216,
+   "tokens_out_total": 361,
+   "cost_usd": 0.004021
+  },
+  {
+   "key": "E07",
+   "wall_s": 3.32,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2363,
+   "eval_count": 578,
+   "n_facts": 8,
+   "entity_names_given": 7,
+   "quality": {
+    "expected_relationships": 4,
+    "found_relationships": 3,
+    "relationship_recall_pct": 75.0,
+    "relationships_found": [
+     [
+      "Ubuntu Server",
+      "netplan"
+     ],
+     [
+      "Ubuntu Server",
+      "SSH"
+     ],
+     [
+      "Ubuntu Server",
+      "Huawei laptop"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "Windows laptop",
+      "Ubuntu Server"
+     ]
+    ],
+    "n_produced_facts": 8
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 3315.013200044632,
+     "prompt_eval_count": 2363,
+     "eval_count": 578,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 1460,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2363,
+   "tokens_out_total": 578,
+   "cost_usd": 0.005253
+  },
+  {
+   "key": "E08",
+   "wall_s": 6.4,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2079,
+   "eval_count": 1150,
+   "n_facts": 17,
+   "entity_names_given": 12,
+   "quality": {
+    "expected_relationships": 5,
+    "found_relationships": 4,
+    "relationship_recall_pct": 80.0,
+    "relationships_found": [
+     [
+      "JobPilot",
+      "SvelteKit"
+     ],
+     [
+      "JobPilot",
+      "Convex"
+     ],
+     [
+      "JobPilot",
+      "JobLab"
+     ],
+     [
+      "JobLab",
+      "FastAPI"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "JobLab",
+      "Supabase"
+     ]
+    ],
+    "n_produced_facts": 17
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 6397.480100044049,
+     "prompt_eval_count": 2079,
+     "eval_count": 1150,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 3203,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2079,
+   "tokens_out_total": 1150,
+   "cost_usd": 0.007829
+  },
+  {
+   "key": "E09",
+   "wall_s": 5.85,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2256,
+   "eval_count": 1056,
+   "n_facts": 16,
+   "entity_names_given": 10,
+   "quality": {
+    "expected_relationships": 4,
+    "found_relationships": 2,
+    "relationship_recall_pct": 50.0,
+    "relationships_found": [
+     [
+      "Claude Code",
+      "vault-map"
+     ],
+     [
+      "01 Projects",
+      "06 Outputs"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "Operating Manual",
+      "Weekly Review"
+     ],
+     [
+      "Claude Code",
+      "Context Router"
+     ]
+    ],
+    "n_produced_facts": 16
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 5844.494900025893,
+     "prompt_eval_count": 2256,
+     "eval_count": 1056,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 2982,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2256,
+   "tokens_out_total": 1056,
+   "cost_usd": 0.007536
+  },
+  {
+   "key": "E10",
+   "wall_s": 7.3,
+   "attempts": 1,
+   "first_attempt_valid": true,
+   "final_valid": true,
+   "prompt_eval_count": 2246,
+   "eval_count": 1494,
+   "n_facts": 24,
+   "entity_names_given": 10,
+   "quality": {
+    "expected_relationships": 5,
+    "found_relationships": 1,
+    "relationship_recall_pct": 20.0,
+    "relationships_found": [
+     [
+      "JobLab Agent Backend",
+      "JobLab Data Pipeline"
+     ]
+    ],
+    "relationships_missed": [
+     [
+      "JobLab Agent Backend",
+      "Bedrock"
+     ],
+     [
+      "JobLab Agent Backend",
+      "MLflow"
+     ],
+     [
+      "JobLab Data Pipeline",
+      "Terraform"
+     ],
+     [
+      "JobLab Analytics Frontend",
+      "Next.js"
+     ]
+    ],
+    "n_produced_facts": 24
+   },
+   "errors": [],
+   "traces": [
+    {
+     "attempt": 1,
+     "wall_ms": 7298.858299967833,
+     "prompt_eval_count": 2246,
+     "eval_count": 1494,
+     "valid": true,
+     "json_decoded": true,
+     "load_ms": 0.0,
+     "errors": [],
+     "content_chars": 4434,
+     "stop_reason": "tool_use"
+    }
+   ],
+   "tokens_in_total": 2246,
+   "tokens_out_total": 1494,
+   "cost_usd": 0.009716
+  }
+ ]
+}

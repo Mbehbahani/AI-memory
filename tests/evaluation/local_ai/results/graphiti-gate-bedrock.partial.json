@@ -1,0 +1,71 @@
+{
+ "started_at": "2026-09-14T19:44:58.756142+00:00",
+ "group_id": "p4-graphiti-gate-bedrock",
+ "max_tokens": 2048,
+ "llm_provider": "bedrock",
+ "structured_output_mode": "anthropic_tool_use",
+ "unhandled_exceptions": 0,
+ "graphiti_version": "unknown",
+ "schema_baseline": {
+  "indexes": [
+   "application_id",
+   "concept_id",
+   "dataset_id",
+   "decision_id",
+   "device_id",
+   "document_id",
+   "entity_fulltext",
+   "entity_name",
+   "entity_project",
+   "entity_valid_to",
+   "episode_id",
+   "experiment_id",
+   "finding_id",
+   "index_343aff4e",
+   "index_f7700477",
+   "infra_id",
+   "organization_id",
+   "person_id",
+   "project_id",
+   "repository_id",
+   "requirement_id",
+   "source_id",
+   "task_id",
+   "technology_id"
+  ],
+  "constraints": [
+   "application_id",
+   "concept_id",
+   "dataset_id",
+   "decision_id",
+   "device_id",
+   "document_id",
+   "episode_id",
+   "experiment_id",
+   "finding_id",
+   "infra_id",
+   "organization_id",
+   "person_id",
+   "project_id",
+   "repository_id",
+   "requirement_id",
+   "source_id",
+   "task_id",
+   "technology_id"
+  ]
+ },
+ "nodes_before": 0,
+ "build_indices_s": 0.66,
+ "sequential": [
+  {
+   "name": "E01",
+   "chars": 2604,
+   "seconds": 0.78,
+   "ok": false,
+   "error": "TypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'",
+   "traceback": " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\utils\\maintenance\\node_operations.py\", line 275, in _call_extraction_llm\n    return await llm_client.generate_response(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 90, in wrapped_outer\n    return await outer(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 431, in generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 397, in generate_response\n    response, input_tokens, output_tokens = await self._generate_response(\n                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        messages, response_model, max_tokens, model_size\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\tests\\evaluation\\local_ai\\run_graphiti_gate.py\", line 101, in wrapped_inner\n    return await inner(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 342, in _generate_response\n    raise e\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\graphiti_core\\llm_client\\anthropic_client.py\", line 288, in _generate_response\n    result = await self.client.messages.create(\n                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        system=system_message.content,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<5 lines>...\n        tool_choice=tool_choice,\n        ^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"D:\\AI memory\\.venv-graphiti\\Lib\\site-packages\\anthropic\\_utils\\_utils.py\", line 294, in wrapper\n    return func(*args, **kwargs)\nTypeError: AsyncMessages.create() got an unexpected keyword argument 'temperature'\n",
+   "key": "E01",
+   "relative_path": "01 Projects/JobLab Product/JobLab DE Lakehouse.md"
+  }
+ ]
+}
