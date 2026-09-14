@@ -126,15 +126,27 @@ class _Builder:
         # strings pasted into `Clippings/` job postings, hundreds of characters with no whitespace at
         # all) is additionally hard-split by character count - the only place this chunker ever cuts
         # mid-token, and only because there is no smaller natural unit left to cut on.
+        #
+        # The slice size is recomputed before *every* cut from the buffer's *remaining* budget
+        # (``max_tokens - count_tokens(self.buf)``), not fixed at ``chars_for_tokens(max_tokens)``. A
+        # fixed full-budget slice size would let a hard split land on top of whatever partial content
+        # (a heading, a short preceding sentence) already sits in ``buf``, adding up to another full
+        # ``max_tokens`` worth of tokens on top of it before the size check in ``maybe_split`` ever
+        # fires - which is exactly how a 200-token target previously produced a 264-token chunk. Sizing
+        # each slice to the remaining headroom instead bounds the overshoot to the token<->char
+        # rounding error (a token or two), regardless of how much was already buffered.
         cursor = pos_before
-        limit = max(1, chars_for_tokens(self.max_tokens))
         for piece in _WORD_SPLIT_RE.split(line):
             if not piece:
                 continue
-            for i in range(0, len(piece), limit):
+            i = 0
+            while i < len(piece):
+                remaining_tokens = max(1, self.max_tokens - count_tokens(self.buf))
+                limit = max(1, chars_for_tokens(remaining_tokens))
                 sub = piece[i : i + limit]
                 self.buf += sub
                 cursor += len(sub)
+                i += len(sub)
                 self.maybe_split(cursor)
 
     def finish(self) -> list[ChunkDraft]:

@@ -67,9 +67,9 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P5-T01 | Alembic 0001: all tables, indexes, view, seeds; repositories | A04 | P1-T01, P3-T01 | `infra/postgres/alembic`, `persistence/` | up/down/up; unit + integration | clean, idempotent | migration error → fix; never hand-edit the DB | todo |
-| P5-T02 | Neo4j constraints/indexes, read-only user, `GraphStore` impl, `migrate` command | A04 | P3-T01 | `infra/neo4j/schema`, `persistence/graph_store.py`, `cli/migrate.py` | constraint tests | idempotent | — | todo |
-| P5-R01 | Opus review of P5 | A00 | P5-T01/02 | — | review notes | approved | findings → A04 fixes | todo |
+| P5-T01 | Alembic 0001: all tables, indexes, view, seeds; repositories | A04 | P1-T01, P3-T01 | `infra/postgres/alembic`, `persistence/` | up/down/up; unit + integration | clean, idempotent | migration error → fix; never hand-edit the DB | done 2026-09-14 (28 tables + provenance_v; 21/21 tests) |
+| P5-T02 | Neo4j constraints/indexes, read-only user, `GraphStore` impl, `migrate` command | A04 | P3-T01 | `infra/neo4j/schema`, `persistence/graph_store.py`, `cli/migrate.py` | constraint tests | idempotent | — | done 2026-09-14 (18 constraints; read-only user NOT enforceable — ADR-0013) |
+| P5-R01 | Opus review of P5 | A00 | P5-T01/02 | — | review notes | approved | findings → A04 fixes | done 2026-09-14 — APPROVED; one finding raised to ADR-0013 |
 
 ## Phase 6 — Ingestion Engine (Lane C then core)
 

@@ -1,0 +1,1307 @@
+##### E01 01 Projects/JobLab Product/JobLab DE Lakehouse.md 2604
+# JobLab DE Lakehouse
+
+The data-engineering half of JobLab. Takes a weekly read-only export of the live JobLab job-market data and rebuilds it as a proper analytical lakehouse — **PySpark medallion → Databricks Delta → Snowflake → Tableau Public** — without ever touching the live product.
+
+Public repo: [joblab-lakehouse](https://github.com/Mbehbahani/joblab-lakehouse)
+
+## What it is
+
+- **Contract-first, current-snapshot.** No fabricated history. A weekly check either finds the data unchanged (no-op) or changed (the single active snapshot is validated and atomically replaced). Historical trend marts were explicitly ruled out — three weeks of scrapes cannot honestly support trend claims.
+- **Evidence over existence.** A phase is only "done" with reconciled row/key counts, schema fingerprints, and deterministic logical checksums that stay identical across reruns. Passing code is not evidence.
+- **Built by a governed AI agent team.** An Opus lead agent (`de-lead`) orchestrating Sonnet specialists for Databricks, Snowflake, and docs — each gated behind a pre-flight access checklist so no agent touches a real cloud account or spends money unprompted.
+
+## Where it stands
+
+| Phase | What happened |
+|---|---|
+| 0–2 | Local setup, accepted Supabase baseline (20,209 rows, reconciled + hashed), weekly conditional refresh |
+| 3 | Local PySpark Bronze/Silver/Gold — 8 Gold products, all validated as DataFrames |
+| 4 | Reproduced in **Databricks Free Edition** — 13 Delta tables + the project's first real physical Gold Parquet write |
+| 4a | Native **Databricks AI/BI dashboard** (2 pages, 19 widgets, gold-only sourcing) |
+| 5 | **Snowflake** serving — least-privilege roles, X-Small warehouse w/ 60s auto-suspend, resource monitor, full reconciliation |
+| 6 | **Tableau Public** dashboard published — see [[Tableau Public Profile]] |
+
+Total cloud spend so far: **$0** (Databricks Free Edition, Snowflake trial allowance — 0.07 of 5 credits used).
+
+## The dataset in numbers
+
+- 20,209 job postings, 0 quarantined
+- 8 countries (USA 6,913 · Germany 3,945 · India 3,761 · Netherlands 2,921 · Canada 1,479 · UK 573 · France 394 · Australia 223)
+- 14 job functions (largest: Supply Chain & Logistics, 7,606), 7 job levels, 15 industries
+- 83,205 posting→skill links across 22 skill categories; 9,392 posting→tool links across 23 tools
+- 18.2% remote · 93.3% skill completeness · **28.9% tool completeness** (the low one — every tool figure must state this denominator)
+
+## Things worth telling people about
+
+These are the moments that actually demonstrate engineering judgment, not just tool usage:
+##### E02 01 Projects/Oploy Website/Oploy Landing Page.md 3478
+# Oploy Landing Page
+
+## Goal
+
+Write and publish a high-converting landing page for Oploy that clearly explains the value proposition and drives sign-ups.
+
+## Scope
+
+- [ ] Hero section copy
+- [ ] Features section
+- [ ] Social proof / testimonials placeholder
+- [ ] CTA section
+- [ ] SEO meta description
+
+## Next action
+
+Draft hero headline variants and pick the strongest one.
+
+## Notes
+
+- Related: [[02 Areas/Oploy Business/Oploy Overview]]
+- Website system map: [[02 Areas/Oploy Business/Oploy Website - System Map]]
+- Tone: professional but approachable, AI-forward
+
+## Hero direction update
+
+Current homepage hero to replace:
+
+- **Title:** Tech for decision intelligence
+- **Sub:** Building data-driven platforms for optimization and analytics
+- **Description:** From model to production
+
+New direction:
+
+- Broader than optimization-only
+- More aligned with Mohammad's future identity in AI engineering
+- Keep decision intelligence as a strength, but not the only lens
+- Emphasize building practical AI systems and improving together
+- Tone: clear, ambitious, collaborative, and production-minded
+
+## Recommended hero concept
+
+### Title
+
+Ideas, techniques, and practical AI
+
+### Subheadline
+
+Explore applied AI engineering, decision systems, and production techniques through practical insights, experiments, and real-world examples.
+
+### Description
+
+Oploy is a place to learn new ideas, follow useful developments, and discover techniques for building better AI systems in practice.
+
+### Why this is the current recommendation
+
+- Makes it immediately clear that the site offers learning value
+- Signals ideas, news, and techniques rather than only services or product claims
+- Fits Mohammad's broader identity as an AI engineer and applied data scientist
+- Keeps the message general enough for future evolution
+
+## Hero alternatives
+
+### Option 2 — more technical
+
+**Title:** Learn how practical AI systems are built
+
+**Subheadline:**
+From data pipelines and APIs to agentic workflows and decision support, Oploy shares practical ways to turn AI ideas into systems people can actually use.
+
+**Description:**
+Techniques, examples, and engineering lessons for building reliable AI and better workflows.
+
+### Option 3 — more visionary
+
+**Title:** Discover better ways to build AI systems
+
+**Subheadline:**
+Oploy explores ideas, methods, and tools for creating AI products, workflows, and decision systems that improve over time.
+
+**Description:**
+A place for practical insight into applied AI, data systems, and production engineering.
+
+### Option 4 — closest to decision intelligence, but broader
+
+**Title:** Learn the techniques behind smarter AI systems
+
+**Subheadline:**
+Oploy shares practical methods that connect data, intelligence, and execution across real-world workflows.
+
+**Description:**
+From analytics and optimization to agentic AI and automation, discover ideas and approaches that help systems learn, support, and improve.
+
+### Option 5 — news and learning oriented
+
+**Title:** Practical AI ideas, methods, and updates
+
+**Subheadline:**
+Stay close to real-world AI engineering through hands-on techniques, decision-system thinking, and lessons from building in practice.
+
+**Description:**
+Oploy helps visitors learn something useful: a new idea, a better method, or a practical technique they can apply.
+
+## Suggested next version for the actual homepage
+
+If the goal is to make visitors feel they will learn something useful on the site, use this set first:
+##### E03 02 Areas/Career Development/Career Target - AI Engineering.md 3286
+# Career Target — AI Engineering Roles
+
+Date: 2026-05-19
+Evidence refreshed: 2026-09-11
+Tags: #career #positioning #ai-engineering #job-target
+Track: Business/Content/Product
+
+---
+
+## Target Role Profile
+
+Mohammad is targeting **Senior AI Engineer** and **AI Transformation** roles that sit at the intersection of:
+
+- Production LLM systems (agents, RAG, evaluation pipelines)
+- Decision intelligence and applied ML
+- Cloud-native architecture (AWS/Azure, scalable APIs)
+- High-stakes or complex domains (mental health, enterprise, operations)
+
+**Not targeting:** pure data science, BI/analytics-only, or junior engineering roles.
+
+---
+
+## Ideal Role Characteristics
+
+| Dimension | Target |
+|---|---|
+| **Seniority** | Senior / Lead AI Engineer, Principal Engineer, AI Architect |
+| **Domain** | Any — bonus if impactful (health, ops, enterprise, infra) |
+| **Architecture** | Tool-calling agents, RAG, evaluation infra, production LLM |
+| **Team** | Cross-functional — product, design, backend, research |
+| **Location** | Netherlands / Remote Europe |
+| **Engagement** | Permanent or long-term contract |
+
+---
+
+## Strengths — Mapped to Target JDs
+
+### ✅ Strong Match
+
+| Requirement (from JDs)                         | Mohammad's evidence                                                                                   |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Tool-calling agent loops and evaluation        | Custom tool-calling agent loop built directly on the Bedrock Converse API, with per-tool evaluation scorers (JobLab). Not multi-agent orchestration. |
+| RAG and grounding systems                      | Vector search, Bedrock-based model orchestration, RAG pipelines at Oploy                              |
+| Production AI systems                          | FastAPI, Docker, AWS (ECS, Lambda, S3, EventBridge), MLflow, CI/CD — shipping real systems            |
+| Statistical evaluation and experimental design | PhD-level statistics, A/B testing, Bayesian/frequentist inference, HMM model evaluation               |
+| Python fluency                                 | Primary language across all roles and research                                                        |
+| Model-agnostic architecture                    | AWS Bedrock abstraction layer experience; building provider-decoupled LLM services                    |
+| Prompt engineering at scale                    | Versioned prompt systems in JobLab/JobPilot product                                                   |
+| LLM evaluation workflows                       | Designing evaluation and telemetry for GenAI products                                                 |
+| Cross-functional collaboration                 | Product + engineering + research across Utrecht University, Digikala, Oploy                           |
+| Operations Research + decision intelligence    | Core differentiator — 7+ years of OR, optimization, supply chain analytics                            |
+| Strategic AI advisory                          | Digikala scale (40M customers, 100K daily orders), research-to-production bridge                      |
+
+---
+
+### 🟡 Partial Match — Strengthen in Applications
+##### E04 02 Areas/Home Infrastructure/Ubuntu Server - Admin Dashboards.md 3447
+# Ubuntu Server — Admin Dashboards
+
+> This note is a living document. Update it as the server setup evolves.
+
+Status note for the browser-based monitoring stack on the Huawei laptop (Ubuntu Server 24.04).
+Operational detail — install commands, ports, gotchas, reset procedures — lives in
+`D:\Account Center\Huawei\README.md`. **This note exists to hold the one decision that was
+deliberately deferred**, so it is not lost the next time the network setup comes up.
+
+---
+
+## Current state — 2026-09-09
+
+Two dashboards installed and verified, replacing "SSH in every time I want to look at the box".
+
+| | Cockpit | Portainer CE |
+|---|---|---|
+| Purpose | Whole-system view: CPU / memory / disk / network graphs, systemd services, journal logs, active sessions and ttys, in-browser terminal, plus a custom Battery page | Docker view: per-container CPU and memory, logs, start/stop/restart, exec-into-container shell |
+| URL | `https://10.130.231.5:9090` | `https://10.130.231.5:9443` |
+| Version | Cockpit 362 (from `noble-backports`) | 2.45.0 |
+| Login | `sohamoha` + Ubuntu password (PAM) | Local `admin` account |
+| Reboot-safe | yes | yes |
+
+Both serve HTTPS with a self-signed certificate, so the browser shows a one-time warning.
+Plain HTTP was deliberately not enabled — see the decision below for why that matters here.
+
+The Portainer admin password is in Mohammad's password manager only. It is not recorded in this
+vault, in `D:\Account Center`, or anywhere on the server.
+
+Cockpit has no battery panel of its own, so a small custom Cockpit package was added on
+2026-09-09 to show charge, AC state, health and cycle count. Source lives in
+`~/cockpit-battery/` on the server; details and the two sysfs gotchas are in the Account
+Center file. A second custom page, **Display** (backlight brightness, screen on/off, console
+font), was added 2026-09-10 with source in `~/cockpit-display/`. Unlike Battery it needs
+Administrative access, since it writes to root-owned files. A third page, **Docker Manager**
+(`dockermanager` .deb, third-party), was added 2026-09-10 to show Docker containers inside
+Cockpit — Cockpit removed its own Docker module in 2020. It duplicates Portainer, so it is
+the first thing to drop if attack surface ever needs reducing.
+
+---
+
+## Open decision — narrowing network access
+
+**Deferred on 2026-09-09. Current choice: leave as-is.**
+
+> **2026-09-11 — a revisit trigger has fired.** The production oploy.eu website was moved from Railway
+> onto this box today (`oploy-app` + `oploy-db`, reached through a Cloudflare Tunnel; details in
+> `D:\Account Center\Huawei\README.md`, "Production deployments"). The app port `8091` is bound to
+> `127.0.0.1` so it adds nothing to the WiFi-facing surface, but "something more sensitive than a
+> test Wagtail copy" now runs here. The decision below is still *leave as-is* until Mohammad
+> chooses otherwise — it is just no longer deferrable on the grounds that nothing important runs here.
+
+### The situation
+
+"LAN-only" on this box does not mean a private home network. The server sits on the **shared
+building WiFi** (`Glide_Resident`), the same network every other resident's devices are on.
+`ufw` is `inactive` and the INPUT policy is `ACCEPT`, so any device on that WiFi can reach:
+
+- `:22` — SSH
+- `:8090` — the `oploy-test` Wagtail copy
+- (`:8091`, the production `oploy-app`, is `127.0.0.1`-only — **not** reachable from the WiFi)
+- `:9090` — Cockpit
+- `:9443` — Portainer
+##### E05 02 Areas/Oploy Business/Oploy Website - System Map.md 2858
+# Oploy Website - System Map
+
+Date Updated: 2026-05-18
+Tags: #area #oploy #website #wagtail #django
+Track: Business/Content/Product
+
+---
+
+## Purpose
+
+This note gives AIOS durable awareness of the Oploy website at `oploy.eu` without copying the whole codebase into the vault.
+
+Use this as the first website context note when planning:
+
+- website copy
+- landing pages
+- blog/content publishing
+- product narrative
+- website architecture changes
+- Wagtail page/content modeling
+
+For implementation details, inspect the live project folder directly.
+
+---
+
+## Source Project
+
+| Item | Value |
+|---|---|
+| Website | https://oploy.eu |
+| Local project path | `D:\AWS2\Wagtail` |
+| Docs path | `D:\AWS2\Wagtail\docs` |
+| Framework | Django + Wagtail CMS |
+| Python entrypoint | `D:\AWS2\Wagtail\manage.py` |
+| Django project package | `wagtailio` |
+| Main URL config | `wagtailio/urls.py` |
+| Main settings | `wagtailio/settings/base.py` |
+| Frontend build | Webpack + Sass + TypeScript/JavaScript |
+| Node package file | `package.json` |
+
+Important: this vault note is a **map**, not the source of truth for code. The source of truth for implementation is always `D:\AWS2\Wagtail`.
+
+Important: the source of truth for implementation context also includes `D:\AWS2\Wagtail\docs`, especially for deployment, infrastructure, legal/privacy pages, and frontend notes.
+
+Note (2026-08-17): path corrected from the former Railway workspace location to `D:\AWS2\Wagtail`, confirmed by the user.
+
+---
+
+## Current Project Identity
+
+The codebase appears to be derived from the public `wagtail.org` website project, adapted for Oploy.
+
+Evidence from inspection:
+
+- `README.md` still describes “Wagtail.org”.
+- `package.json` name is `wagtail.org`.
+- Django settings allow `oploy.eu`, `www.oploy.eu`, `.railway.app`, and `.koyeb.com`.
+- Media/static configuration uses Oploy-specific domains such as `media.oploy.eu`.
+
+Implication:
+
+> Future website work should distinguish between inherited Wagtail.org structure and Oploy-specific business/content decisions.
+
+---
+
+## High-Level Architecture
+
+```text
+oploy.eu
+  → Django project: wagtailio
+  → Wagtail CMS page tree
+  → Wagtail admin: /admin/
+  → Blog feed: /blog/feed/
+  → Newsletter feed: /newsletter/feed/
+  → Search: /search/
+  → API: /api/v2/
+  → Sitemap: /sitemap.xml
+  → Static/media served through configured storage/CDN
+```
+
+---
+
+## Key Runtime Routes
+
+From `wagtailio/urls.py`:
+
+| Route | Purpose |
+|---|---|
+| `/admin/` | Wagtail admin |
+| `/django-admin/` | Django admin |
+| `/search/` | Search page/view |
+| `/api/v2/` | Wagtail API router |
+| `/documents/` | Wagtail documents |
+| `/blog/feed/` | Blog RSS/feed |
+| `/newsletter/feed/` | Newsletter feed |
+| `/sitemap.xml` | Sitemap |
+| `/robots.txt` | Robots file |
+| `/favicon.ico` | Favicon |
+| `/*` | Wagtail page serving |
+
+---
+
+## Main Wagtail Apps / Modules
+##### E06 03 Resources/GitHub/Repository Standard.md 3481
+# GitHub Repository Standard
+
+> The single source of truth for how every `Mbehbahani` repository should be configured and documented. New repositories must follow this; existing repositories should be migrated opportunistically (start with the flagship public ones).
+
+> [!nav] [[GitHub Big Picture Map]] | [[README Skeleton]] | [[About and Topics Cheatsheet]]
+
+---
+
+## 1. Repo identity (the GitHub "About" panel)
+
+The right-hand panel on a repo page is the **portfolio shopfront**. Every field must be filled.
+
+### 1.1 Description (1 sentence, ≤ 160 chars)
+
+Formula:
+
+```
+<What it is> for <who/what problem>, with <distinguishing technical features>.
+```
+
+**Rules:**
+
+- Start with a concrete noun phrase, not a verb (e.g. *"AI-powered job orchestration platform…"* not *"Builds…"*).
+- Name the *domain* and the *technical distinctiveness* in one breath.
+- No emojis. No marketing fluff. No trailing period inside the GitHub field.
+- Avoid throwaway adjectives ("simple", "small", "test").
+
+**Good examples** (from current repos):
+
+- *AI-powered job orchestration platform with Kanban workflows, LLM agents, and production-oriented system architecture.*
+- *Enterprise RAG architecture and evaluation repository for regulated tax-domain QA — secure OpenSearch retrieval, Bedrock-based grading, zero-hallucination citation design, and Jaeger observability.*
+- *FastAPI backend for AI-powered job search, CV matching, and chat-based workflow automation.*
+
+**Bad (do not ship):** *"Needs description"*, *"My project"*, *"Official code for the research paper"* without context.
+
+### 1.2 Website URL
+
+- Production app → product domain (e.g. `jobflow.oploy.eu`).
+- Library / API / demo → docs site or deployed demo.
+- Research / study repo → blog post, paper landing page, or YouTube video URL.
+- No public surface → leave blank rather than linking the GitHub URL itself.
+
+### 1.3 Topics (5–10 tags)
+
+See [[About and Topics Cheatsheet]] for the controlled vocabulary. Rules:
+
+- Always include **one domain tag** (`ai-engineering`, `rag`, `optimization`, `data-engineering`, `decision-intelligence`, `operations-research`).
+- Always include **the primary framework / runtime** (`fastapi`, `nextjs`, `sveltekit`, `nuxt`, `matlab`, `r`).
+- Always include **deployment / infra** when relevant (`aws`, `aws-lambda`, `docker`, `vercel`, `convex`, `railway`).
+- Always include **product family** for product repos (`oploy`, `joblab`, `jobpilot`, `hmm-rem`).
+- Lowercase, hyphen-separated. No marketing tags (`awesome`, `cool`).
+
+### 1.4 Resources (sidebar toggles)
+
+| Toggle | Required | Notes |
+|---|---|---|
+| Readme | ✅ always | See section 3 |
+| License | ✅ public repos | MIT for libraries/portfolio; private may omit |
+| Code of conduct | optional | Only when accepting external PRs |
+| Citation | ✅ research repos | `CITATION.cff` with paper DOI |
+
+### 1.5 Releases, Packages, Deployments
+
+- **Releases:** Tag `v0.1.0`, `v1.0.0`, … for any repo a stranger might `pip install` / `npm install` / clone for a demo. Include a 3–5-bullet release note.
+- **Packages:** Publish only when the repo has a real consumer; otherwise leave empty.
+- **Deployments:** GitHub auto-populates from CI/CD — keep the production environment named `production` so the panel reads cleanly.
+
+### 1.6 Contributors
+
+- Use the GitHub display name *M.Behbahani* (not the username) by setting `name` in the GitHub profile.
+- `github-actions[bot]` is fine; do not strip it.
+
+---
+
+## 2. Repo settings (one-time per repo)
+##### E07 03 Resources/Ubuntu Server/Ubuntu Server Setup and Usage Guide.md 3573
+# Ubuntu Server Setup and Usage Guide
+
+A step-by-step tutorial for setting up and operating the Ubuntu Server 24.04 box (on the Huawei
+laptop) from this Windows laptop — written so the whole thing can be redone from scratch if needed,
+or just used as a reference for day-to-day tasks.
+
+For the AI-assistant-facing version of this (current IP, live status, exact reconnect commands),
+see `D:\Account Center\Huawei\README.md` — that file is kept up to date automatically; this guide
+explains the *why* and *how* behind it, step by step, for a person following along.
+
+---
+
+## 1. Connecting the Ubuntu server to the internet (WiFi)
+
+The server has no ethernet cable — it needs to join the building's WiFi.
+
+1. On the Ubuntu machine's own keyboard/screen, log in and check the WiFi adapter's name and status:
+   ```
+   ip a
+   ```
+   Look for an interface like `wlp0s20f3`. If it has no `inet` line, it isn't connected yet.
+
+2. Ubuntu **Server** (unlike Desktop) doesn't ship with `nmtui`/NetworkManager — it uses **netplan**
+   instead. Check for existing config:
+   ```
+   ls /etc/netplan/
+   ```
+
+3. Create a WiFi config file:
+   ```
+   sudo nano /etc/netplan/01-wifi.yaml
+   ```
+   Type this, replacing the network name and password with the real WiFi credentials (mind the
+   indentation — 2 spaces per level, exactly):
+   ```yaml
+   network:
+     version: 2
+     wifis:
+       wlp0s20f3:
+         dhcp4: true
+         access-points:
+           "YOUR_WIFI_NAME":
+             password: "YOUR_WIFI_PASSWORD"
+   ```
+   Save with `Ctrl+O` then Enter, exit with `Ctrl+X`.
+
+   Tip: if this laptop (the Windows one) is already on the same WiFi, you can read its saved
+   password instead of hunting for it: open PowerShell and run
+   `netsh wlan show profile name="NETWORK_NAME" key=clear` — look for "Key Content".
+
+4. Apply it:
+   ```
+   sudo netplan apply
+   ```
+
+5. Verify:
+   ```
+   ip a
+   ```
+   You should now see an `inet 192.168.x.x` or `10.x.x.x` line under `wlp0s20f3`. That's the
+   server's local IP — write it down, you'll need it for every SSH connection below.
+
+---
+
+## 2. Setting up SSH so you can control it from this laptop
+
+1. On the Ubuntu server, install and enable the SSH server:
+   ```
+   sudo apt update
+   sudo apt install openssh-server -y
+   sudo systemctl enable --now ssh
+   ```
+
+2. On the Windows laptop, open PowerShell and connect (replace with the real IP):
+   ```
+   ssh sohamoha@10.130.231.5
+   ```
+   First time, type `yes` to accept the fingerprint, then enter the account password.
+
+3. **Set up passwordless login** (so you never have to type the password again). On the Windows
+   laptop, generate a key if you don't have one:
+   ```powershell
+   ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\id_ed25519" -N '""'
+   ```
+   Then copy the public key to the server (this one time still needs the password):
+   ```powershell
+   type "$env:USERPROFILE\.ssh\id_ed25519.pub" | ssh sohamoha@10.130.231.5 "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+   ```
+   From now on, `ssh sohamoha@<ip>` connects with no password prompt at all.
+
+4. **(Optional) passwordless sudo** — only do this if you want a tool/assistant to run admin
+   commands on this box without you typing the sudo password every time. Skip this on any machine
+   where that risk isn't worth it.
+   ```powershell
+   ssh -t sohamoha@10.130.231.5 "echo 'sohamoha ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/90-sohamoha-nopasswd && sudo chmod 440 /etc/sudoers.d/90-sohamoha-nopasswd && sudo visudo -c"
+   ```
+
+---
+##### E08 07 Workflows/Context - JobLab Product.md 3326
+# Context - JobLab Product
+
+> Loaded when the task involves JobLab, JobPilot, job search workflows, analytics, CV matching, application orchestration, or the JobLab data platform.
+
+## Product family
+
+JobLab is the broader job-search and career-intelligence product family. JobPilot is the user-facing application-orchestration product; the separate JobLab services cover scraping, search, analytics, and data engineering.
+
+## Source projects
+
+| Area | Local source | Responsibility |
+|---|---|---|
+| Main product | `D:\AWS2\JobPilot` | SvelteKit UI, Convex state/orchestration, Kanban workflows, Gmail signals, Nova task workflows, evaluation module |
+| Search backend | Separate `job-personal-search` service | FastAPI scraping, normalization, ranking, and Supabase/Postgres persistence; do not assume it lives in JobPilot |
+| Analytics frontend | `D:\AWS2\SupaBaseProject\job-analytics-frontend2` | Next.js, Mantine, ECharts dashboard, search, AI chat, and CV matching |
+| Scraper API | `D:\AWS2\SupaBaseProject\JobLabScraperAPI` | Python scraping/API support for the JobLab data flow |
+| Data engineering | `D:\AWS2\SupaBaseProject\DE` | Read-only current-state lakehouse: local PySpark Bronze/Silver/Gold, Databricks Delta, Snowflake serving, Tableau Public |
+
+The repositories are separate system components. Inspect the relevant source repository directly before making implementation claims.
+
+## Current architecture
+
+- **JobPilot:** SvelteKit frontend and route orchestration; Convex handles authenticated reactive state, task persistence, Gmail-linked workflows, and Nova orchestration.
+- **Personal search:** a separate FastAPI service owns scraping, normalization, ranking, and Supabase/Postgres search persistence.
+- **Analytics:** the Next.js frontend presents dashboard, chat, CV matching, and search experiences through backend/API boundaries.
+- **Data platform:** the DE repository reads a weekly, read-only operational export and rebuilds one validated current snapshot. It does not modify the live product or fabricate historical trends.
+- **Evaluation:** JobPilot and the AI backend use datasets, scorers, tests, and traces to measure workflow quality rather than relying on prompt intuition alone.
+
+## Current evidence boundaries
+
+- JobPilot is an active public product with production-oriented architecture and implemented workflows. Keep deployment and operational maturity claims tied to inspected code and runtime evidence.
+- JobLab DE has executed local PySpark and cloud serving work: 20,209 postings, 13 Databricks Delta tables, eight Gold products served through Snowflake, and a published Tableau Public dashboard. This is verified portfolio/project evidence, not professional Databricks or Snowflake employment experience.
+- Azure, Kubernetes/AKS, dbt, and production GraphRAG remain learning or evidence gaps unless a newer inspected artifact proves otherwise.
+- Keep scraping/search responsibilities separate from the SvelteKit application; the personal-search backend is outside this repository.
+
+## Always load
+
+- [[AIOS/me]]
+- [[02 Areas/JobLab Product/JobLab Overview]]
+- [[01 Projects/JobLab Product/JobLab DE Lakehouse]] when data engineering or analytics infrastructure is involved
+- The relevant repository's `AGENTS.md`, `README.md`, tests, and current status docs
+
+## Related contexts
+##### E09 07 Workflows/Operating Manual.md 3471
+# Operating Manual
+
+> How to use this vault every day and every week.
+> Read this once. Then let the system become habit.
+
+---
+
+## The System in One Sentence
+
+Capture everything → process the useful → build toward a concrete output → publish or archive.
+
+---
+
+## Daily Use (10–20 minutes)
+
+You do not need to do all of this every day. Pick what fits your day.
+
+### Morning (5 min)
+
+1. Open `00 Inbox` — capture anything on your mind.
+2. Glance at `01 Projects` — what are you working on today?
+3. Pick one project. Do one thing on it.
+
+### During the Day (ongoing)
+
+- Any time you read something interesting, encounter a useful tool, have a good idea, or hit a problem: capture it in `00 Inbox`. Write fast. Do not organize yet.
+- If you are in a flow state on a project: stay in it. Capture distractions in inbox, return to them later.
+
+### End of Day (5–10 min)
+
+1. Process 1–3 inbox items: convert to resource notes or move to the right project.
+2. Update the status on your active project note.
+3. If you finished something: move the output to `06 Outputs`, archive the project.
+
+---
+
+## Weekly Use (30–45 minutes, Friday or Sunday)
+
+Open `07 Workflows/Weekly Review.md`. Follow the checklist.
+
+In summary:
+1. Clear the inbox completely.
+2. Review every active project — what is stalled, what is done?
+3. Archive anything complete.
+4. Pick 1–3 priorities for next week.
+5. Scan `06 Outputs` for reuse opportunities.
+
+---
+
+## Naming Conventions (memorize these)
+
+| Note type | Format | Example |
+|---|---|---|
+| Dated output | `YYYY-MM-DD Title.md` | `2026-05-16 RAG Evaluation Guide.md` |
+| Resource note | `Topic - Subtopic.md` | `RAG - Chunking Strategies.md` |
+| Project note | `Project Name - Phase.md` | `Oploy Website - Hero Copy.md` |
+| Literature note | `Lit - AuthorYear - Title.md` | `Lit - Zhang2023 - Community Detection.md` |
+| Area overview | `[Name] Overview.md` | `Oploy Overview.md` |
+
+---
+
+## This Vault's Focus
+
+This vault covers **Business / Content / Product** only:
+`Content Projects` · `Oploy Website` · `JobLab Product` · `Content Production` · `Oploy Business` · `Career Development`
+
+Academic research has its own separate brain (future vault). See [[AIOS/me|me.md]] for context.
+
+---
+
+## What Each Folder Is For (Quick Reference)
+
+| Folder | Use it for |
+|---|---|
+| `00 Inbox` | Raw, unprocessed captures — ideas, links, quotes, anything |
+| `01 Projects` | Active work with a defined output and deadline |
+| `02 Areas` | Ongoing responsibilities — no deadline, but needs attention |
+| `03 Resources` | Reusable knowledge — processed, organized by topic |
+| `04 Archives` | Completed or paused projects and outdated resources |
+| `05 Templates` | Note formats — always use one before creating a new format |
+| `06 Outputs` | Finished, publishable content |
+| `07 Workflows` | System instructions, AI rules, context files |
+
+---
+
+## Using AI Assistants (Claude Code or similar)
+
+When you ask an AI to help with this vault, tell it to start with:
+
+1. `AIOS/Maps/vault-map.md`
+2. `07 Workflows/Context Router.md`
+3. The relevant context file for your task
+
+Then tell it exactly what output you want. Example:
+
+> "Read the Vault Map and Context Router. I want to write a LinkedIn post about RAG evaluation. Find any relevant notes in 03 Resources/RAG and draft a post using the LinkedIn Post template."
+
+The AI should show you what notes it found before drafting. If it skips this step, ask it to do it.
+
+---
+
+## What to Do in the First 7 Days
+##### E10 AIOS/Maps/project-graph.md 3496
+# project-graph
+
+> Which project serves which final goal, what it feeds, what it consumes, and where its evidence must land. Read this at the start of any session that touches a project, and at closeout.
+
+> [!nav] [[me]] | [[Maps/vault-map\|vault-map]] | [[Maps/skill-map\|skill-map]] | [[Maps/project-graph\|project-graph]]
+
+Date: 2026-09-12 · Status: draft for Mohammad's correction · Owner: Mohammad
+
+---
+
+## Why this note exists
+
+Fifteen-plus projects across `D:\` and two laptops serve five final goals. The relationships between them lived only in Mohammad's head, so no AI session could see that a JobLab DE milestone should become a CV line, a blog post, and a PhD tooling pattern. This note makes those edges explicit. It is the routing layer for cross-project work; `me.md` stays the identity, `vault-map` the structure, `skill-map` the delegable skills.
+
+Rules: one row per project. Every project must serve at least one goal or be paused. Every closeout checks the **Feeds →** column.
+
+---
+
+## Final goals
+
+| ID | Goal | What "done" looks like | Primary evidence home |
+|---|---|---|---|
+| **G1** | **Paid AI work** — first paid consulting engagement with a 20–250 FTE NL/EU company; senior AI roles follow from that evidence | Signed engagement, or offer for a senior AI engineering role | [[06 Outputs/Mohammad Skills/Mohammad Skills - Career Evidence Base]] · `D:\Senior AI ENG\06 Program\` |
+| **G2** | **PhD** — finish the HMM-REM research and its tooling | Defended thesis; validated pipeline | PhD vault (other laptop) · `D:\Azure-DataBricks\PHD-DS` |
+| **G3** | **Oploy** — the public brand and product family (oploy.eu, JobLab) that makes G1 visible | Steady published portfolio evidence; live products | `D:\Content center\CONTENT_LOG.md` · [[02 Areas/Oploy Business/Oploy Overview]] |
+| **G4** | **Dutch** — professional working level | B2 (or the level a target employer requires) | *none exists yet — see gaps* |
+| **G0** | **Operating capacity** (enabling) — one brain, low overhead, nothing lost between sessions | Sessions start informed; closeout takes minutes; no duplicate routers | `AIOS/` · `D:\Harness` |
+
+G0 is a means. Work on G0 counts only when it measurably reduces effort on G1–G4.
+
+---
+
+## Projects
+
+Legend — **Serves**: goals from the table above. **Feeds →**: where this project's outputs must be registered when it reaches a milestone. **Consumes ←**: what it depends on. **Status** verified 2026-09-12 from disk unless marked *confirm*.
+
+### Build track (business / product)
+
+| Project | Path | Purpose | Serves | Feeds → | Consumes ← | Status |
+|---|---|---|---|---|---|---|
+| **JobLab Data Pipeline** | `D:\AWS2\SupaBaseProject\JobLabScraperAPI` | Scrape/normalize/dedupe job data; daily Fargate task via Terraform | G1 (deploy + DE evidence), G3 (product), personal job search | Career Evidence Base · Content Center (article) · JobLab Lakehouse (source data) · Analytics Frontend | Account Center (AWS) | Live at job.oploy.eu |
+| **JobLab Agent Backend** | `D:\AWS2\SupaBaseProject\lambda_backend` | FastAPI on Lambda; Bedrock tool-calling agent, CV matching, MLflow eval | G1 (AI-eng evidence), G3 | Career Evidence Base · Content Center · SAE evidence baseline | Data Pipeline (Supabase data) | Live |
+| **JobLab Analytics Frontend** | `D:\AWS2\SupaBaseProject\job-analytics-frontend2` | Next.js dashboards, chat, CV match UI | G3, G1 | Content Center (screenshots are the visuals) · Career Evidence Base | Agent Backend · Data Pipeline | Live |
+##### E11 00 Inbox/web-extention/Monitor AI coding agents with Grafana.md 3477
+AI coding agents — GitHub Copilot, Claude Code, OpenClaw, and others — are quickly becoming part of how engineering teams ship software. Adoption is the easy part. The harder questions follow soon after:
+
+- **How much are we spending?** Which models, which teams, and which tasks drive the cost?
+- **Who is actually using which agent, and for what?** Are tools being invoked the way you expect?
+- **Is the experience reliable?** Where do agents stall, error out, or leave sessions stuck?
+- **Can we audit what the agents did?** Prompts, tool calls, and model choices for security and compliance review.
+
+Grafana gives you a single pane of glass for these questions across multiple coding agents. This guide walks through the setup end-to-end: standing up the telemetry pipeline, pointing each agent at it, and importing the ready-made dashboards.
+
+## What you'll see
+
+Three purpose-built Grafana dashboards visualize the signals that matter for AI coding agents — cost, token consumption, sessions, model usage, tool invocations, latency, and errors:
+
+| Dashboard | What it shows | Link |
+| --- | --- | --- |
+| [GitHub Copilot](https://aka.ms/amg/dash/gh-copilot) | Operations, input/output tokens, chat sessions, tool calls, response time and TTFT by model | `aka.ms/amg/dash/gh-copilot` |
+| [Claude Code](https://aka.ms/amg/dash/claude-code) | Cost, sessions, user prompts, API requests/errors, daily cost and token trends, per-model breakdown, tool usage analytics | `aka.ms/amg/dash/claude-code` |
+| [OpenClaw](https://aka.ms/amg/dash/openclaw) | Messages, unique chats, response time, LLM calls, token usage, cache reads, stuck sessions, model usage breakdown | `aka.ms/amg/dash/openclaw` |
+
+![Screenshot of the Claude Code dashboard in Grafana, showing cost, sessions, daily cost and token trends, per-model breakdown, and tool usage analytics.](https://learn.microsoft.com/en-us/azure/managed-grafana/media/grafana-opentelemetry-app-insights/claude-code-main.png)
+
+Screenshot of the Claude Code dashboard in Grafana, showing cost, sessions, daily cost and token trends, per-model breakdown, and tool usage analytics.
+
+## Who this guide is for
+
+The same dashboards serve different audiences:
+
+- **Platform and developer experience teams** — track adoption trends, spend by team and model, and surface inefficient usage patterns.
+- **Engineering leaders** — correlate agent activity with delivery and answer "is this investment paying off?"
+- **Security and governance teams** — review prompts, tool invocations, and model choices for compliance and risk.
+- **Individual developers and on-call engineers** — debug agent behavior, slow tool calls, or stuck sessions.
+
+## How it works
+
+![Diagram explaining the agent flow.](https://learn.microsoft.com/en-us/azure/managed-grafana/media/grafana-opentelemetry-app-insights/grafana-coding-agent-diagram.png)
+
+Diagram explaining the agent flow.
+
+- Each **AI coding agent** (GitHub Copilot, Claude Code, or OpenClaw) emits OpenTelemetry traces, metrics, and logs to a configured OTLP endpoint.
+- An **OpenTelemetry Collector** terminates OTLP at that endpoint and forwards the data to Application Insights using the Azure Monitor Exporter.
+- **Grafana** queries Application Insights via the Azure Monitor data source (Log Analytics / KQL) to render the dashboards.
+
+The OpenTelemetry Collector and the Application Insights pipeline are infrastructure — a one-time setup. The rest of this guide walks through it.
+
+## Prerequisites
+##### E12 03 Resources/GitHub/About and Topics Cheatsheet.md 3598
+# About & Topics Cheatsheet
+
+> One-page reference for filling the GitHub **About** panel and **Topics**. Full rules live in [[Repository Standard#1. Repo identity (the GitHub "About" panel)]].
+
+> [!nav] [[Repository Standard]] | [[README Skeleton]] | [[GitHub Big Picture Map]]
+
+---
+
+## 1. About description formula
+
+```
+<Concrete noun phrase> for <who/what>, with <distinguishing technical features>.
+```
+
+- ≤ 160 characters, no emojis, no trailing period.
+- Names the *domain* + the *technical distinctiveness* in one breath.
+
+**Reference description (JobPilot):**
+
+> AI-powered job orchestration platform with Kanban workflows, LLM agents, and production-oriented system architecture.
+
+---
+
+## 2. Controlled topic vocabulary
+
+Pick **5–10** topics per repo. Always include one from each of the **bold** groups when applicable.
+
+### Domain (pick 1) — bold required
+
+- `ai-engineering` · `rag` · `ai-agents` · `mlops`
+- `optimization` · `operations-research` · `decision-intelligence`
+- `data-engineering` · `etl` · `data-pipeline`
+- `research` · `statistical-modeling` · `bayesian` · `hmm` · `relational-event-model`
+- `frontend` · `saas`
+
+### Product family (pick 0–1) — bold required for product repos
+
+- `oploy` · `joblab` · `jobpilot` · `hmm-rem` · `big-picture`
+
+### Primary language / runtime (pick 1) — bold required
+
+- `python` · `typescript` · `javascript` · `r` · `matlab` · `tex`
+
+### Framework / library
+
+- Backend: `fastapi` · `django` · `wagtail` · `flask`
+- Frontend: `nextjs` · `sveltekit` · `nuxt` · `vue` · `svelte`
+- AI: `langchain` · `llamaindex` · `crewai` · `mlflow`
+- Data: `airflow` · `dbt` · `pandas` · `spark`
+
+### LLM / model
+
+- `llm` · `openai` · `anthropic` · `bedrock` · `huggingface` · `claude` · `gpt`
+
+### Storage / infra
+
+- `qdrant` · `mongodb` · `redis` · `postgres` · `opensearch` · `elasticsearch` · `pgvector`
+- `docker` · `kubernetes`
+
+### Deployment / cloud
+
+- `aws` · `aws-lambda` · `gcp` · `azure` · `vercel` · `netlify` · `railway` · `convex` · `render`
+
+### Modifier (use sparingly)
+
+- `tutorial` · `boilerplate` · `template` · `portfolio` · `paper-code` · `scraper`
+
+**Banned tags:** `awesome`, `cool`, `wip`, `test`, `personal`.
+
+---
+
+## 3. Per-domain default packs
+
+Copy a pack, then add 1–2 repo-specific tags.
+
+| Domain                                | Default topic pack                                                                                                          |
+|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| **AI Engineering / RAG**             | `ai-engineering` `rag` `llm` `python` `fastapi` `<vector-db>` `<llm-provider>`                                              |
+| **AI Agents**                        | `ai-engineering` `ai-agents` `llm` `python` `<framework>` `<llm-provider>`                                                  |
+| **MLOps / Tracking**                 | `mlops` `mlflow` `python` `docker` `<cloud>`                                                                                |
+| **JobLab — Backend**                 | `joblab` `ai-engineering` `python` `fastapi` `nlp` `job-search`                                                             |
+| **JobLab — Frontend**                | `joblab` `frontend` `typescript` `nextjs` `dashboard`                                                                       |
+| **JobLab — Scraper**                 | `joblab` `scraping` `python` `linkedin` `indeed` `data-pipeline`                                                            |
+##### E13 03 Resources/GitHub/Profile README Draft.md 3007
+# Mohammad Behbahani
+
+<a href="https://www.oploy.eu">
+  <img width="512" height="125" src="https://github.com/user-attachments/assets/86fcf0f2-c495-4e7f-a5e9-599404b69211" />
+</a>
+
+🎓 Senior AI Engineer  
+📍 Netherlands  
+🔹 **Production LLM Systems · RAG & Agents · Decision Intelligence**
+
+I design and ship **production LLM systems** — multi-agent architectures, retrieval-augmented generation pipelines, and evaluation infrastructure — on top of a foundation in **operations research, optimization, and probabilistic modeling**.
+
+My work focuses on:
+
+- **Multi-agent LLM systems** and orchestration
+- **Enterprise RAG** with grounded, citation-aware answers
+- **LLM evaluation and AI observability**
+- **Production AI on AWS** using Bedrock, Lambda, OpenSearch, FastAPI, and MLflow
+- **Decision intelligence** where mathematical rigor supports real-world AI products
+
+I’m especially interested in building AI systems that are **deployable, measurable, and trustworthy** — not just demos.
+
+---
+
+## Current Projects 🚀
+
+- 🏛️ **[Tax Authority Enterprise RAG](https://github.com/Mbehbahani/tax-authority-enterprise-rag)** — enterprise RAG architecture and evaluation framework for regulated tax-domain QA, with secure OpenSearch retrieval, Bedrock-based grading, citation verification, and observability.
+- 🤖 **[JobPilot](https://github.com/Mbehbahani/JobPilot)** — AI-powered job orchestration platform with Kanban workflows, personalized job search, automation, and production-oriented full-stack architecture. Live at **[jobpilot.oploy.eu](https://jobpilot.oploy.eu)**.
+- 🤖 **[joblab-agent-api](https://github.com/Mbehbahani/joblab-agent-api)** — FastAPI backend for AI-powered job search, CV matching, tool-calling workflows, and MLflow-traced evaluation on AWS Lambda.
+- 📈 **[mlflow-tracking-server](https://github.com/Mbehbahani/mlflow-tracking-server)** — self-hosted MLflow setup for experiments, traces, prompt optimization, and evaluation in AI systems.
+- 🧠 **[joblab-analytics-frontend](https://github.com/Mbehbahani/joblab-analytics-frontend)** — Next.js frontend for job analytics, AI chat, search workflows, and CV matching.
+- 📊 **[joblab-data-pipeline](https://github.com/Mbehbahani/joblab-data-pipeline)** — Python pipeline for scraping, filtering, normalizing, deduplicating, and exporting job-market data.
+
+## Research & Applied Work
+
+- 🌐 **[Oploy Platform](https://oploy.eu/)** — applied decision-support platform translating optimization models into practical tools for routing, scheduling, and network design.
+- 🔬 **[2sHMMREM](https://github.com/Mbehbahani/2sHMMREM)** — research code for a two-stage Hidden Markov / Relational Event Modeling framework.
+- 🛠️ **[RepairShop-milp](https://github.com/Mbehbahani/RepairShop-milp)** — MILP-based implementation for repair shop optimization.
+- ⚙️ **[ANN-SMB-SemiExpSimOpt](https://github.com/Mbehbahani/ANN-SMB-SemiExpSimOpt)** — simulation-optimization and neural-network-based research code for process systems engineering.
+
+---
+
+## Focus Areas
+##### E14 03 Resources/Tableau/Tableau Public Profile.md 3212
+# Tableau Public Profile
+
+My public Tableau profile and the vizzes published on it. Tableau Public is the free tier — everything hosted there is public by design, there is no private option.
+
+## Profile
+x++k6jU6*xe+A5z
+
+**https://public.tableau.com/app/profile/mohammad.behbahani/**
+
+
+also it is a nice profile:
+
+https://public.tableau.com/app/profile/michelle.frayman/viz/ResViz2021/VisualResume
+
+## Published vizzes
+
+| Viz | Source data | Link |
+|---|---|---|
+| JobLab — Current Market Snapshot | JobLab Gold layer (via Snowflake → Excel extract) | [dashboard_17863708345950](https://public.tableau.com/app/profile/mohammad.behbahani/viz/dashboard_17863708345950/OverviewGeography) |
+
+**Contents:** two dashboard pages — *Overview & Geography* (KPI cards + postings by country) and *Roles, Skills & Tools* (job function, job level, industry, remote split by country and function, skill categories, tool frequency).
+
+Backed by [[JobLab DE Lakehouse]] — see that note for how the data gets there.
+
+## Platform facts worth remembering
+
+- **Everything is public.** No private/unlisted option on the free tier. Anyone with the link, or browsing the gallery, can view it.
+- **Viewers can download the underlying data by default** unless you explicitly disable it in the workbook settings. Check this every time you publish.
+- **No live database connections.** Tableau Public requires *extracts* — a static snapshot baked into the workbook. You cannot connect a published viz to Snowflake/Databricks live.
+- **No scheduled refresh.** To update a published viz you re-export the data, refresh the extract locally, and republish manually.
+- **Embeddable.** The Share button gives an iframe/embed snippet that works on any personal site or portfolio page.
+- **Two desktop apps exist:** full *Tableau Desktop* (paid/trial, all connectors, publishes via the Server menu) and *Tableau Public Desktop* (free, file-based connectors only, publishes via `File → Save to Tableau Public`). Only the second is needed for this workflow.
+
+## Gotchas hit while building
+
+- **CSV delimiter auto-detection is unreliable** for small files — Tableau guessed `_` and then ` ` as the delimiter instead of `,`, shredding the headers into `F1, F2, F3...`. **Fix: use `.xlsx` instead of `.csv`** — Excel has explicit cells, so there is no delimiter to guess.
+- **Sheets with identical column shapes get auto-unioned** when dropped on the same Data Source canvas (producing a broken `sheetname+` object). Fix: add each sheet as its own separate data source via `Data → New Data Source`, one at a time.
+- **Number formatting lives on the field, not the mark.** Right-clicking a value in the view opens the *Font* panel. To format percentages: right-click the **pill** → `Default Properties` → `Number Format`.
+- **Publishing requires extracts** — `Data → [source] → Extract Data...` for every data source before `Save to Tableau Public` will succeed.
+- **If desktop publishing times out repeatedly** (`Error Code: DE1E797E`), fall back to `File → Export Packaged Workbook` (`.twbx`) and upload it through the browser at public.tableau.com. Caveat: browser upload publishes *every* sheet as a tab, with no sheet-selection step.
+
+## Related Notes
+##### E15 06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md 3567
+# Career Update — Harness, Research MLOps and Oploy
+
+Date: 2026-09-11
+Tags: #career #evidence #ai-engineering #oploy #linkedin
+Track: Career presentation; Oploy project work and academic research remain separately attributed.
+
+---
+
+## Core Idea
+
+Mohammad requested stronger, evidence-backed coverage of knowledge graphs, RAG and Harness work under Oploy, and directly confirmed Databricks and MLflow use in his PhD-related work. The updated CV and proposed LinkedIn copy now reflect these capabilities. Oploy is described as an **independent AI engineering initiative** while its proposed nonprofit positioning remains unconfirmed.
+
+This is a local career-document update. LinkedIn and the live Oploy website have not been changed. Previous applications and the Word formatting master remain historical and unchanged.
+
+## Source
+
+| Source | What it supports | Boundary |
+|---|---|---|
+| Mohammad's instruction, 2026-09-11 | PhD-related Databricks/MLflow use; placing Harness knowledge work under Oploy; request to reconsider freelance positioning | No confirmation of nonprofit registration, absence of revenue, or a change to employment dates |
+| `D:\Harness\reports\implementation\20260907T104117Z-full\final-report.md` and evaluator handoffs | Implemented local MCP service, keyword/vector/hybrid retrieval, knowledge graph, separate evaluator workflows, durable task state and recovery; saved full suite of 153 passing tests | Final reporting-only change separately reviewed; semantic quality gate unmet, both actual IDE MCP cycles and personal usefulness pending in this release record |
+| `D:\Harness\src\personal_harness\graph.py` and `docs\graph-retrieval.md` | Scoped entities, explicit links, supported typed relationships, conflicts/supersession and bounded traversal | Reviewed/supplied relationships; no automatic graph extraction, Neo4j, Cypher or community detection evidence |
+| `D:\Azure-DataBricks\PHD-DS\README.md` | Research-engineering demonstration with MLflow, Delta tables, Unity Catalog and Databricks SQL | Research fits run locally and use Databricks Free Edition for tracking/analysis; the parent directory name does not establish Azure hosting for this particular run |
+| `D:\Azure-DataBricks\PHD-DS\python\run_study.py` and `python\remhmm\tracking.py` | Parameters, metrics, tags, artifacts, model comparison, seeds and code-version metadata | No inference of model registry, production serving, drift detection or automated retraining |
+| `D:\Azure-DataBricks\PHD-DS\results\run_summary.csv` | Local inspection found 32 completed records and 32 distinct nonempty MLflow run IDs | Saved evidence checked on 2026-09-11; no fresh remote Databricks audit or new model execution performed |
+| `D:\Azure-DataBricks\PHD-DS\python\load_delta.py`, `python\build_dashboard.py`, `notebooks\stateful-rem-analysis.py` | Business-key-based SQL MERGE ingestion, Delta result tables, SQL analysis and query-checked dashboard code | Not enterprise catalog administration or distributed model training; the Python demonstration has not been validated against the original R study |
+| `D:\AWS2\SupaBaseProject\DE` evidence already indexed in the Career Evidence Base | PySpark medallion pipeline, executed Databricks/Delta publication, Snowflake and Tableau portfolio work | Existing verified portfolio evidence; no new rerun performed during this career update |
+
+The older approximately 15% predictive-improvement claim belongs to the existing Utrecht research evidence. It is not attributed to the recent Python/Databricks demonstration.
+
+## Key Points
+##### E16 06 Outputs/Career Docs/CV - Current.md 3596
+# CV — Current (Vault Copy)
+
+> Source: `05 Templates/Template - CV.tex`
+> Last synced with `Template - CV.tex`: 2026-09-11
+> Latest Word/PDF: `D:\Apply files\Mohammad_Behbahani_AI_Engineering_Research_CV_2026-09-11.docx` and matching `.pdf`.
+> Evidence and LinkedIn update checklist: [[2026-09-11 - Career Update - Harness and Research MLOps]].
+> Use this for exact CV wording when generating tailored CVs or motivation letters.
+
+---
+
+## Header
+
+**Mohammad Behbahani**
+Utrecht, Netherlands
+Phone: (+31) 6 1759 9944
+Email: behbahanimd@gmail.com
+LinkedIn: https://www.linkedin.com/in/mohammad-behbahani-85958775/
+GitHub: https://github.com/Mbehbahani
+
+---
+
+## Professional Summary
+
+AI Engineer and Applied Data Scientist combining RAG, knowledge graphs, agent workflows, and MLOps with operations research and statistical modelling. Build Python services and evidence-driven AI tools, and develop reproducible research workflows using Databricks and MLflow. Experience spans AI product development, PhD research, forecasting, and supply-chain decision systems.
+
+---
+
+## Professional Experience
+
+### Research Data Scientist — Utrecht University
+**Apr 2023 – Apr 2026**
+
+- Built probabilistic models for dynamic networks and time-series systems using Hidden Markov Models and regression frameworks.
+- Designed simulation and evaluation pipelines, improving predictive performance by ~15% compared to baseline models.
+- Established reproducible workflows for large-scale experiments using Python and R.
+
+### Applied Data Scientist & AI Engineer — Oploy (Independent initiative)
+**Jun 2025 – Present**
+
+- Design and build decision intelligence tools combining optimization, machine learning, and LLM workflows; share practical engineering methods through Oploy.
+- Build Python and FastAPI services, data pipelines, semantic search, and RAG workflows using embeddings and vector databases.
+- Develop Personal Harness with a local MCP service, keyword/vector/hybrid retrieval, evidence-backed knowledge graphs, bounded context, separate evaluator workflows, and recoverable task state.
+- Deploy AI services on AWS and use Docker and MLflow for reproducible delivery, experiment tracking, and evaluation.
+
+### Business Planning Data Analyst — Digikala.com
+**Apr 2022 – May 2023**
+
+- Led commercial planning analytics for an e-commerce platform serving approximately 40M customers and 100K daily orders, preparing weekly and monthly analytical reports for management.
+- Developed forecasting pipelines combining statistical and deep learning models for sales and cost prediction; reduced prediction error by approximately 20% through a deep learning-based budget share model.
+- Automated monthly-to-daily budgeting via end-to-end ETL pipelines, reducing planning cycle time from five days to two days.
+
+### Supply Chain Data Analyst — Digikala.com
+**Feb 2021 – Apr 2022**
+
+- Developed mid-mile transportation optimization models jointly optimizing truck type and city destination assignments across approximately 40 distribution centers, reducing idle truck capacity by approximately 15%.
+- Designed a strategic Supply Chain Network Design model for a 5-year planning horizon, achieving roughly 10% savings in combined fixed and variable logistics costs.
+- Led the business-analytics workstream for an implemented single-item marketplace fulfillment redesign, coordinating approximately 80 cross-functional stakeholders and partnering with an Agile logistics product squad; reduced processing cost per eligible order by approximately 10% and deferred expansion of a capacity-constrained fulfillment center.
+##### E17 06 Outputs/YouTube/YouTube Channel - Oploy.md 3460
+# YouTube Channel - Oploy
+
+Date Updated: 2026-05-18
+Tags: #area #content #youtube #oploy
+Track: Business/Content/Product
+
+---
+
+## Channel Identity
+
+Channel handle: @oploy.europe  
+Channel URL: https://www.youtube.com/@oploy.europe/videos
+
+Oploy YouTube is the public video channel for practical AI engineering, Oploy/JobPilot product workflows, and AI-powered career automation.
+
+---
+
+## Current Channel Positioning
+
+Recommended positioning:
+
+> Building AI tools for career automation — from product demos to deployment tutorials.
+
+Alternative positioning:
+
+> Practical AI engineering tutorials: deploy AI apps, build automation workflows, and create job-search tools.
+
+---
+
+## Current Content Pillars
+
+### 1. AI Job Search Automation
+
+Topics:
+- JobPilot / Oploy product demos
+- AI job tracking
+- CV and motivation letter management
+- Gmail job tracker
+- ChatGPT inside job search apps
+
+Example videos:
+- Manage CV & Motivation Letters with AI
+- Gmail Job Tracker with AI
+- AI Job Search Automation
+- Add Jobs Faster with AI
+- Use ChatGPT Inside Apps
+
+### 2. AI App Deployment Tutorials
+
+Topics:
+- FastAPI deployment
+- Railway
+- Vercel / Netlify frontend deployment
+- PostgreSQL
+- MLflow self-hosting
+
+Example videos:
+- FastAPI Deployment Tutorial
+- Deploy Frontend + FastAPI
+- Railway PostgreSQL
+- MLflow Self-Hosting with Railway
+
+### 3. Enterprise AI / RAG Architecture
+
+Topics:
+- Enterprise RAG systems
+- Government / tax authority AI architecture
+- RAG evaluation
+- AI system design
+
+Example videos:
+- Enterprise RAG Architecture for the National Tax Authority
+
+---
+
+## Existing Video Inventory
+
+| Title | URL | Duration | Pillar | Notes |
+|---|---|---:|---|---|
+| Enterprise RAG Architecture for the National Tax Authority | https://www.youtube.com/watch?v=ZEdFqNcd7Ms | 21:28 | Enterprise AI / RAG | Long authority-building video |
+| Gmail Job Tracker with AI | https://www.youtube.com/watch?v=FQtYAEoMMyM | 0:31 | AI Job Search Automation | Short demo |
+| AI Job Search Automation | https://www.youtube.com/watch?v=hFBIUkhTLcc | 0:41 | AI Job Search Automation | Short demo |
+| Manage CV & Motivation Letters with AI | https://www.youtube.com/watch?v=PKUBM6oVpmk | 1:39 | AI Job Search Automation | Product workflow demo |
+| Add Jobs Faster with AI - JobPilot Guide | https://www.youtube.com/watch?v=N92yHginPRw | 0:39 | AI Job Search Automation | Product workflow demo |
+| Use ChatGPT Inside Apps (No API Needed) | https://www.youtube.com/watch?v=X4gX67QjKVQ | 1:34 | AI Job Search Automation | Integration demo |
+| MLflow Self-Hosting with Railway | https://www.youtube.com/watch?v=velO_OEStKc | 3:34 | AI App Deployment | Technical tutorial |
+| Deploy Frontend + FastAPI | https://www.youtube.com/watch?v=QHFqVyBJkl8 | 8:53 | AI App Deployment | Full-stack deployment |
+| FastAPI Deployment Tutorial | https://www.youtube.com/watch?v=oHoWq4DI1n4 | 6:42 | AI App Deployment | Backend deployment |
+| Railway PostgreSQL | https://www.youtube.com/watch?v=2363rYrj_M0 | 0:24 | AI App Deployment | Short infrastructure demo |
+
+Transcript/content inventory:
+
+- [[06 Outputs/YouTube/YouTube Channel - Transcript Inventory]]
+
+This inventory stores extracted subtitle/generated transcript text for channel videos and should be loaded before planning repurposing, next videos, blog posts from videos, or website content based on existing videos.
+
+---
+
+## Content Diagnosis
+
+The channel has strong practical content, but the packaging needs clearer positioning.
+##### E18 07 Workflows/Context Router.md 3112
+# Context Router
+
+> AI Assistant: this file is now a **secondary execution reference**, not the primary router.
+> The **primary router is AIOS** (`AIOS/me.md`, `AIOS/Maps/vault-map.md`, `AIOS/Maps/skill-map.md`).
+> Use this note only after AIOS has already identified the task domain and you need a matching execution context.
+
+---
+
+## Routing Table
+
+| If the task involves... | Load this context file |
+|---|---|
+| Blog post, LinkedIn post, weekly summary, tutorial script | [[Context - Content Production]] |
+| YouTube video ideas, scripts, channel strategy, video-to-blog repurposing, blog-to-video repurposing | [[Context - YouTube Channel]] |
+| YouTube transcript analysis, existing video content, video-to-blog or video-to-website repurposing | [[Context - YouTube Channel]] and [[06 Outputs/YouTube/YouTube Channel - Transcript Inventory]] |
+| Oploy website copy, landing page, product narrative | [[Context - Oploy Website]] |
+| Oploy website architecture, Wagtail CMS, website codebase, oploy.eu structure | [[Context - Oploy Website]] and [[02 Areas/Oploy Business/Oploy Website - System Map]] |
+| Oploy website blog inventory, existing website content, website-to-video/blog repurposing | [[Context - Oploy Website]] and [[02 Areas/Oploy Business/Oploy Website - Blog Inventory]] |
+| JobLab / JobPilot features, product docs, user flows | [[Context - JobLab Product]] |
+| Personal Harness, agent harnesses, context engineering, task planning, evaluation, or recovery | Read `D:\Harness\AGENTS.md`, then `D:\Harness\README.md` and the relevant `docs/` or `workflows/` file |
+| CV, resume, LinkedIn profile, motivation letter, job application, professional bio, career narrative | [[Context - Career Development]] and, for Word deliverables, [[Workflow - Tailored Word CV and Motivation Letter]] |
+| Image generation, image prompt writing, visual content | [[Context - Image Generation]] |
+| AI Engineering learning, agent harnesses, context engineering, Managed Agents, GraphRAG, LLM research, vector/graph database decisions | Read `D:\Senior AI ENG\AGENTS.md`, then `D:\Senior AI ENG\00 AI Engineering - Map.md`; use `AI Engineering - Competency and Learning Roadmap.md` for progression decisions |
+| RAG, retrieval, vector DBs | [[03 Resources/RAG/RAG - Overview]] |
+| LLM workflows, prompt engineering | [[03 Resources/LLM Workflows/LLM Workflows - Overview]] |
+| AI agents, agentic systems | [[03 Resources/AI Agents/AI Agents - Overview]] |
+| MCP, Model Context Protocol | [[03 Resources/MCP/MCP - Overview]] |
+| Decision intelligence, optimization, operations research | Load [[AIOS/Maps/vault-map|vault-map]] and search `03 Resources/Decision Intelligence` and `Optimization` |
+| Weekly review, reflection, planning | Load [[07 Workflows/Weekly Review]] |
+| Inbox processing | Load [[Workflow - Inbox to Resource]] |
+
+---
+
+## How to Use After AIOS Routing
+
+1. Read the user's request.
+2. Route the task through AIOS first.
+3. If AIOS determines a workflow/context note is needed, use the table above.
+4. Load only the specific execution context you need.
+
+---
+
+## Quick Reference — Folder Paths
+##### E19 AIOS/Maps/vault-map.md 3121
+# vault-map
+
+> Your manual to navigate and work in this vault.
+
+> [!nav] [[me]] | [[Maps/vault-map\|vault-map]] | [[Maps/project-graph\|project-graph]] | [[Maps/skill-map\|skill-map]]
+
+---
+
+## Vault Purpose
+
+This vault is a **production system**, not a reference library.
+Every note should eventually serve a concrete output: a post, a product, a paper, a prompt, or a decision.
+
+---
+
+## Folder Map
+
+### 00 Inbox
+Raw captures — process within 48 hours.
+Drop anything here first. Use [[05 Templates/Template - Inbox Capture|Inbox Capture]] template.
+
+### 01 Projects
+Active work with a defined output and deadline.
+
+| Subfolder | Purpose |
+|---|---|
+| `Content Projects/` | Blog posts, LinkedIn posts in progress |
+| `Oploy Website/` | Website copy, landing pages |
+| `JobLab Product/` | Feature specs, product docs |
+| `Experiments/` | Quick tests and prototypes |
+
+### 02 Areas
+Ongoing responsibilities with no end date.
+
+| Subfolder | Purpose |
+|---|---|
+| `Oploy Business/` | Strategy, positioning, GTM |
+| `JobLab Product/` | Roadmap, product thinking |
+| `AI Engineering Learning/` | Skills, courses, reading list |
+| `Career Development/` | CV, LinkedIn, professional identity, job search positioning |
+| `Home Infrastructure/` | Personal server and self-hosted tooling status, and deferred infrastructure decisions |
+
+Key Area notes:
+
+| Note | Purpose |
+|---|---|
+| `06 Outputs/Career Docs/CV - Current` | Authoritative current CV and professional facts |
+| `06 Outputs/Career Docs/LinkedIn - Current` | Current LinkedIn wording and professional voice |
+| `06 Outputs/YouTube/YouTube Channel - Oploy` | YouTube channel strategy and positioning |
+| `06 Outputs/YouTube/YouTube Channel - Transcript Inventory` | Existing YouTube transcripts and personal voice samples |
+| `02 Areas/Oploy Business/Oploy Website - System Map` | Oploy website architecture/content system map |
+| `02 Areas/Oploy Business/Oploy Website - Blog Inventory` | Extracted Wagtail website/blog content inventory |
+
+### 03 Resources
+Reusable knowledge notes by topic.
+
+**AI / Tech:** AI Agents · RAG · Claude Code · LLM Workflows · MCP · Graphify · Obsidian
+
+**Domain:** Decision Intelligence · Optimization
+
+**Skills:** Writing and Content · Image Prompting
+
+**GitHub / Portfolio:** `GitHub/` contains repository maps, README drafts, repo standards, About/topics guidance, and machine-readable repository snapshots.
+
+Key GitHub notes:
+
+| Note | Purpose |
+|---|---|
+| `03 Resources/GitHub/GitHub Big Picture Map` | Canonical map of all visible GitHub repositories and portfolio domains |
+| `03 Resources/GitHub/Profile README Draft` | Working source for the GitHub profile README |
+| `03 Resources/GitHub/Repository Standard` | Standard repo structure, documentation, and maintenance rules |
+| `03 Resources/GitHub/README Skeleton` | Reusable README template for repositories |
+| `03 Resources/GitHub/About and Topics Cheatsheet` | Rules for GitHub About text and repo topics |
+
+### 04 Archives
+Completed or paused work. Nothing active lives here.
+
+### 05 Templates
+All note formats live here. Always pick a template before creating a new note.
+##### E20 AIOS/me.md 3229
+# me.md
+
+> Your briefing on who I am, how I think, and how to interact with me.
+> AI assistants: read this first, then navigate to [[Maps/vault-map]], [[Maps/project-graph]], and [[Maps/skill-map]] as needed.
+> AIOS is the **brain and routing layer** of this vault. `07 Workflows` contains execution workflows, not the primary router.
+
+> [!nav] [[me]] | [[Maps/vault-map\|vault-map]] | [[Maps/project-graph\|project-graph]] | [[Maps/skill-map\|skill-map]]
+
+---
+
+## Who I am
+
+**Name:** Mohammad
+**Role:** Senior AI Engineer, AI Product Builder, Decision-Intelligence Engineer
+**Focus areas:** RAG, knowledge graphs and graph-assisted retrieval, LLM workflows, AI agents, evaluation pipelines, research MLOps, operations research, decision intelligence
+**Stack:** Python (primary), TypeScript/JavaScript, some R/MATLAB · FastAPI, Next.js, SvelteKit, LangChain, OpenAI API, Anthropic API, vector DBs, Databricks, Delta Lake, Unity Catalog, MLflow, AWS · Obsidian, Claude Code, VS Code, GitHub
+
+---
+
+## What I'm building
+
+| Project / Domain | Track | What it is | Stage |
+|---|---|---|---|
+| **Enterprise RAG / AI Engineering** | Business | Production LLM systems, agentic workflows, retrieval, evaluation, observability | Active |
+| **Oploy** | Business / independent projects | Independent AI engineering initiative connecting applied AI, decision systems, and practical knowledge sharing | Active; formal nonprofit status unconfirmed |
+| **JobLab / JobPilot** | Business | AI-powered job search, analytics, CV matching, and orchestration product family | Active / MVP |
+| **Personal Harness** | Business / AI Engineering | Implemented local MCP control plane with cited keyword/vector/hybrid retrieval, evidence-backed knowledge graph, bounded tasks, separate evaluation, recovery, and knowledge promotion | Pilot-ready local implementation; **parked 2026-09-12** — kept as portfolio evidence; retrieval layer reactivates only if file-based agents outgrow Grep. See [[Maps/project-graph]] |
+| **HMM-REM / statistical modeling** | Research | Hidden Markov / relational-event modelling; Databricks/MLflow research tooling with Delta tables, Unity Catalog, and SQL analysis | Active; recent Python demonstration not validated against original R pipeline |
+| **Optimization / OR systems** | Research + product | Routing, scheduling, repair-shop, inventory, and simulation models | Active |
+| **Content** | Business | Technical writing and portfolio-building around AI engineering | Ongoing |
+
+### External AI Engineering knowledge base
+
+- **Path:** `D:\Senior AI ENG`
+- **Purpose:** canonical learning and synthesis workspace for agent and harness engineering, RAG and knowledge systems, LLM research, infrastructure/database tradeoffs, competency tracking, and article/workshop ideas.
+- **Entry order:** read `D:\Senior AI ENG\AGENTS.md`, then `00 AI Engineering - Map.md`; use `AI Engineering - Competency and Learning Roadmap.md` for demonstrated, active, and future learning states.
+- **Boundary:** this workspace records learning and design. Career claims still require evidence routed through `06 Outputs/Mohammad Skills/README.md`, and Harness implementation evidence remains in `D:\Harness`.
+
+### Portfolio domains from GitHub

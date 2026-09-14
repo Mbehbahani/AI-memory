@@ -18,3 +18,4 @@ the memory system applies to itself). Index maintained by A01 (Build Observer).
 | [0010](ADR-0010-evaluation-protocol.md) | Ongoing evaluation protocol and model-upgrade rule | accepted | 2026-09-14 |
 | [0011](ADR-0011-ops-dashboard.md) | Built-in offline Ops dashboard and always-on ingestion worker | accepted | 2026-09-14 |
 | [0012](ADR-0012-dual-llm-provider-evaluation.md) | Two extraction providers (local qwen3:4b and Bedrock Haiku 4.5) are built and compared; neither privileged. Amends B16/§T/AC-8 | accepted | 2026-09-14 |
+| [0013](ADR-0013-neo4j-community-no-readonly-user.md) | Neo4j Community cannot enforce a read-only user; access constrained in the client instead. Amends §T/§Q/§S | accepted | 2026-09-14 |
