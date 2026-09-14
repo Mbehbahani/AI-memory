@@ -1,0 +1,10 @@
+[app]
+name = "mini-repo"
+version = "0.1.0"
+
+[limits]
+min_value = 0.0
+max_value = 1000000.0
+
+[logging]
+level = "INFO"
