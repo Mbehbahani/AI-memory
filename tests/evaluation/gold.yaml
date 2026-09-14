@@ -1,0 +1,38 @@
+# Retrieval evaluation gold set — V0.1
+# AUTHORSHIP: seeded by the orchestrator from the owner's questions; A12 extends it in P14-T03 from
+# my-vault content and marks every added item `author: agent`. The owner may correct any item.
+version: 0.1.0
+questions:
+  - id: Q01
+    question: "What is JobPilot?"
+    author: owner
+    expected_sources_any: ["vault://my-vault/AIOS/me.md", "vault://my-vault/AIOS/Maps/project-graph.md"]
+    expected_entities: ["JobPilot", "SvelteKit", "Convex"]
+  - id: Q02
+    question: "Which projects use Databricks?"
+    author: owner
+    expected_entities: ["JobLab Lakehouse", "Stateful REM on Databricks", "Azure Databricks lab"]
+  - id: Q03
+    question: "Which projects relate to optimization?"
+    author: owner
+    expected_entities: ["Optimization / OR portfolio", "Order-to-Plan"]
+  - id: Q04
+    question: "What architecture decisions exist for JobLab?"
+    author: owner
+    expected_sources_any: ["localfs://local-development-machine/joblab-de/docs/06-platform-architecture-decision.md", "localfs://local-development-machine/joblab-de/docs/04-source-automation-decision.md"]
+    expected_types: ["decision"]
+  - id: Q05
+    question: "What is the current state of the Personal Harness project?"
+    author: owner
+    expected_entities: ["Personal Harness"]
+    expected_facts_contain: ["parked"]
+  - id: Q06
+    question: "What changed over time in the fixture project ingestion architecture?"
+    author: owner
+    fixture: mini-vault
+    expected_timeline_order: ["Architecture A selected", "Architecture A abandoned", "Architecture B selected"]
+  - id: Q07
+    question: "Where did the information that Oploy moved off Railway come from?"
+    author: owner
+    expected_sources_any: ["vault://my-vault/AIOS/Maps/project-graph.md"]
+    provenance_required: true

@@ -1,0 +1,38 @@
+# Storage policy table. Order of evaluation: built-in deny list > .memoryignore > this file > per-root
+# overrides (config/source-roots.yaml) > secret-detector downgrade (any match => CATALOG_ONLY, no text).
+version: 0.1.0
+
+limits:
+  max_index_bytes: 2097152        # > 2 MB => CATALOG_ONLY even if extension says INDEX_CONTENT
+  max_json_index_bytes: 204800    # JSON above 200 KB is cataloged, not indexed
+  max_text_store_chars: 2000000
+
+default_policy: CATALOG_ONLY
+
+index_content:
+  extensions: [".md", ".markdown", ".txt", ".rst", ".py", ".r", ".R", ".sql", ".ts", ".tsx", ".js", ".mjs", ".svelte",
+               ".tex", ".bib", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".json", ".ipynb", ".cypher", ".sh", ".ps1",
+               ".pdf", ".docx", ".csv-schema", ".env.example"]
+  filenames: ["Dockerfile", "Makefile", "README", "AGENTS.md", "CLAUDE.md", "LICENSE"]
+
+catalog_only:
+  extensions: [".csv", ".tsv", ".parquet", ".zip", ".gz", ".tar", ".rar", ".7z", ".png", ".jpg", ".jpeg", ".webp", ".gif",
+               ".svg", ".mp4", ".mp3", ".wav", ".mat", ".RData", ".rds", ".twb", ".twbx", ".hyper", ".xlsx", ".xls",
+               ".pptx", ".doc", ".bin", ".pt", ".pth", ".onnx", ".safetensors", ".ckpt", ".excalidraw", ".excalidrawlib"]
+  directories: ["Excalidraw", "99 Attachments", "data", "datasets", "outputs", "checkpoints", "models"]
+
+mirror:
+  # Opt-in only. Paths are relative to a root; listed under source-roots.yaml per root.
+  enabled: true
+
+secret_detector:
+  filename_patterns: [".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.p12", "id_rsa*", "id_ed25519*", "credentials*", "secrets*", "*.kdbx"]
+  content_patterns:
+    - {name: aws_access_key,   regex: "AKIA[0-9A-Z]{16}"}
+    - {name: private_key,      regex: "-----BEGIN [A-Z ]*PRIVATE KEY-----"}
+    - {name: jwt,              regex: "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"}
+    - {name: openai_style_key, regex: "sk-[A-Za-z0-9_-]{20,}"}
+    - {name: github_token,     regex: "gh[pousr]_[A-Za-z0-9]{30,}"}
+    - {name: conn_string_pw,   regex: "(?i)(postgres|mysql|mongodb|redis)://[^:\\s]+:[^@\\s]+@"}
+    - {name: azure_sas,        regex: "(?i)sig=[A-Za-z0-9%]{30,}"}
+  action: CATALOG_ONLY_NO_TEXT

@@ -1,0 +1,7 @@
+# Optional derived model for extraction. Created by A05 in P4 only if measurements show that a
+# baked-in system prompt / parameters beat per-request options. Base stays qwen3:4b.
+FROM qwen3:4b
+PARAMETER temperature 0
+PARAMETER num_ctx 8192
+PARAMETER num_predict 1024
+SYSTEM """You are a precise information-extraction engine. Output only JSON that conforms to the provided schema. Never add commentary."""

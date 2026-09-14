@@ -1,0 +1,59 @@
+[project]
+name = "aimemory"
+version = "0.1.0"
+description = "Personal AI memory infrastructure - local Docker V0.1"
+requires-python = ">=3.12,<3.13"
+readme = "README.md"
+# Versions are pinned in the lock file produced in P2 (A03). Keep ranges here.
+dependencies = [
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.6,<3",
+  "sqlalchemy>=2.0,<3",
+  "psycopg[binary]>=3.2,<4",
+  "pgvector>=0.3,<1",
+  "alembic>=1.14,<2",
+  "neo4j>=5.26,<6",
+  "httpx>=0.28,<1",
+  "pathspec>=0.12,<1",
+  "structlog>=24,<26",
+  "typer>=0.15,<1",
+  "pyyaml>=6,<7",
+  "pypdf>=5,<6",
+  "python-docx>=1.1,<2",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.34,<1"]
+mcp = ["mcp>=1.20,<2"]
+embedding = ["sentence-transformers>=3,<6", "torch>=2.4,<3", "numpy>=2,<3"]
+graphiti = ["graphiti-core"]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<1", "ruff>=0.11", "mypy>=1.15", "types-PyYAML", "hypothesis>=6"]
+
+[project.scripts]
+aimemory-ingest = "aimemory.cli.ingest:app"
+
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["packages"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "integration: needs the compose stack",
+  "memory: ingestion scenario tests",
+  "evaluation: retrieval gold-set evaluation",
+  "slow: long-running (LLM) tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true

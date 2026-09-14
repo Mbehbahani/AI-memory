@@ -1,0 +1,30 @@
+{
+  "$comment": "MCP tool contract for apps/mcp-server. Read tools never return raw file bytes. Write tools are disabled unless MCP_WRITE_ENABLED=true, require confirm=true, are audited and append-only.",
+  "version": "0.1.0",
+  "tools": [
+    {"name": "memory.search", "kind": "read", "input": {"query": "string", "project_ids": "string[]?", "types": "string[]?", "as_of": "date-time?", "since": "date-time?", "k": "int?=10", "expand": "bool?=true"}, "output": "SearchResult{items[], context, provenance[]}"},
+    {"name": "memory.get_project", "kind": "read", "input": {"id_or_name": "string"}, "output": "Project + subprojects + current facts summary"},
+    {"name": "memory.get_entity", "kind": "read", "input": {"id_or_name": "string", "type": "string?"}, "output": "Entity + current facts + provenance"},
+    {"name": "memory.get_related", "kind": "read", "input": {"entity": "string", "relationship_types": "string[]?", "depth": "int?=1 (max 2)", "as_of": "date-time?"}, "output": "Neighbours with facts and validity"},
+    {"name": "memory.get_decisions", "kind": "read", "input": {"project_id": "string?", "include_superseded": "bool?=false"}, "output": "Decision artifacts ordered by valid_from"},
+    {"name": "memory.get_timeline", "kind": "read", "input": {"project_id": "string?", "entity": "string?", "from": "date-time?", "to": "date-time?"}, "output": "Ordered events: facts, decisions, source changes"},
+    {"name": "memory.get_sources", "kind": "read", "input": {"object_id": "string"}, "output": "Provenance chain: artifact/fact -> episode -> version -> source -> root/device (+ models, run)"},
+    {"name": "memory.explain", "kind": "read", "input": {"object_id": "string"}, "output": "Alias of get_sources with a human-readable explanation"},
+    {"name": "memory.get_artifact", "kind": "read", "input": {"artifact_id": "string"}, "output": "Knowledge artifact with supersession chain"},
+    {"name": "memory.get_current_state", "kind": "read", "input": {"project_id": "string"}, "output": "Status, current facts, open tasks, latest decisions, last ingestion, coverage"},
+    {"name": "memory.add_episode", "kind": "write", "input": {"text": "string (<= 8000 chars)", "project_id": "string?", "occurred_at": "date-time?", "confirm": "bool (must be true)"}, "output": "episode_id; queued for extraction; origin=mcp"},
+    {"name": "memory.record_decision", "kind": "write", "input": {"title": "string", "statement": "string", "project_id": "string", "supersedes_artifact_id": "string?", "valid_from": "date-time?", "confirm": "bool (must be true)"}, "output": "artifact_id; append-only; supersession link if given"}
+  ],
+  "resources": [
+    {"uri": "memory://projects", "description": "Project registry with status and coverage"},
+    {"uri": "memory://project/{id}/state", "description": "Current state of one project"}
+  ],
+  "safeguards": {
+    "write_enabled_env": "MCP_WRITE_ENABLED",
+    "confirm_required": true,
+    "rate_limit_per_minute": 10,
+    "max_text_chars": 8000,
+    "audit_table": "mcp_audit_log",
+    "append_only": true
+  }
+}

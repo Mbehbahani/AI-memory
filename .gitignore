@@ -1,0 +1,41 @@
+# secrets and local config
+.env
+.env.*
+!.env.example
+config/source-roots.yaml
+*.pem
+*.key
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# node (tooling only)
+node_modules/
+
+# data and runtime
+backups/*
+!backups/.gitkeep
+data/
+*.dump
+*.log
+.coverage
+htmlcov/
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# local scratch inside reports
+reports/tmp/

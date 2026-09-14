@@ -1,0 +1,87 @@
+# Default ignore rules applied to EVERY source root (gitignore syntax).
+# Precedence: built-in deny list > this file > config/policies.yaml > per-root overrides.
+# Directory rules are applied as pruning (the tree is never descended).
+
+# dependency / build / cache trees
+node_modules/
+.git/
+.venv/
+venv/
+env/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.next/
+.svelte-kit/
+dist/
+build/
+out/
+.cache/
+cache/
+tools-cache/
+coverage/
+htmlcov/
+.tox/
+target/
+*.egg-info/
+.pnpm-store/
+
+# lockfiles and generated bundles
+*.lock
+package-lock.json
+bun.lock
+pnpm-lock.yaml
+*.min.js
+*.map
+
+# compiled / binary
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.exe
+*.msi
+*.jmod
+*.class
+*.jar
+*.o
+*.a
+*.lib
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex*
+*.toc
+*.bbl
+*.blg
+
+# secrets (also caught by the built-in deny list and the secret detector)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+.aws/
+.ssh/
+.azure/
+credentials*
+secrets*
+
+# editor / OS / vault internals
+.obsidian/
+.claude/
+.vscode/
+.idea/
+$RECYCLE.BIN/
+System Volume Information/
+desktop.ini
+Thumbs.db
+.DS_Store

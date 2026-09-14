@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.example
+backups
+reports
+docs
+tests/fixtures/adversarial
+**/__pycache__
+**/*.pyc
+.venv
+venv
+node_modules
+.mypy_cache
+.ruff_cache
+.pytest_cache

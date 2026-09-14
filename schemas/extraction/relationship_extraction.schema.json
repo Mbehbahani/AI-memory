@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aimemory/extraction/relationship_extraction/v0.1",
+  "title": "RelationshipExtraction",
+  "description": "Call 2 of the native engine: facts between entities already extracted in call 1. Subject/object must be names from the provided entity list; predicates are ontology relationship types.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["facts"],
+  "properties": {
+    "facts": {
+      "type": "array",
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["subject", "predicate", "object", "statement"],
+        "properties": {
+          "subject": {"type": "string", "minLength": 1, "maxLength": 120},
+          "predicate": {"type": "string", "enum": ["USES", "DEPENDS_ON", "RELATED_TO", "IMPLEMENTS", "SUPPORTS", "CONTRADICTS", "PRODUCES", "REQUIRES", "CREATED_BY", "GENERATED_BY", "PART_OF", "BELONGS_TO", "SUPERSEDES", "HAS_STATUS", "HAS_OWNER", "USES_ARCHITECTURE", "DEPLOYED_ON", "HAS_STAGE", "SELECTED_OPTION"]},
+          "object": {"type": "string", "minLength": 1, "maxLength": 120},
+          "statement": {"type": "string", "minLength": 3, "maxLength": 400},
+          "valid_from_if_stated": {"type": ["string", "null"]},
+          "valid_to_if_stated": {"type": ["string", "null"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    }
+  }
+}

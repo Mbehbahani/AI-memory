@@ -1,0 +1,61 @@
+# AI Memory V0.1 ontology — the contract shared by extraction, entity resolution, Neo4j projection,
+# the Memory Gateway, and MCP. Owned by A02 (Architecture & Contracts). Changes require an ADR.
+version: 0.1.0
+
+node_types:
+  Project:            {description: "A top-level initiative with an output and a goal", functional: [HAS_STATUS, HAS_OWNER]}
+  SubProject:         {description: "A Project with a parent Project (same label + parent_id)", functional: [HAS_STATUS]}
+  Person:             {description: "A human (the owner or a collaborator)"}
+  Organization:       {description: "Company, university, community"}
+  Technology:         {description: "Library, framework, platform, language, service", aliases_seed: config/technology-aliases.yaml}
+  Concept:            {description: "Method, pattern, idea (e.g. medallion architecture, RRF)"}
+  Document:           {description: "An INDEX_CONTENT source rendered as a node"}
+  Repository:         {description: "A git repository root"}
+  Source:             {description: "Any registered source (file/dir/repo) — mirrors Postgres sources"}
+  Device:             {description: "Logical machine holding sources"}
+  Decision:           {description: "A choice made, with status and validity", functional: [HAS_STATUS]}
+  Requirement:        {description: "Something the project must satisfy", functional: [HAS_STATUS]}
+  Task:               {description: "A unit of work with a status", functional: [HAS_STATUS]}
+  Experiment:         {description: "A trial with a hypothesis and an outcome"}
+  Dataset:            {description: "Data collection used or produced"}
+  ResearchFinding:    {description: "An evidence-backed result"}
+  Episode:            {description: "A unit of memory change (document version, change, manual note)"}
+  Application:        {description: "A deployed/deployable software product"}
+  InfrastructureComponent: {description: "Server, cloud resource, container, network piece"}
+
+# Every node carries: id, name, type, project_id, summary, status, valid_from, valid_to, observed_at,
+# source_id, episode_id, confidence, engine (deterministic|native|graphiti)
+
+relationship_types:
+  structural:      # deterministic; produced without an LLM
+    PART_OF:       {from: [SubProject, Document, Task, Requirement], to: [Project, SubProject]}
+    BELONGS_TO:    {from: [Document, Repository, Source, Dataset, Experiment, Decision], to: [Project, SubProject]}
+    STORED_ON:     {from: [Source, Repository], to: [Device]}
+    HAS_SOURCE:    {from: [Document, Decision, Requirement, Task, ResearchFinding, Episode], to: [Source]}
+    MENTIONS:      {from: [Document, Episode], to: ["*"]}
+    LINKS_TO:      {from: [Document], to: [Document]}
+    DERIVED_FROM:  {from: [Decision, Requirement, Task, ResearchFinding, Concept], to: [Episode]}
+  semantic:        # LLM-extracted; carry confidence
+    USES:          {from: [Project, SubProject, Application, Experiment, Repository], to: [Technology, Dataset, Concept]}
+    DEPENDS_ON:    {from: [Project, SubProject, Application, InfrastructureComponent, Task], to: ["*"]}
+    RELATED_TO:    {from: ["*"], to: ["*"]}
+    IMPLEMENTS:    {from: [Repository, Application, Project], to: [Concept, Requirement, Decision]}
+    SUPPORTS:      {from: [ResearchFinding, Experiment, Document], to: [Decision, Concept, Requirement]}
+    CONTRADICTS:   {from: [ResearchFinding, Experiment, Document, Decision], to: [Decision, ResearchFinding, Concept]}
+    PRODUCES:      {from: [Project, Experiment, Task], to: [Dataset, Document, Application, ResearchFinding]}
+    REQUIRES:      {from: [Project, Task, Requirement, Decision], to: [Technology, Requirement, Task]}
+    CREATED_BY:    {from: ["*"], to: [Person, Organization]}
+    GENERATED_BY:  {from: [Document, Dataset, ResearchFinding], to: [Experiment, Task, Application]}
+  temporal:
+    SUPERSEDES:    {from: [Decision, Requirement, Task, ResearchFinding], to: [Decision, Requirement, Task, ResearchFinding]}
+    DECIDED_IN:    {from: [Decision], to: [Episode]}
+
+# Predicates whose (subject, predicate) admits a single current object. A new fact closes the old one.
+functional_predicates: [HAS_STATUS, HAS_OWNER, USES_ARCHITECTURE, DEPLOYED_ON, HAS_STAGE, SELECTED_OPTION]
+
+# Every relationship carries: fact_id, valid_from, valid_to, observed_at, confidence, episode_id, source_id, engine
+
+artifact_types: [decision, requirement, task, finding, hypothesis, experiment, summary]
+artifact_status: [current, superseded, historical, unconfirmed, proposed, done, abandoned]
+episode_types: [document, document_change, registry, manual, mcp]
+tracks: [business, research, career, foundation]

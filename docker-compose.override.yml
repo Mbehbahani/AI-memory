@@ -1,0 +1,46 @@
+# Dev override (auto-loaded by `docker compose`). Adds loopback-only exposure of the databases and
+# Ollama for inspection (Neo4j Browser, psql, ollama CLI) and a `tools` profile with a test runner.
+# Everything here binds to 127.0.0.1 only. Do not use this file for any non-local deployment.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+
+  neo4j:
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+
+  ollama:
+    ports:
+      - "127.0.0.1:11434:11434"
+
+  embedding-service:
+    ports:
+      - "127.0.0.1:8010:8010"
+
+  tools:
+    build:
+      context: .
+      dockerfile: infra/docker/tools.Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      OLLAMA_URL: ${OLLAMA_URL}
+      EMBED_URL: ${EMBED_URL}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+    volumes:
+      - .:/workspace
+      - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
+    working_dir: /workspace
+    networks: [ai-memory-net]
+    command: ["pytest", "-q"]

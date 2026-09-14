@@ -1,0 +1,42 @@
+# Allowed source roots. Copy to config/source-roots.yaml (git-ignored) and adjust.
+# Host paths are NOT stored here — they come from .env and the Compose volume mounts.
+# Container paths are stable and appear in URIs only through the scheme+root label.
+version: 0.1.0
+device_id: local-development-machine
+
+roots:
+  - root_id: vault
+    scheme: vault                      # vault://my-vault/<relative path>
+    label: my-vault
+    container_path: /sources/vault
+    enabled: true
+    default_policy: INDEX_CONTENT
+    default_project_id: null           # resolved per note from vault structure and registry
+    registry_role: bootstrap           # this root seeds the project registry (Tier 0)
+    origin_overrides:
+      - {path: "Clippings/", origin: external, trust: low}
+    mirror_paths:
+      - "AIOS/me.md"
+      - "AIOS/Maps/project-graph.md"
+    exclude_extra:
+      - ".claude/"
+      - ".obsidian/"
+      - "prompt"
+
+  - root_id: joblab-de
+    scheme: localfs                    # localfs://local-development-machine/joblab-de/<relative path>
+    label: joblab-de
+    container_path: /sources/joblab-de
+    enabled: true
+    default_policy: INDEX_CONTENT
+    default_project_id: joblab-lakehouse
+    kind: git                          # HEAD commit + branch recorded as version metadata
+    priority_paths: ["docs/", "README.md", "AGENTS.md", "src/", "tests/"]
+    exclude_extra:
+      - "tools-cache/"
+      - "Tableau/"
+      - "data/"
+
+  # Future roots (disabled until enabled by the owner; must also be mounted in docker-compose):
+  - {root_id: senior-ai-eng, scheme: localfs, label: senior-ai-eng, container_path: /sources/senior-ai-eng, enabled: false, default_policy: INDEX_CONTENT, default_project_id: senior-ai-engineering}
+  - {root_id: jobpilot,      scheme: git,     label: jobpilot,      container_path: /sources/jobpilot,      enabled: false, default_policy: INDEX_CONTENT, default_project_id: jobpilot}

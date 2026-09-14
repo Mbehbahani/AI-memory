@@ -1,0 +1,29 @@
+# Hybrid retrieval parameters (Memory Gateway). Keep simple; tune from tests/evaluation results.
+version: 0.1.0
+
+candidates:
+  semantic_top_k: 40
+  keyword_top_k: 40
+  fused_top_k: 15
+  final_k: 10
+
+fusion:
+  method: rrf
+  rrf_k: 60
+
+boosts:
+  project_match: 0.10
+  entity_linked: 0.10
+  unconfirmed_penalty: -0.15
+  recency_half_life_days: 180
+
+graph_expansion:
+  enabled: true
+  max_depth: 1
+  max_nodes: 25
+  relationship_types: [USES, DEPENDS_ON, RELATED_TO, IMPLEMENTS, SUPPORTS, CONTRADICTS, PRODUCES, REQUIRES, SUPERSEDES, PART_OF, BELONGS_TO]
+
+context:
+  token_budget: 6000
+  block_order: [project_summary, current_facts, decisions, evidence_chunks, related_entities]
+  citation_format: "[{source_uri}#{heading} @{hash8}]"

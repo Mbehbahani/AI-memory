@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "aimemory/extraction/episode_extraction/v0.1",
+  "title": "EpisodeExtraction",
+  "description": "Call 1 of the native engine: classification + entities + knowledge artifacts + summary for one episode. Passed verbatim to Ollama `format` for grammar-constrained decoding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc_kind", "summary", "entities", "artifacts"],
+  "properties": {
+    "doc_kind": {
+      "type": "string",
+      "enum": ["decision_record", "specification", "design_doc", "notes", "readme", "source_code", "test", "config", "tutorial", "article", "clipping", "registry", "career", "research", "other"]
+    },
+    "summary": {"type": "string", "maxLength": 600},
+    "entities": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 120},
+          "type": {"type": "string", "enum": ["Project", "SubProject", "Person", "Organization", "Technology", "Concept", "Document", "Repository", "Decision", "Requirement", "Task", "Experiment", "Dataset", "ResearchFinding", "Application", "InfrastructureComponent"]},
+          "aliases": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+          "description": {"type": "string", "maxLength": 300}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_type", "title", "statement"],
+        "properties": {
+          "artifact_type": {"type": "string", "enum": ["decision", "requirement", "task", "finding", "hypothesis", "experiment"]},
+          "title": {"type": "string", "minLength": 3, "maxLength": 160},
+          "statement": {"type": "string", "minLength": 3, "maxLength": 1200},
+          "status": {"type": "string", "enum": ["current", "proposed", "done", "abandoned", "superseded", "unknown"]},
+          "date_if_stated": {"type": ["string", "null"], "description": "ISO-8601 date if the text states when this became true; otherwise null"},
+          "supersedes_if_stated": {"type": ["string", "null"], "description": "Title of an earlier decision/requirement this replaces, only if the text says so"},
+          "related_entities": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+          "evidence_quote": {"type": "string", "maxLength": 300}
+        }
+      }
+    }
+  }
+}

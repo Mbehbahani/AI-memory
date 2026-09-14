@@ -1,0 +1,266 @@
+# AI Memory V0.1 — base Compose topology (production-shaped: minimal host exposure).
+# Dev conveniences (loopback exposure of DBs/Ollama, tools/viz profiles) live in docker-compose.override.yml.
+# STATUS: contract draft written at scaffold time. Build contexts under apps/ do not exist yet;
+# A03 (Infra & Docker) makes this file runnable in P3. Image tags are pinned by A03 in P3.
+
+name: ai-memory
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-common-env: &common-env
+  DEVICE_ID: ${DEVICE_ID:-local-development-machine}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
+
+networks:
+  ai-memory-net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  ollama_models:
+  ingestion_state:
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [ai-memory-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  neo4j:
+    image: neo4j:${NEO4J_IMAGE_TAG:-5.26-community}
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP_MAX:-512M}
+      NEO4J_server_memory_pagecache_size: ${NEO4J_PAGECACHE:-256M}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - ./infra/neo4j/schema:/schema:ro
+    networks: [ai-memory-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    stop_grace_period: 30s
+    logging: *default-logging
+
+  ollama:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_CONTEXT_LENGTH: ${LLM_NUM_CTX:-8192}
+    volumes:
+      - ollama_models:/root/.ollama
+    networks: [ai-memory-net]
+    deploy:
+      resources:
+        limits:
+          cpus: ${OLLAMA_CPUS:-3.0}
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    logging: *default-logging
+
+  ollama-init:
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-latest}
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+    volumes:
+      - ollama_models:/root/.ollama
+      - ./infra/ollama:/init:ro
+    entrypoint: ["/bin/sh", "/init/pull-model.sh"]
+    networks: [ai-memory-net]
+    logging: *default-logging
+
+  embedding-service:
+    build:
+      context: .
+      dockerfile: apps/embedding-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      EMBED_MODEL_ID: ${EMBED_MODEL_ID}
+      EMBED_BATCH_SIZE: ${EMBED_BATCH_SIZE:-32}
+      EMBED_MAX_SEQ: ${EMBED_MAX_SEQ:-256}
+      TORCH_NUM_THREADS: ${TORCH_NUM_THREADS:-2}
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    networks: [ai-memory-net]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8010/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    logging: *default-logging
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/ingestion/Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      NEO4J_READONLY_USER: ${NEO4J_READONLY_USER}
+      NEO4J_READONLY_PASSWORD: ${NEO4J_READONLY_PASSWORD}
+    command: ["aimemory-ingest", "migrate"]
+    networks: [ai-memory-net]
+    logging: *default-logging
+
+  ingestion:
+    # Always-on worker (ADR-0011): polls run_requests and executes scans serially. Idle ~0.2 GB (ESTIMATED).
+    # One-off CLI use: docker compose exec ingestion aimemory-ingest run --root vault
+    build:
+      context: .
+      dockerfile: apps/ingestion/Dockerfile
+    restart: unless-stopped
+    command: ["aimemory-ingest", "worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      OLLAMA_URL: ${OLLAMA_URL}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+      LLM_NUM_CTX: ${LLM_NUM_CTX:-8192}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
+      EMBED_URL: ${EMBED_URL}
+      INGEST_LLM_CONCURRENCY: ${INGEST_LLM_CONCURRENCY:-1}
+      INGEST_EMBED_CONCURRENCY: ${INGEST_EMBED_CONCURRENCY:-2}
+      INGEST_MAX_TEXT_BYTES: ${INGEST_MAX_TEXT_BYTES:-2097152}
+      MEMORY_SOURCE_ROOTS_FILE: /app/config/source-roots.yaml
+    volumes:
+      # Read-only source roots. Container paths are stable; host paths come from .env.
+      - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
+      - ${HOST_PILOT_ROOT:?set HOST_PILOT_ROOT in .env}:/sources/joblab-de:ro
+      - ./config:/app/config:ro
+      - ./.memoryignore:/app/.memoryignore:ro
+      - ingestion_state:/state
+    networks: [ai-memory-net]
+    logging: *default-logging
+
+  memory-api:
+    build:
+      context: .
+      dockerfile: apps/memory-api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      embedding-service:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: ${DATABASE_URL}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_READONLY_USER}
+      NEO4J_PASSWORD: ${NEO4J_READONLY_PASSWORD}
+      EMBED_URL: ${EMBED_URL}
+      GATEWAY_WRITE_ENABLED: ${GATEWAY_WRITE_ENABLED:-false}
+    ports:
+      - "127.0.0.1:${MEMORY_API_HOST_PORT:-8000}:8000"
+    networks: [ai-memory-net]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    logging: *default-logging
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      memory-api:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      MEMORY_API_URL: ${MEMORY_API_URL:-http://memory-api:8000}
+      MCP_WRITE_ENABLED: ${MCP_WRITE_ENABLED:-false}
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-streamable-http}
+    ports:
+      - "127.0.0.1:${MCP_HOST_PORT:-8020}:8020"
+    networks: [ai-memory-net]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8020/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    logging: *default-logging
+
+  neodash:
+    image: neo4jlabs/neodash:${NEODASH_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    profiles: ["viz"]
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      ssoEnabled: "false"
+      standalone: "true"
+      standaloneProtocol: bolt
+      standaloneHost: localhost
+      standalonePort: "7687"
+      standaloneDatabase: neo4j
+      standaloneDashboardName: "AI Memory"
+      standaloneDashboardDatabase: neo4j
+    ports:
+      - "127.0.0.1:${NEODASH_HOST_PORT:-5005}:5005"
+    networks: [ai-memory-net]
+    logging: *default-logging
