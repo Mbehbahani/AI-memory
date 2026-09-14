@@ -121,11 +121,19 @@ class Neo4jSettings(BaseSettings):
 
 
 class LLMSettings(BaseSettings):
-    """Extraction model (plan section M). Only ``ollama`` exists in V0.1; no cloud fallback."""
+    """Extraction model (plan section M, amended by ADR-0012).
+
+    Two providers are built and compared, neither privileged: ``ollama`` (``qwen3:4b``, local and
+    offline) and ``bedrock`` (Claude Haiku 4.5 via the US inference profile). ``ollama`` is the
+    *default* so a checkout with no AWS credentials still runs fully offline - that is a default, not
+    a preference. Selecting ``bedrock`` sends source text to AWS; see ADR-0012 for the consequences.
+    """
 
     model_config = _BASE
 
-    provider: Literal["ollama"] = Field(default="ollama", validation_alias="LLM_PROVIDER")
+    provider: Literal["ollama", "bedrock"] = Field(
+        default="ollama", validation_alias="LLM_PROVIDER"
+    )
     model: str = Field(default="qwen3:4b", validation_alias="LLM_MODEL")
     ollama_url: str = Field(default="http://ollama:11434", validation_alias="OLLAMA_URL")
     num_ctx: int = Field(default=8192, ge=512, validation_alias="LLM_NUM_CTX")
@@ -134,6 +142,24 @@ class LLMSettings(BaseSettings):
     timeout_seconds: int = Field(default=300, ge=1, validation_alias="LLM_TIMEOUT_SECONDS")
     max_retries: int = Field(default=2, ge=0, le=5, validation_alias="LLM_MAX_RETRIES")
     keep_alive: str = Field(default="5m", validation_alias="OLLAMA_KEEP_ALIVE")
+
+    # --- Bedrock (ADR-0012). Unused when provider == "ollama". -------------------------------
+    # Credentials are never held here: boto3's standard chain resolves them (mounted ~/.aws, or
+    # AWS_* environment). Nothing AWS-related is ever logged or written to an image.
+    bedrock_model_id: str = Field(
+        default="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        validation_alias="BEDROCK_MODEL_ID",
+        description=(
+            "Inference-profile id, not the bare model id. MEASURED 2026-09-14: the bare id "
+            "'anthropic.claude-haiku-4-5-20251001-v1:0' returns ValidationException "
+            "(on-demand throughput unsupported)."
+        ),
+    )
+    bedrock_region: str = Field(default="us-east-1", validation_alias="BEDROCK_REGION")
+    bedrock_profile: str | None = Field(default=None, validation_alias="AWS_PROFILE")
+    bedrock_max_tokens: int = Field(
+        default=4096, ge=256, validation_alias="BEDROCK_MAX_TOKENS"
+    )
 
 
 class EmbeddingSettings(BaseSettings):
