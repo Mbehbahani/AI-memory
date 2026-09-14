@@ -40,3 +40,13 @@ Not registry pins (nothing is pushed anywhere in V0.1) but recorded here for com
 Total of the five built images: 335 + 368 + 370 + 527 + 2450 ≈ 4.05 GB (MEASURED), inside the plan's
 4-5 GB ESTIMATED budget for "Images" (plan §Z), before the pulled `postgres`/`neo4j`/`ollama`/`neodash`
 images above (which are separate infra images, not built).
+
+## Models (added by A00, P3-T02 verification, 2026-09-14)
+
+| Model | Served by | Size | Id / digest | Pulled |
+|---|---|---|---|---|
+| `qwen3:4b` | `ollama/ollama:0.34.0` | 2.5 GB (MEASURED, `ollama list`) | `359d7dd4bcda` (MEASURED) | 2026-09-14 |
+| `sentence-transformers/all-MiniLM-L6-v2` | `ai-memory-embedding-service` (baked into the image at build) | 384-d | HF revision `1110a243fdf4706b3f48f1d95db1a4f5529b4d41` (MEASURED, reported by `/health`) | baked 2026-09-14 |
+
+The MiniLM revision hash is the model identity that must be written to `embedding_models` (A04/A06)
+so retrieval never mixes vectors from two revisions.

@@ -50,9 +50,9 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P3-T01 | postgres (pgvector) + neo4j up, healthy, pinned, loopback-only | A03 | P2-T02 | compose, `infra/postgres/init`, `reports/image-pins.md` | `docker compose ps`, `netstat` | healthy; 127.0.0.1 only | port conflict → change host port in `.env`; report | todo |
-| P3-T02 | ollama + `ollama-init` pulls `qwen3:4b`; pinned | A03 | P2-T02 | compose, `infra/ollama` | `ollama list` inside container | model present; digest recorded | pull failure → retry; network issue → BLOCKER | todo |
-| P3-T03 | embedding-service image with baked MiniLM, offline, health | A06 | P2-T02 | `apps/embedding-service`, `providers/embedding` | health + `--network none` test | 384-d, offline | HF download failure at build → retry; report | todo |
+| P3-T01 | postgres (pgvector) + neo4j up, healthy, pinned, loopback-only | A03 | P2-T02 | compose, `infra/postgres/init`, `reports/image-pins.md` | `docker compose ps`, `netstat` | healthy; 127.0.0.1 only | port conflict → change host port in `.env`; report | done 2026-09-14 (verified by A00; see reports/infra-bringup.md) |
+| P3-T02 | ollama + `ollama-init` pulls `qwen3:4b`; pinned | A03 | P2-T02 | compose, `infra/ollama` | `ollama list` inside container | model present; digest recorded | pull failure → retry; network issue → BLOCKER | done 2026-09-14 (verified by A00; digest 359d7dd4bcda) |
+| P3-T03 | embedding-service image with baked MiniLM, offline, health | A06 | P2-T02 | `apps/embedding-service`, `providers/embedding` | health + `--network none` test | 384-d, offline | HF download failure at build → retry; report | done 2026-09-14 (code A06, verified by A00; provider unit/integration tests still owed) |
 
 ## Phase 4 — Local AI Validation (Lane A)
 
