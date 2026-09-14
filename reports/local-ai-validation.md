@@ -2,10 +2,10 @@
 
 Phase **P4** · owner A05 · this file currently holds only what has actually been measured.
 
-> **Status: INCOMPLETE.** The P4-T02 measurement campaign (20 runs, realistic ~800-token episodes,
-> RAM with the model resident) and the P4-T04 Graphiti gate have **not** run — A05 was terminated by
-> an API rate limit twice. What follows is what A00 measured directly. Nothing here is estimated or
-> inferred from an agent's unfinished claims.
+> **Status: P4-T02 COMPLETE, P4-T04 INCOMPLETE.** The measurement campaign ran to completion for both
+> providers (n=20 each). The Graphiti gate did **not** produce a verdict — see `reports/graphiti-gate.md`.
+> A05 gathered the P4-T02 data but was terminated by an API rate limit before writing it up; A00 wrote
+> the analysis below directly from the raw result files, which are committed.
 
 ---
 
@@ -87,13 +87,111 @@ are directly comparable.
 
 ---
 
+## P4-T02 — measurement campaign, both providers, n=20 (MEASURED 2026-09-14/15)
+
+Harness `tests/evaluation/local_ai/run_benchmark.py`; raw results
+`tests/evaluation/local_ai/results/bench-{ollama,bedrock}-p4t02.json`. **20 real my-vault episodes,
+identical for both providers**, frozen `episode_extraction.schema.json`; plus 10 relationship
+episodes against `relationship_extraction.schema.json`. Validator: `jsonschema 4.26.0`.
+Expected entities and relationships were hand-listed per episode *before* the runs
+(`benchmark_expectations.py`).
+
+| Metric | `qwen3:4b` (Ollama, local) | Claude Haiku 4.5 (Bedrock) | Label |
+|---|---|---|---|
+| **first-pass JSON validity** | **95.0 %** (19/20) | **95.0 %** (19/20) | MEASURED |
+| validity after retries | 95.0 % (19/20) | **100.0 %** (20/20) | MEASURED |
+| failed outright | 1 (truncated at `num_predict=1024`) | 0 | MEASURED |
+| transport failures | 0 | 0 | MEASURED |
+| **median s / episode** | **174.43** | **7.74** | MEASURED |
+| p90 s / episode | 219.87 | 9.46 | MEASURED |
+| min / max s | 127.48 / 895.06 | 5.02 / 10.71 | MEASURED |
+| **mean entity recall** | **68.9 %** | **68.9 %** | MEASURED |
+| median entity recall | 71.4 % | 69.0 % | MEASURED |
+| **entity-type correctness** | **85.7 %** (19 type errors) | **91.8 %** (11 type errors) | MEASURED |
+| **mean relationship recall** | **40.2 %** | **61.2 %** | MEASURED |
+| relationship first-pass validity | 5/10 | 9/10 | MEASURED |
+| relationship final validity | 7/10 | 10/10 | MEASURED |
+| median s / relationship call | 347.12 | 5.08 | MEASURED |
+
+**Both providers clear the 70 % first-pass-validity stop rule** (95 % each). Schema validity is
+*not* the discriminator — it is a tie. The differences are in **relationship extraction**
+(40.2 % vs 61.2 %) and **speed** (22.5x on episodes, 68x on relationship calls).
+
+### The stop-rule-adjacent finding: relationship recall
+
+Plan §O criterion **C3 requires >= 50 % of expected relationships**. `qwen3:4b` scores **40.2 %** —
+**below that bar**. Haiku scores 61.2 % and clears it. Entity recall is identical at 68.9 % for both
+(C3's >= 60 % entity bar is met by both). So on the plan's own quality thresholds, the local model
+passes on entities and **fails on relationships**, which are exactly what makes the graph a graph
+rather than a list of nouns.
+
+### Qwen3 4B throughput degrades with context — the plan's estimate does not hold
+
+Size sweep on one episode at three lengths (MEASURED):
+
+| Prompt size | prompt tokens | prompt tok/s | gen tok/s | wall |
+|---|---|---|---|---|
+| 800 chars | 460 | 32.39 | **6.57** | 67.8 s |
+| 3,200 chars | 1,114 | 30.35 | **4.26** | 214.3 s |
+| 8,000 chars | 2,064 | 19.83 | **3.31** | 376.5 s |
+
+At realistic episode length (median prompt **1,077 tokens**) the campaign measured
+**31.87 prompt tok/s and 5.37 generation tok/s**. Plan §Z ESTIMATED "8-12 tok/s gen" — the real
+figure at working context is **3.3-6.6 tok/s**, roughly **half**. The earlier 9.2 tok/s figure came
+from a 20-token generation and does not generalise, as flagged when it was recorded.
+
+### Ollama RAM with the model resident — was UNKNOWN, now MEASURED
+
+`docker stats` sampled 300 times across the run
+(`tests/evaluation/local_ai/results/docker-stats.log`):
+
+| | value |
+|---|---|
+| min | 3.70 GiB |
+| median | **8.01 GiB** |
+| p90 | 10.82 GiB |
+| **max** | **11.37 GiB** |
+
+Plan §Z ESTIMATED "Ollama + qwen3:4b loaded (8k ctx): 4-5.5 GB". The MEASURED peak is **11.37 GiB,
+about 2x the estimate.** With the VM ceiling at 15.46 GiB and the other three services drawing
+~1.2 GiB, extraction runs leave roughly 3 GiB of headroom at p90.
+
+> **This retroactively validates the owner's AC-9 decision.** AC-9 (cap WSL2 at 12 GB) was declined.
+> Had it been applied, ollama alone at p90 (10.82 GiB) plus the rest of the stack would have exceeded
+> the cap and extraction would have OOM-killed. **Do not apply a 12 GB cap while local extraction is
+> in use.** ESTIMATED minimum safe cap if one is ever wanted: 14 GB.
+
+### Bedrock cost — MEASURED, and higher than the earlier estimate
+
+| | value |
+|---|---|
+| tokens in / out (20 episodes + 10 relationship calls) | 54,088 / 22,366 |
+| cost, first call per episode | $0.16592 |
+| **cost, all calls** | **$0.23797** |
+| **per episode (first call)** | **$0.008296** |
+| price basis | $1.00 / MTok in, $5.00 / MTok out |
+
+Extrapolated to the vault's ESTIMATED ~200 episodes: **~$1.66** (ESTIMATED, from the MEASURED
+per-episode cost), not the "< $1" figure estimated in ADR-0012 before the campaign. Still
+negligible, but the ADR-0012 estimate is corrected here rather than left standing.
+
+### Type errors are systematic, not random
+
+Both providers confuse the vault's PARA folders (`00 Inbox`, `01 Projects`, `06 Outputs`) for
+structural entities — qwen3 calls them `Repository`, Haiku calls them `InfrastructureComponent`;
+both should be `Document|Concept`. Both mistype `Personal Harness` as `Technology`. qwen3 additionally
+mistyped a person (`Mbehbahani` -> `Organization`, `Mohammad` -> `InfrastructureComponent`) and
+repeatedly typed tools as `Project` (`GitHub Copilot`, `Claude Code`, `OpenClaw`).
+
+Two consequences for A08 (P8-T03): deterministic-first entity resolution must (a) seed the PARA
+folder names as known `Document`/`Concept` entities so neither model gets a vote on them, and
+(b) treat a `Person` misclassification as a repair case, since a person typed as an `Organization`
+corrupts ownership edges.
+
+---
+
 ## Still owed (P4)
 
 | Item | Task | Why it matters |
 |---|---|---|
-| 20-run JSON-schema validity per provider, on ~800-token episodes | P4-T02 | The **stop rule**: first-pass validity < 70 % for the selected provider is a BLOCKER |
-| Prompt-eval tok/s at realistic context length | P4-T02 | The 28.5 tok/s above is from a 95-token prompt; prompt eval dominates real episodes and determines whether tiering holds |
-| Ollama container RSS with the model **resident** | P4-T02 | Currently **UNKNOWN**; §Z needs it. The 44 MiB figure in `infra-bringup.md` is post-unload |
-| Entity/relationship recall against hand-listed expectations | P4-T02 / ADR-0012 | The n=1 evidence above suggests the providers differ most in *quality*, not just speed |
 | Graphiti gate C1–C6 and the ADR-0009 verdict | P4-T04 | Decides whether A08 builds on Graphiti or the native engine |
-| Cost per episode on Bedrock | ADR-0012 | ESTIMATED < $1 for the whole vault; should be measured once over the benchmark set |
