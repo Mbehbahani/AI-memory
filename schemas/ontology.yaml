@@ -4,7 +4,7 @@ version: 0.1.0
 
 node_types:
   Project:            {description: "A top-level initiative with an output and a goal", functional: [HAS_STATUS, HAS_OWNER]}
-  SubProject:         {description: "A Project with a parent Project (same label + parent_id)", functional: [HAS_STATUS]}
+  SubProject:         {description: "A Project with a parent Project (same label + parent_id)", functional: [HAS_STATUS], stored_as: Project}
   Person:             {description: "A human (the owner or a collaborator)"}
   Organization:       {description: "Company, university, community"}
   Technology:         {description: "Library, framework, platform, language, service", aliases_seed: config/technology-aliases.yaml}
@@ -23,8 +23,11 @@ node_types:
   Application:        {description: "A deployed/deployable software product"}
   InfrastructureComponent: {description: "Server, cloud resource, container, network piece"}
 
-# Every node carries: id, name, type, project_id, summary, status, valid_from, valid_to, observed_at,
-# source_id, episode_id, confidence, engine (deterministic|native|graphiti)
+# Properties every projected node carries (plan section H). `required` must be non-null on write;
+# the rest may be null when unknown. The loader validates a node payload against this list.
+node_properties:
+  required: [id, name, type, observed_at, engine]
+  optional: [project_id, summary, status, valid_from, valid_to, source_id, episode_id, confidence]
 
 relationship_types:
   structural:      # deterministic; produced without an LLM
@@ -53,7 +56,10 @@ relationship_types:
 # Predicates whose (subject, predicate) admits a single current object. A new fact closes the old one.
 functional_predicates: [HAS_STATUS, HAS_OWNER, USES_ARCHITECTURE, DEPLOYED_ON, HAS_STAGE, SELECTED_OPTION]
 
-# Every relationship carries: fact_id, valid_from, valid_to, observed_at, confidence, episode_id, source_id, engine
+# Properties every projected relationship carries (plan section H).
+relationship_properties:
+  required: [fact_id, valid_from, observed_at, engine]
+  optional: [valid_to, confidence, episode_id, source_id]
 
 artifact_types: [decision, requirement, task, finding, hypothesis, experiment, summary]
 artifact_status: [current, superseded, historical, unconfirmed, proposed, done, abandoned]

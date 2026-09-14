@@ -1,30 +1,224 @@
 {
-  "$comment": "MCP tool contract for apps/mcp-server. Read tools never return raw file bytes. Write tools are disabled unless MCP_WRITE_ENABLED=true, require confirm=true, are audited and append-only.",
+  "$comment": "MCP tool contract for apps/mcp-server (plan section R, ADR-0008). 10 read tools + 2 write tools. Read tools never return raw file bytes. Write tools are disabled unless MCP_WRITE_ENABLED=true AND GATEWAY_WRITE_ENABLED=true, require confirm=true, are rate-limited, size-limited, audited in mcp_audit_log, and append-only. Owned by A02; frozen after P1 (changes require an ADR). Consumers: A10 (implementation), A12 (tests assert the served tool list equals this file), A14 (docs).",
   "version": "0.1.0",
+  "counts": {"read": 10, "write": 2},
   "tools": [
-    {"name": "memory.search", "kind": "read", "input": {"query": "string", "project_ids": "string[]?", "types": "string[]?", "as_of": "date-time?", "since": "date-time?", "k": "int?=10", "expand": "bool?=true"}, "output": "SearchResult{items[], context, provenance[]}"},
-    {"name": "memory.get_project", "kind": "read", "input": {"id_or_name": "string"}, "output": "Project + subprojects + current facts summary"},
-    {"name": "memory.get_entity", "kind": "read", "input": {"id_or_name": "string", "type": "string?"}, "output": "Entity + current facts + provenance"},
-    {"name": "memory.get_related", "kind": "read", "input": {"entity": "string", "relationship_types": "string[]?", "depth": "int?=1 (max 2)", "as_of": "date-time?"}, "output": "Neighbours with facts and validity"},
-    {"name": "memory.get_decisions", "kind": "read", "input": {"project_id": "string?", "include_superseded": "bool?=false"}, "output": "Decision artifacts ordered by valid_from"},
-    {"name": "memory.get_timeline", "kind": "read", "input": {"project_id": "string?", "entity": "string?", "from": "date-time?", "to": "date-time?"}, "output": "Ordered events: facts, decisions, source changes"},
-    {"name": "memory.get_sources", "kind": "read", "input": {"object_id": "string"}, "output": "Provenance chain: artifact/fact -> episode -> version -> source -> root/device (+ models, run)"},
-    {"name": "memory.explain", "kind": "read", "input": {"object_id": "string"}, "output": "Alias of get_sources with a human-readable explanation"},
-    {"name": "memory.get_artifact", "kind": "read", "input": {"artifact_id": "string"}, "output": "Knowledge artifact with supersession chain"},
-    {"name": "memory.get_current_state", "kind": "read", "input": {"project_id": "string"}, "output": "Status, current facts, open tasks, latest decisions, last ingestion, coverage"},
-    {"name": "memory.add_episode", "kind": "write", "input": {"text": "string (<= 8000 chars)", "project_id": "string?", "occurred_at": "date-time?", "confirm": "bool (must be true)"}, "output": "episode_id; queued for extraction; origin=mcp"},
-    {"name": "memory.record_decision", "kind": "write", "input": {"title": "string", "statement": "string", "project_id": "string", "supersedes_artifact_id": "string?", "valid_from": "date-time?", "confirm": "bool (must be true)"}, "output": "artifact_id; append-only; supersession link if given"}
+    {
+      "name": "memory.search",
+      "kind": "read",
+      "title": "Search memory",
+      "description": "Hybrid (vector + keyword + graph) search over chunks and knowledge artifacts, scoped by project and time, returning cited hits and an assembled context block.",
+      "gateway": "POST /v1/search",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query"],
+        "properties": {
+          "query": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "project_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
+          "types": {"type": "array", "items": {"type": "string", "enum": ["chunk", "artifact", "fact", "entity", "episode", "source"]}, "maxItems": 6},
+          "as_of": {"type": ["string", "null"], "description": "ISO-8601 instant; point-in-time view (ADR-0005)"},
+          "since": {"type": ["string", "null"], "description": "ISO-8601 instant; only sources observed after this"},
+          "k": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+          "expand": {"type": "boolean", "default": true, "description": "Graph expansion; false = vector+keyword only"}
+        }
+      },
+      "output": "SearchResult{hits[], related_entities[], context, provenance[], warnings[]}"
+    },
+    {
+      "name": "memory.get_project",
+      "kind": "read",
+      "title": "Get project",
+      "description": "One project from the registry with its sub-projects and a summary of its current facts.",
+      "gateway": "GET /v1/projects/{id}",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id_or_name"],
+        "properties": {"id_or_name": {"type": "string", "minLength": 1, "maxLength": 200}}
+      },
+      "output": "Project + subprojects[] + current facts summary"
+    },
+    {
+      "name": "memory.get_entity",
+      "kind": "read",
+      "title": "Get entity",
+      "description": "One resolved entity with its current facts and full provenance.",
+      "gateway": "GET /v1/entities/{id}",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id_or_name"],
+        "properties": {
+          "id_or_name": {"type": "string", "minLength": 1, "maxLength": 200},
+          "type": {"type": ["string", "null"], "description": "Ontology label to disambiguate"}
+        }
+      },
+      "output": "Entity + facts[] + provenance[]"
+    },
+    {
+      "name": "memory.get_related",
+      "kind": "read",
+      "title": "Get related entities",
+      "description": "Graph neighbours of an entity with the connecting facts and their validity windows.",
+      "gateway": "GET /v1/related",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entity"],
+        "properties": {
+          "entity": {"type": "string", "minLength": 1, "maxLength": 200},
+          "relationship_types": {"type": "array", "items": {"type": "string"}, "maxItems": 20},
+          "depth": {"type": "integer", "minimum": 1, "maximum": 2, "default": 1},
+          "as_of": {"type": ["string", "null"]}
+        }
+      },
+      "output": "RelatedEntity[] with facts and validity"
+    },
+    {
+      "name": "memory.get_decisions",
+      "kind": "read",
+      "title": "Get decisions",
+      "description": "Decision artifacts for a project ordered by valid_from; superseded ones are excluded unless asked for.",
+      "gateway": "GET /v1/decisions",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {"type": ["string", "null"]},
+          "include_superseded": {"type": "boolean", "default": false}
+        }
+      },
+      "output": "KnowledgeArtifact[] (type=decision) ordered by valid_from"
+    },
+    {
+      "name": "memory.get_timeline",
+      "kind": "read",
+      "title": "Get timeline",
+      "description": "Ordered events for a project or entity: facts becoming valid or closing, decisions, and source changes.",
+      "gateway": "GET /v1/timeline",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {"type": ["string", "null"]},
+          "entity": {"type": ["string", "null"]},
+          "from": {"type": ["string", "null"]},
+          "to": {"type": ["string", "null"]}
+        }
+      },
+      "output": "TimelineEvent[] ordered by time"
+    },
+    {
+      "name": "memory.get_sources",
+      "kind": "read",
+      "title": "Get sources",
+      "description": "Provenance chain for any object id: artifact/fact -> episode -> version -> source -> root/device, plus models and run. Returns logical source URIs, never file bytes.",
+      "gateway": "GET /v1/explain/{id}",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object_id"],
+        "properties": {"object_id": {"type": "string", "minLength": 1, "maxLength": 100}}
+      },
+      "output": "ExplainChain{provenance, steps[]}"
+    },
+    {
+      "name": "memory.explain",
+      "kind": "read",
+      "title": "Explain",
+      "description": "Alias of memory.get_sources with a human-readable explanation sentence.",
+      "gateway": "GET /v1/explain/{id}",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["object_id"],
+        "properties": {"object_id": {"type": "string", "minLength": 1, "maxLength": 100}}
+      },
+      "output": "ExplainChain with explanation text"
+    },
+    {
+      "name": "memory.get_artifact",
+      "kind": "read",
+      "title": "Get artifact",
+      "description": "One knowledge artifact with its supersession chain (ADR-0005 rule 6: superseded is a state, not a deletion).",
+      "gateway": "GET /v1/artifacts/{id}",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_id"],
+        "properties": {"artifact_id": {"type": "string", "minLength": 1, "maxLength": 100}}
+      },
+      "output": "KnowledgeArtifact + supersedes/superseded_by chain"
+    },
+    {
+      "name": "memory.get_current_state",
+      "kind": "read",
+      "title": "Get current state",
+      "description": "Project status, current facts, open tasks, latest decisions, last ingestion run and honest coverage (ADR-0006: the graph lags Tier 1).",
+      "gateway": "GET /v1/state",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_id"],
+        "properties": {"project_id": {"type": "string", "minLength": 1, "maxLength": 100}}
+      },
+      "output": "ProjectState{status, facts[], tasks[], decisions[], last_run, coverage}"
+    },
+    {
+      "name": "memory.add_episode",
+      "kind": "write",
+      "title": "Add episode",
+      "description": "Append a manual episode (origin=mcp) queued for extraction. Disabled by default; requires confirm=true; audited; append-only.",
+      "gateway": "POST /v1/episodes",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "confirm"],
+        "properties": {
+          "text": {"type": "string", "minLength": 1, "maxLength": 8000},
+          "project_id": {"type": ["string", "null"]},
+          "occurred_at": {"type": ["string", "null"]},
+          "confirm": {"type": "boolean", "const": true}
+        }
+      },
+      "output": "{episode_id, status: queued}"
+    },
+    {
+      "name": "memory.record_decision",
+      "kind": "write",
+      "title": "Record decision",
+      "description": "Append a decision artifact, optionally superseding an existing one (ADR-0005 rule 2: explicit supersession is authoritative). Disabled by default; requires confirm=true; audited; append-only.",
+      "gateway": "POST /v1/decisions",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "statement", "project_id", "confirm"],
+        "properties": {
+          "title": {"type": "string", "minLength": 3, "maxLength": 160},
+          "statement": {"type": "string", "minLength": 3, "maxLength": 8000},
+          "project_id": {"type": "string", "minLength": 1, "maxLength": 100},
+          "supersedes_artifact_id": {"type": ["string", "null"]},
+          "valid_from": {"type": ["string", "null"]},
+          "confirm": {"type": "boolean", "const": true}
+        }
+      },
+      "output": "{artifact_id, supersedes_artifact_id?}"
+    }
   ],
   "resources": [
-    {"uri": "memory://projects", "description": "Project registry with status and coverage"},
-    {"uri": "memory://project/{id}/state", "description": "Current state of one project"}
+    {"uri": "memory://projects", "name": "Project registry", "description": "Project registry with status and coverage", "mimeType": "application/json"},
+    {"uri": "memory://project/{id}/state", "name": "Project state", "description": "Current state of one project", "mimeType": "application/json"}
   ],
   "safeguards": {
     "write_enabled_env": "MCP_WRITE_ENABLED",
+    "gateway_write_enabled_env": "GATEWAY_WRITE_ENABLED",
     "confirm_required": true,
     "rate_limit_per_minute": 10,
     "max_text_chars": 8000,
     "audit_table": "mcp_audit_log",
-    "append_only": true
+    "append_only": true,
+    "no_raw_file_bytes": true,
+    "no_database_credentials": true
   }
 }

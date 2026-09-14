@@ -11,6 +11,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.venv-contracts/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/

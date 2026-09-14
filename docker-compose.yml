@@ -1,7 +1,8 @@
 # AI Memory V0.1 — base Compose topology (production-shaped: minimal host exposure).
 # Dev conveniences (loopback exposure of DBs/Ollama, tools/viz profiles) live in docker-compose.override.yml.
-# STATUS: contract draft written at scaffold time. Build contexts under apps/ do not exist yet;
-# A03 (Infra & Docker) makes this file runnable in P3. Image tags are pinned by A03 in P3.
+# STATUS: Dockerfiles + pinned image tags done (P2-T02, A03). Image digests recorded in
+# reports/image-pins.md. apps/memory-api, apps/mcp-server application code still pending (P10/P11);
+# their Dockerfiles build successfully but the CMD entrypoint modules do not exist until then.
 
 name: ai-memory
 
@@ -72,7 +73,7 @@ services:
     logging: *default-logging
 
   ollama:
-    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-latest}
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.34.0}
     restart: unless-stopped
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
@@ -94,7 +95,7 @@ services:
     logging: *default-logging
 
   ollama-init:
-    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-latest}
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.34.0}
     restart: "no"
     depends_on:
       ollama:
@@ -245,7 +246,7 @@ services:
     logging: *default-logging
 
   neodash:
-    image: neo4jlabs/neodash:${NEODASH_IMAGE_TAG:-latest}
+    image: neo4jlabs/neodash:${NEODASH_IMAGE_TAG:-2.4.11}
     restart: unless-stopped
     profiles: ["viz"]
     depends_on:

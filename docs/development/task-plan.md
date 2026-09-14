@@ -28,14 +28,14 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P0-T01 | Re-run the read-only audit (OS/CPU/RAM/disk/GPU/Docker/Compose/Git/ports/roots) and record it | A00 | — | `reports/environment-audit.md` | commands + outputs pasted | Docker daemon reachable; ports free; roots readable | Docker down → report BLOCKER (owner starts Docker Desktop) | done (planning audit 2026-09-13; re-run at start) |
+| P0-T01 | Re-run the read-only audit (OS/CPU/RAM/disk/GPU/Docker/Compose/Git/ports/roots) and record it | A00 | — | `reports/environment-audit.md` | commands + outputs pasted | Docker daemon reachable; ports free; roots readable | Docker down → report BLOCKER (owner starts Docker Desktop) | done 2026-09-14 (re-run PASS) |
 
 ## Phase 1 — Architecture Contract
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P1-T01 | Domain models, ports, ontology loader, config; sync with `schemas/` | A02 | P0 | `packages/aimemory/{domain,ontology,common}`, `schemas/` | `pytest tests/unit/test_contracts*` | importable, tested, documented | schema/model mismatch → fix in A02 before handoff | todo |
-| P1-T02 | Architecture docs: data-model, ontology, temporal, retrieval | A02 | P1-T01 | `docs/architecture/*.md` | review by A00 | matches plan; deviations noted | — | todo |
+| P1-T01 | Domain models, ports, ontology loader, config; sync with `schemas/` | A02 | P0 | `packages/aimemory/{domain,ontology,common}`, `schemas/` | `pytest tests/unit/test_contracts*` | importable, tested, documented | schema/model mismatch → fix in A02 before handoff | done 2026-09-14 (157 passed, 1 skipped; container re-verification pending P2-T02) |
+| P1-T02 | Architecture docs: data-model, ontology, temporal, retrieval | A02 | P1-T01 | `docs/architecture/*.md` | review by A00 | matches plan; deviations noted | — | done 2026-09-14 (docs written, deviations noted; A00 review not yet recorded) |
 
 ## Phase 2 — Repository Scaffold
 
