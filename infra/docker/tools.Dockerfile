@@ -8,7 +8,9 @@
 #
 # Dependencies pinned in infra/docker/requirements.lock (same lock as ingestion/memory-api/mcp-server).
 # aimemory is installed editable with the `dev` extra (pytest, pytest-asyncio, ruff, mypy, hypothesis)
-# plus `api`+`mcp` so tests can import the gateway/MCP app code too.
+# plus `api`+`mcp` so tests can import the gateway/MCP app code too, plus `bedrock` (boto3) so tests
+# that exercise the Bedrock provider path, or an ad-hoc `aws sts get-caller-identity` sanity check,
+# can run from this image. See docs/operations/bedrock-extraction.md.
 
 FROM python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
 
@@ -29,7 +31,7 @@ COPY packages/aimemory /workspace/packages/aimemory
 # pip -c constraints files cannot carry extras markers (e.g. uvicorn[standard]); strip them to
 # name==version before using the lock file as a version-pinning constraints file.
 RUN sed -E 's/^([A-Za-z0-9_.-]+)\[[^]]*\]==/\1==/' /tmp/requirements.lock > /tmp/constraints.txt \
-    && pip install --no-cache-dir -c /tmp/constraints.txt -e ".[dev,api,mcp]" \
+    && pip install --no-cache-dir -c /tmp/constraints.txt -e ".[dev,api,mcp,bedrock]" \
     && rm -f /tmp/requirements.lock /tmp/constraints.txt
 
 # The rest of the repo (tests/, apps/, config/, schemas/) is bind-mounted at /workspace by

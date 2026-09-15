@@ -42,9 +42,9 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
 | P2-T01 | Directory tree, root files, compose drafts, config, schemas, ADRs, agents, reports skeleton | A00 | — | (this scaffold) | tree listing | all planned paths exist | — | done 2026-09-13 |
-| P2-T02 | Dockerfiles ×4 + tools image, lock file, `init-env`, scripts skeleton | A03 | P1-T01 | `apps/*/Dockerfile`, `infra/docker/`, `scripts/`, lock file | `docker compose config`; `docker build` each | builds succeed | build failure → pin/adjust deps, retry ≤ 3 | todo |
-| P2-T03 | `git init`, `.gitattributes`, first commit of scaffold | A00 | P2-T01 | `.git` | `git log` | commit exists | — | todo (on START DEVELOPMENT) |
-| P2-T04 | Test scaffolding: `conftest.py`, markers, service-availability skips | A12 | P1-T01 | `tests/conftest.py` | `pytest --collect-only` | collects cleanly | — | todo |
+| P2-T02 | Dockerfiles ×4 + tools image, lock file, `init-env`, scripts skeleton | A03 | P1-T01 | `apps/*/Dockerfile`, `infra/docker/`, `scripts/`, lock file | `docker compose config`; `docker build` each | builds succeed | build failure → pin/adjust deps, retry ≤ 3 | done (reconstructed-from-git) 2026-09-14 — commit `0e65d6d`; commit message asserts all five images build; not independently re-verified by A01. See `reports/image-pins.md` |
+| P2-T03 | `git init`, `.gitattributes`, first commit of scaffold | A00 | P2-T01 | `.git` | `git log` | commit exists | — | done (reconstructed-from-git) — first commit `01337bfdcdf776c92c3f39baa9d2d3404cd1fe57`, 2026-09-14 |
+| P2-T04 | Test scaffolding: `conftest.py`, markers, service-availability skips | A12 | P1-T01 | `tests/conftest.py` | `pytest --collect-only` | collects cleanly | — | done (reconstructed-from-git) — `tests/conftest.py` present (commit `1562ba9`); no isolated collect-only run recorded, but the 2026-09-15 measured full-suite run (428 passed, 1 skipped) collected the whole tree cleanly |
 
 ## Phase 3 — Core Docker Infrastructure
 
@@ -58,10 +58,10 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P4-T01 | OllamaProvider (`format` schema, think off, retries, identity) | A05 | P3-T02, P1-T01 | `providers/llm` | unit (mocked) + live test | port satisfied | — | todo |
-| P4-T02 | Measure Qwen3 4B: load, RAM, tok/s, JSON validity ×20 | A05 | P4-T01 | `reports/local-ai-validation.md` | raw numbers with commands | MEASURED table | validity < 70 % → BLOCKER per stop rule | todo |
-| P4-T03 | Measure MiniLM throughput and RAM | A05/A06 | P3-T03 | same report | raw numbers | MEASURED | — | todo |
-| P4-T04 | Graphiti gate C1–C6; ADR-0009 verdict | A05 | P4-T01, P3-T01, P3-T03 | `reports/graphiti-gate.md`, ADR-0009 | per-criterion results | verdict recorded automatically | graphiti install failure counts as gate fail (recorded) | todo |
+| P4-T01 | OllamaProvider (`format` schema, think off, retries, identity) | A05 | P3-T02, P1-T01 | `providers/llm` | unit (mocked) + live test | port satisfied | — | done (reconstructed-from-git) 2026-09-14 — commit `606d8a3`; passing in the 2026-09-15 428-passed/1-skipped run |
+| P4-T02 | Measure Qwen3 4B: load, RAM, tok/s, JSON validity ×20 | A05 | P4-T01 | `reports/local-ai-validation.md` | raw numbers with commands | MEASURED table | validity < 70 % → BLOCKER per stop rule | done — n=20 both providers, MEASURED 2026-09-14/15 (commits `1562ba9`, `a193e18`); both clear the 70% stop rule (95.0% each); qwen3:4b relationship recall 40.2% fails plan §O C3's ≥50% bar, Haiku 61.2% passes — feeds ADR-0009/ADR-0014 |
+| P4-T03 | Measure MiniLM throughput and RAM | A05/A06 | P3-T03 | same report | raw numbers | MEASURED | — | done — MEASURED (30.7 texts/s @256-batch, p50 14.2ms/p95 21.1ms single-text); commit `a193e18`, report states "P4-T03 is satisfied" |
+| P4-T04 | Graphiti gate C1–C6; ADR-0009 verdict | A05 | P4-T01, P3-T01, P3-T03 | `reports/graphiti-gate.md`, ADR-0009 | per-criterion results | verdict recorded automatically | graphiti install failure counts as gate fail (recorded) | done — **verdict recorded (ADR-0009, native engine), but the live gate itself produced no clean result**: crashed on episode E01 (SDK incompatibility), C1/C3/C4/C5 unmeasured, C6 partial. Verdict rests on independent P4-T02 arithmetic (Ollama branch fails C2 by 4.4–7.3×), not the gate run. See `reports/graphiti-gate.md`, commit `8d54ebc`. Neo4j has uncleaned Graphiti schema residue (24 indexes/18 constraints) — A08/A11 must diff before dropping anything |
 
 ## Phase 5 — Data Model + Migrations (Lane B)
 
@@ -75,27 +75,27 @@ P0 ─► P1 ─► P2 ─┬─► P3-T01 postgres+neo4j ─► P5 (Lane B: A04
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P6-T01 | Policy resolver, `.memoryignore`, secret detector, fixtures | A07b | P1-T01 | `sources/policies.py`, `ignore.py`, `secrets.py`, fixtures | unit + adversarial | all adversarial safe | — | todo |
-| P6-T02 | Extractors + chunkers | A07b | P1-T01 | `extractors/`, `chunking/` | unit tests; bounds on real sample | pass | pdf/docx failure → CATALOG_ONLY with reason | todo |
-| P6-T03 | Discovery, path guard, fingerprint, diff, state machine, CLI | A07a | P5, P6-T01/02, P3-T03 | `apps/ingestion`, `sources/`, `cli/` | memory scenarios | pass | stage failure → job `failed`, resumable | todo |
-| P6-T04 | Change-detection scenario suite | A07a + A12 | P6-T03 | `tests/memory` | pytest -m memory | all 11 scenarios | — | todo |
+| P6-T01 | Policy resolver, `.memoryignore`, secret detector, fixtures | A07b | P1-T01 | `sources/policies.py`, `ignore.py`, `secrets.py`, fixtures | unit + adversarial | all adversarial safe | — | done (reconstructed-from-git) 2026-09-14 — commit `606d8a3`; passing in the 2026-09-15 428-passed/1-skipped run |
+| P6-T02 | Extractors + chunkers | A07b | P1-T01 | `extractors/`, `chunking/` | unit tests; bounds on real sample | pass | pdf/docx failure → CATALOG_ONLY with reason | done (reconstructed-from-git) — built `606d8a3`; a real-vault bounds test failed (264-token chunk vs 250-token assertion, see `reports/test-summary.md`) until fixed in `8e495ca`; passing in the 428-passed/1-skipped run |
+| P6-T03 | Discovery, path guard, fingerprint, diff, state machine, CLI | A07a | P5, P6-T01/02, P3-T03 | `apps/ingestion`, `sources/`, `cli/` | memory scenarios | pass | stage failure → job `failed`, resumable | done (reconstructed-from-git) — partial in `1562ba9` (A07a cut off by rate limit), completed in `2c87f86`; memory scenarios green (428 passed, 1 skipped, measured 2026-09-15) |
+| P6-T04 | Change-detection scenario suite | A07a + A12 | P6-T03 | `tests/memory` | pytest -m memory | all 11 scenarios | — | done — commit `2c87f86`; two scenarios required fixes to reach green (see `reports/test-summary.md`); MEASURED 2026-09-15 in the `tools` image: 428 passed, 1 skipped |
 
 ## Phase 7 — my-vault Ingestion (Tier 0–1)
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P7-T01 | Tier 0 registry seed from `me.md` + `project-graph.md`; aliases | A07a | P6-T03 | `sources/registry.py` | `SELECT count(*) FROM projects` vs table rows | every project row present, tracks correct | parse mismatch → report rows missed | todo |
-| P7-T02 | Tier 1: chunk + embed all INDEX_CONTENT vault sources | A07a | P7-T01 | — | counts in `aimemory-ingest status` | 100 % of INDEX_CONTENT embedded | embed failure → retry batch | todo |
-| P7-T03 | Structural graph projection | A08 | P7-T02, P5-T02 | `knowledge/structural.py`, `providers/graph` | Cypher counts | projects/docs/links/technologies present | — | todo |
+| P7-T01 | Tier 0 registry seed from `me.md` + `project-graph.md`; aliases | A07a | P6-T03 | `sources/registry.py` | `SELECT count(*) FROM projects` vs table rows | every project row present, tracks correct | parse mismatch → report rows missed | **todo — not verified.** Supporting code exists (`sources/registry.py` since `1562ba9`, `sources/seeds.py` since `2c87f86`) but A01 found no evidence of an actual seed run against the real vault (`D:\My-Vault`) or a recorded `SELECT count(*) FROM projects` result. Do not mark done without that evidence |
+| P7-T02 | Tier 1: chunk + embed all INDEX_CONTENT vault sources | A07a | P7-T01 | — | counts in `aimemory-ingest status` | 100 % of INDEX_CONTENT embedded | embed failure → retry batch | **todo — not verified.** No `aimemory-ingest status` coverage output found in any committed report |
+| P7-T03 | Structural graph projection | A08 | P7-T02, P5-T02 | `knowledge/structural.py`, `providers/graph` | Cypher counts | projects/docs/links/technologies present | — | **todo — not verified.** Code built (`packages/aimemory/knowledge/structural.py`, `providers/graph/{projection,writer}.py`, commit `2c87f86`) and unit/fixture-tested, but A01 found no committed Cypher-count evidence from a run against a real vault graph |
 
 ## Phase 8 — Temporal Graph
 
 | ID | Objective | Agent | Prereq | Files | Verification | Acceptance | Failure / recovery | Status |
 |---|---|---|---|---|---|---|---|---|
-| P8-T01 | KnowledgeEngine port + temporal rules (ADR-0005) + provenance builders | A08 | P1-T01, P5 | `knowledge/temporal`, `provenance/` | unit tests | rules verified | — | todo |
-| P8-T02 | Engine implementation per ADR-0009 (Graphiti or native) | A08 | P4-T04, P8-T01 | `knowledge/{graphiti_engine,native_engine}` | fixture episodes | ExtractionResult valid; Postgres mirror | native JSON failures → retry then `failed`; gate already decided engine | todo |
-| P8-T03 | Entity resolution (deterministic-first) | A08 | P8-T02 | `knowledge/entity_resolution` | unit + fixture | aliases resolve; no duplicate Projects | — | todo |
-| P8-T04 | Tier 2 extraction run on my-vault (background, priority order) | A07a/A08 | P8-T02/03 | — | `status` coverage | priority tiers complete; rest queued | slow → continue in background; report coverage | todo |
+| P8-T01 | KnowledgeEngine port + temporal rules (ADR-0005) + provenance builders | A08 | P1-T01, P5 | `knowledge/temporal`, `provenance/` | unit tests | rules verified | — | done (reconstructed-from-git) — commit `2c87f86` (recovered after an unrecorded power loss); exercised via `tests/memory` scenario fixtures, green in the 2026-09-15 428-passed/1-skipped run |
+| P8-T02 | Engine implementation per ADR-0009 (Graphiti or native) | A08 | P4-T04, P8-T01 | `knowledge/{graphiti_engine,native_engine}` | fixture episodes | ExtractionResult valid; Postgres mirror | native JSON failures → retry then `failed`; gate already decided engine | done (reconstructed-from-git) — native engine built per ADR-0009, commit `2c87f86`; `graphiti_engine/` kept empty as documented extension point |
+| P8-T03 | Entity resolution (deterministic-first) | A08 | P8-T02 | `knowledge/entity_resolution` | unit + fixture | aliases resolve; no duplicate Projects | — | done (reconstructed-from-git) — commit `2c87f86`; exercised via `tests/memory` scenario fixtures |
+| P8-T04 | Tier 2 extraction run on my-vault (background, priority order) | A07a/A08 | P8-T02/03 | — | `status` coverage | priority tiers complete; rest queued | slow → continue in background; report coverage | **todo — not verified.** `sources/tier2.py` and `cli/ingest.py` were extended in `2c87f86`, but A01 found no committed `aimemory-ingest status` coverage output from an actual background run against `D:\My-Vault` |
 
 ## Phase 9 — Vector Retrieval
 

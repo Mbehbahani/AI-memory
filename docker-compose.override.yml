@@ -38,9 +38,21 @@ services:
       OLLAMA_URL: ${OLLAMA_URL}
       EMBED_URL: ${EMBED_URL}
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+      # Bedrock provider (ADR-0012/ADR-0014) — same wiring as the `ingestion` service in
+      # docker-compose.yml, so `docker compose --profile tools run --rm tools ...` can exercise the
+      # bedrock path (or an ad-hoc credential check) the same way the real worker would.
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_REGION: ${BEDROCK_REGION:-us-east-1}
+      BEDROCK_MAX_TOKENS: ${BEDROCK_MAX_TOKENS:-4096}
+      AWS_PROFILE: ${AWS_PROFILE:-mohabehb}
+      AWS_REGION: ${BEDROCK_REGION:-us-east-1}
     volumes:
       - .:/workspace
       - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
+      # Optional, read-only — see docker-compose.yml `ingestion` service comment and
+      # docs/operations/bedrock-extraction.md. tools.Dockerfile also creates uid 1000 => /home/app.
+      - ${HOST_AWS_DIR:-./infra/docker/aws-empty}:/home/app/.aws:ro
     working_dir: /workspace
     networks: [ai-memory-net]
     command: ["pytest", "-q"]

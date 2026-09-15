@@ -179,6 +179,14 @@ services:
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
       LLM_NUM_CTX: ${LLM_NUM_CTX:-8192}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
+      # Bedrock provider (ADR-0012/ADR-0014). Only consulted when LLM_PROVIDER=bedrock; harmless
+      # otherwise since boto3 is imported lazily. Credentials come from the read-only ~/.aws mount
+      # below, never from an env var here. See docs/operations/bedrock-extraction.md.
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-us.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_REGION: ${BEDROCK_REGION:-us-east-1}
+      BEDROCK_MAX_TOKENS: ${BEDROCK_MAX_TOKENS:-4096}
+      AWS_PROFILE: ${AWS_PROFILE:-mohabehb}
+      AWS_REGION: ${BEDROCK_REGION:-us-east-1}
       EMBED_URL: ${EMBED_URL}
       INGEST_LLM_CONCURRENCY: ${INGEST_LLM_CONCURRENCY:-1}
       INGEST_EMBED_CONCURRENCY: ${INGEST_EMBED_CONCURRENCY:-2}
@@ -191,6 +199,14 @@ services:
       - ./config:/app/config:ro
       - ./.memoryignore:/app/.memoryignore:ro
       - ingestion_state:/state
+      # Read-only AWS credentials for the Bedrock provider, mounted at the `app` user's HOME/.aws
+      # (apps/ingestion/Dockerfile creates uid 1000 with --create-home => /home/app). OPTIONAL:
+      # HOST_AWS_DIR defaults to infra/docker/aws-empty (checked into git, always empty) so
+      # `docker compose up -d` and LLM_PROVIDER=ollama work with zero AWS setup. Set HOST_AWS_DIR to
+      # your real ~/.aws in .env only when you want LLM_PROVIDER=bedrock to work. Never copies,
+      # bakes, or logs credentials — see docs/security/README.md (A13 P15 review flag) and
+      # docs/operations/bedrock-extraction.md.
+      - ${HOST_AWS_DIR:-./infra/docker/aws-empty}:/home/app/.aws:ro
     networks: [ai-memory-net]
     logging: *default-logging
 

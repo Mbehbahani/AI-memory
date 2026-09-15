@@ -1,0 +1,5 @@
+# Default mount source for HOST_AWS_DIR when unset (see docker-compose.yml `ingestion`/`tools`
+# services and docs/operations/bedrock-extraction.md). Intentionally empty: it stands in for a real
+# ~/.aws directory so `docker compose up -d` and the tools/tests profile work with no AWS credentials
+# present and no error from a missing bind-mount source. Never put real credentials in this directory
+# — it is checked into git.

@@ -2,12 +2,15 @@
 
 Created by A03 in P2-T02:
 
-- `requirements.lock` — pinned dependency set for `aimemory` core + `api` + `mcp` + `dev` extras,
-  resolved with `pip-compile` (pip-tools 7.4.1) inside `python:3.12-slim` (not the Windows host, which
-  runs Python 3.14). Used as a `pip install -c` constraints file by `apps/ingestion/Dockerfile`,
-  `apps/memory-api/Dockerfile`, `apps/mcp-server/Dockerfile`, and `tools.Dockerfile`, so all four
-  images get identical versions of shared packages (sqlalchemy, neo4j, pydantic, httpx, etc.) even
-  though each only installs the extras it needs.
+- `requirements.lock` — pinned dependency set for `aimemory` core + `api` + `mcp` + `dev` + `bedrock`
+  extras, resolved with `pip-compile` (pip-tools 7.4.1) inside `python:3.12-slim` (not the Windows
+  host, which runs Python 3.14). Used as a `pip install -c` constraints file by
+  `apps/ingestion/Dockerfile`, `apps/memory-api/Dockerfile`, `apps/mcp-server/Dockerfile`, and
+  `tools.Dockerfile`, so all images get identical versions of shared packages (sqlalchemy, neo4j,
+  pydantic, httpx, etc.) even though each only installs the extras it needs. `bedrock` (boto3 +
+  botocore + s3transfer + jmespath + python-dateutil + six + urllib3) was added 2026-09-15 so the
+  `ingestion` worker and `tools` runner can actually import boto3 for `LLM_PROVIDER=bedrock`
+  (ADR-0012/ADR-0014); see `docs/operations/bedrock-extraction.md`.
 - `requirements-embedding.lock` — separate lock for the `embedding` + `api` extras, resolved against
   the CPU-only PyTorch index (`https://download.pytorch.org/whl/cpu`) so `torch` never pulls CUDA
   wheels. Used with `pip install -r` (not `-c`) by `apps/embedding-service/Dockerfile` because it
@@ -26,7 +29,7 @@ lock files the same way if `pyproject.toml` dependency ranges change:
 ```powershell
 docker run --rm -v "${PWD}:/workspace" -w /workspace python:3.12-slim bash -c "
   pip install --quiet pip-tools==7.4.1 &&
-  pip-compile --resolver=backtracking --extra api --extra mcp --extra dev \
+  pip-compile --resolver=backtracking --extra api --extra mcp --extra dev --extra bedrock \
     -o infra/docker/requirements.lock pyproject.toml &&
   pip-compile --resolver=backtracking --extra embedding --extra api \
     --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple \
