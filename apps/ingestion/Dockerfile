@@ -41,6 +41,18 @@ COPY config /app/config
 COPY schemas /app/schemas
 COPY .memoryignore /app/.memoryignore
 
+# aimemory-ingest migrate (packages/aimemory/cli/migrate.py, A04) resolves _REPO_ROOT as
+# Path(__file__).resolve().parents[3] -- inside this image that is /app (packages/aimemory/cli/
+# migrate.py -> /app/packages/aimemory/cli/migrate.py -> parents[3] == /app) -- and reads
+# infra/postgres/alembic/alembic.ini plus infra/neo4j/schema/*.cypher relative to it. Those trees
+# are owned by A04, but this COPY (in A03's Dockerfile) is what makes them exist inside the image;
+# without it `migrate` fails with "No 'script_location' key found in configuration." infra/postgres/
+# alembic/env.py does the same parents[3] resolution from its own copied location, so this single
+# COPY of the infra/ subtree (alembic config + versions/ + neo4j schema/constraints) is sufficient --
+# no other infra/ paths are read by migrate() today.
+COPY infra/postgres/alembic /app/infra/postgres/alembic
+COPY infra/neo4j/schema /app/infra/neo4j/schema
+
 RUN chown -R app:app /app
 USER app
 
