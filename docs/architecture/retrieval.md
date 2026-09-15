@@ -1,12 +1,18 @@
 # Hybrid Retrieval and Context Assembly (V0.1)
 
 Status: **implementable spec**, frozen with the P1 contract · Author: A02 · Date: 2026-09-14
+Corrected 2026-09-15 (A02): §1 and §2 realigned with the shipped P9-T01 SQL; see deviations 8–10.
 Authority: plan sections P and Q · Configuration: `config/retrieval.yaml` ·
 Consumer: **A09** (P9-T01, P10-T01/T02), with A10 (MCP `memory.search`), A12 (gold-set evaluation),
 A16 (Ops metrics). Code contracts: `aimemory.domain.retrieval`.
 
 Every stage below maps to one type in `aimemory/domain/retrieval.py`; A09 implements functions
 between those types and nothing else invents a shape.
+
+Implementation status (2026-09-15): stages 0-3 and 6 are shipped in `packages/aimemory/retrieval/`
+(P9-T01); stage 4, the fact side of stage 5, and stages 7-8 are P10-T01 and are still specification
+only. Where this document and that package disagree, the package is the behaviour and the
+disagreement is a bug in one of them — report it to A02 rather than working around it.
 
 ```text
 SearchQuery
@@ -28,6 +34,7 @@ docstring names the YAML path). A09 loads it once at startup and logs the effect
 
 | YAML key | Field | V0.1 value |
 |---|---|---|
+| `version` | `version` | `0.1.0` |
 | `candidates.semantic_top_k` | `semantic_top_k` | 40 |
 | `candidates.keyword_top_k` | `keyword_top_k` | 40 |
 | `candidates.fused_top_k` | `fused_top_k` | 15 |
@@ -37,6 +44,7 @@ docstring names the YAML path). A09 loads it once at startup and logs the effect
 | `boosts.project_match` | `boost_project_match` | +0.10 |
 | `boosts.entity_linked` | `boost_entity_linked` | +0.10 |
 | `boosts.unconfirmed_penalty` | `unconfirmed_penalty` | −0.15 |
+| `boosts.low_trust_penalty` | `low_trust_penalty` | −0.15 (optional key; defaults to `unconfirmed_penalty`) |
 | `boosts.recency_half_life_days` | `recency_half_life_days` | 180 |
 | `graph_expansion.enabled` | `graph_expansion_enabled` | true |
 | `graph_expansion.max_depth` | `graph_max_depth` | 1 |
@@ -46,8 +54,10 @@ docstring names the YAML path). A09 loads it once at startup and logs the effect
 | `context.block_order` | `block_order` | `[project_summary, current_facts, decisions, evidence_chunks, related_entities]` |
 | `context.citation_format` | `citation_format` | `[{source_uri}#{heading} @{hash8}]` |
 
-`tests/unit/test_contracts.py::test_retrieval_config_model_covers_config_file` asserts that every key
-above exists and that each `graph_expansion.relationship_types` entry is a real ontology predicate.
+`tests/unit/test_contracts.py::test_retrieval_config_model_covers_config_file` asserts that every
+*required* key above exists in the file and that each `graph_expansion.relationship_types` entry is a
+real ontology predicate; `tests/unit/test_retrieval_config.py` covers the loader, including the one
+optional key (`boosts.low_trust_penalty`) and the error raised when a required key is renamed away.
 
 ## 1. Semantic candidates
 
@@ -55,41 +65,59 @@ Embed the query with the same model as the corpus (`EmbeddingProvider.embed_quer
 384-d, normalized), then:
 
 ```sql
-SELECT e.object_type, e.object_id, 1 - (e.vector <=> :q) AS raw_score
+SELECT e.object_type, e.object_id, 1 - (e.vector <=> CAST(:query_vector AS vector)) AS raw_score
 FROM embeddings e
-JOIN chunks c        ON e.object_type = 'chunk'    AND c.id = e.object_id
-JOIN sources s       ON s.id = c.source_id
-WHERE e.model_id = :embedding_model_id
+JOIN chunks c           ON c.id = e.object_id
+JOIN sources s          ON s.id = c.source_id
+JOIN source_versions sv ON sv.id = c.version_id
+WHERE e.object_type = 'chunk'
+  AND e.model_id = :model_id
   AND (:project_ids IS NULL OR c.project_id = ANY(:project_ids))
   AND s.status = ANY(:allowed_source_status)     -- 'active' unless include_deleted_sources
-  AND s.policy IN ('INDEX_CONTENT','MIRROR')     -- CATALOG_ONLY has no text to cite
+  AND s.policy = ANY(:allowed_policies)          -- INDEX_CONTENT/MIRROR; CATALOG_ONLY has no text
   AND s.secret_suspected = false                 -- flagged content is never returned
-  AND (:since IS NULL OR c.created_at >= :since)
-ORDER BY e.vector <=> :q
+  AND (:since IS NULL OR sv.observed_at >= :since)
+ORDER BY e.vector <=> CAST(:query_vector AS vector)
 LIMIT :semantic_top_k;
 ```
 
+`since` is evaluated on the **observation** axis — `source_versions.observed_at`, reached through the
+`chunks.version_id` foreign key — and never on `chunks.created_at`. `created_at` is ingestion time
+(when we happened to index the file) and answers a different question than "what changed lately";
+`temporal.md` §8 and its deviation 5 fix the axis, §5 below restates it. The join is total
+(`chunks.version_id` is `NOT NULL`) and index-backed by `ix_source_versions_observed`.
+
 A second, identically-shaped query runs against artifacts (`e.object_type = 'artifact'` joined to
-`knowledge_artifacts`), applying the temporal predicate of section 5 in the `WHERE` clause.
+`knowledge_artifacts`, `LEFT JOIN sources` because an artifact may have no file behind it), applying
+the temporal predicate of section 5, `include_unconfirmed` and `artifact_types` in the `WHERE`
+clause. There `since` uses the artifact's own `observed_at` column — the same axis, one table closer.
 
 Notes A09 must respect:
 
 * the filters are **inside** the SQL, not applied afterwards — filtering after `LIMIT 40` silently
   empties a project-scoped query;
 * `SET LOCAL hnsw.ef_search = 80` for the statement (recall over latency at this corpus size);
-* the operator is `<=>` (cosine) matching `vector_cosine_ops` in the index.
+* the operator is `<=>` (cosine) matching `vector_cosine_ops` in the index;
+* the query vector is bound as a text literal and cast (`CAST(:query_vector AS vector)`), not passed
+  as a bare `list[float]` — see deviation 9.
 
 ## 2. Keyword candidates
 
 ```sql
-SELECT 'chunk', c.id, ts_rank_cd(c.tsv, q) AS raw_score
-FROM chunks c, plainto_tsquery('english', :query) q
-JOIN sources s ON s.id = c.source_id
-WHERE c.tsv @@ q
-  AND <the same scoping filters as above>
-ORDER BY raw_score DESC
+SELECT 'chunk', c.id, ts_rank_cd(c.tsv, q.q) AS raw_score
+FROM plainto_tsquery('english', :query_text) AS q(q)
+JOIN chunks c           ON c.tsv @@ q.q
+JOIN sources s          ON s.id = c.source_id
+JOIN source_versions sv ON sv.id = c.version_id
+WHERE true
+  AND <the same scoping filters as above, including :since on sv.observed_at>
+ORDER BY raw_score DESC, c.id
 LIMIT :keyword_top_k;
 ```
+
+The `tsquery` is the **leading** relation and `chunks` joins to it, so the scoping joins stay in
+scope; the secondary `ORDER BY c.id` makes each retriever's own ranking deterministic before fusion
+sees it (deviation 3).
 
 Artifacts use the `to_tsvector('english', title || ' ' || body)` expression index. Keyword search is
 what makes exact identifiers (`ADR-0007`, `pgvector`, `joblab-de`) findable when the embedding is
@@ -148,8 +176,11 @@ filtered by their source's status instead):
 AND a.valid_from <= :as_of AND (a.valid_to IS NULL OR a.valid_to > :as_of)
 ```
 
-`as_of` defaults to `now()`. `since` filters `observed_at` / version time — "what changed lately" —
-and is deliberately a different axis (see `temporal.md` §8).
+`as_of` defaults to `now()`. `since` filters the **observation** axis — "what changed lately" — and is
+deliberately a different axis from `valid_from` and from ingestion time (`temporal.md` §8 and
+deviation 5). Per object type: chunks use `source_versions.observed_at` (via `chunks.version_id`),
+artifacts and facts their own `observed_at` column. Nothing in the pipeline filters `since` on
+`created_at`.
 
 `status = 'unconfirmed'` rows are **kept** (ADR-0005 rule 3) and penalised in the next stage;
 `include_unconfirmed = false` drops them entirely for callers who want only re-confirmed knowledge.
@@ -166,14 +197,20 @@ score = rrf_score
 recency_boost(hit) = 0.10 * 0.5 ** (age_days(hit.observed_at) / recency_half_life_days)
 ```
 
-Every term is recorded separately in `ScoredHit.boosts` — a ranking change must be explainable
-without re-running the query. Sort by `score` descending, assign `rank` from 1, keep `final_k` (10).
+Every term is recorded separately in `ScoredHit.boosts` under the stable keys `project_match`,
+`entity_linked`, `recency`, `unconfirmed`, `low_trust` — a ranking change must be explainable without
+re-running the query. Terms that evaluate to zero are omitted rather than written as `0.0`, so the map
+reads as "what actually moved this hit"; `project_match` requires an explicitly scoped query, since an
+unscoped one would award it to every hit and signal nothing. `recency_boost` returns `0.0` for an
+object with no `observed_at` (unknown, not stale) and is clamped to its maximum for a future
+timestamp. Sort by `score` descending, assign `rank` from 1, keep `final_k` (10).
 
 Ties break by `observed_at` descending, then by `object_id`, so results are deterministic and the
 gold-set evaluation is reproducible.
 
-Additional, non-configurable penalty: sources with `trust = 'low'` (AC-6, vault `Clippings/`) receive
-the same magnitude as `unconfirmed_penalty`. This is recorded in `boosts["low_trust"]`.
+Additional penalty: sources with `trust = 'low'` (AC-6, vault `Clippings/`) receive the magnitude of
+`unconfirmed_penalty` unless the optional `boosts.low_trust_penalty` key overrides it. It is recorded
+separately in `boosts["low_trust"]`.
 
 ## 7. Provenance attachment
 
@@ -271,6 +308,19 @@ Access boundaries: memory-api connects to Neo4j as `NEO4J_READONLY_USER`; writes
    recall is noticeably lower on a small corpus.
 7. **Secret-suspected and CATALOG_ONLY sources are excluded in SQL**, not by post-filtering, making
    plan section T's "flagged files never stored or logged" verifiable at the query level.
+8. **`since` is evaluated on the observation axis, which costs a `source_versions` join.** The plan
+   lists `since` without fixing an axis; `temporal.md` deviation 5 fixes it on `observed_at`, and a
+   chunk carries no observation time of its own. Until 2026-09-15 the §1 snippet above filtered
+   `c.created_at` — ingestion time — which contradicted §5 and `temporal.md`; the snippet was the
+   error and has been corrected to the shipped behaviour. No ADR is affected: no ADR ever placed
+   `since` on ingestion time.
+9. **The query vector is bound as a text literal and cast in SQL.** `pgvector.psycopg` registers
+   dumpers for `Vector` and `numpy.ndarray` only, so a bare `list[float]` reaches the server as
+   `float8[]`; that casts on INSERT but not as an operand of `<=>`. Implementation detail, no
+   behavioural change.
+10. **`boosts.low_trust_penalty` is an optional config key.** §6 originally called the penalty
+    non-configurable; the loader accepts an override and falls back to the `unconfirmed_penalty`
+    magnitude, which keeps the documented default while letting AC-6 be tuned from the gold set.
 
 ## Related
 
