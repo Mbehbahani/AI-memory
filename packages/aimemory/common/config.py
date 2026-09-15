@@ -121,18 +121,25 @@ class Neo4jSettings(BaseSettings):
 
 
 class LLMSettings(BaseSettings):
-    """Extraction model (plan section M, amended by ADR-0012).
+    """Extraction model (plan section M; ADR-0012 built both providers, ADR-0014 chose the default).
 
-    Two providers are built and compared, neither privileged: ``ollama`` (``qwen3:4b``, local and
-    offline) and ``bedrock`` (Claude Haiku 4.5 via the US inference profile). ``ollama`` is the
-    *default* so a checkout with no AWS credentials still runs fully offline - that is a default, not
-    a preference. Selecting ``bedrock`` sends source text to AWS; see ADR-0012 for the consequences.
+    ``bedrock`` (Claude Haiku 4.5, US inference profile) is the default. MEASURED in P4-T02 over 20
+    identical real episodes: relationship recall 61.2 % against ``qwen3:4b``'s 40.2 %, where plan
+    section O criterion C3 requires >= 50 % - so the local model fails the plan's own quality bar and
+    Bedrock clears it. Schema validity (95 %) and entity recall (68.9 %) were ties.
+
+    ``ollama`` (``qwen3:4b``, local) is retained and tested as the offline / zero-cost mode, not
+    deprecated. **The default sends source text to AWS**; AC-8 ("nothing leaves the machine") holds
+    only under ``LLM_PROVIDER=ollama``. See ADR-0014.
+
+    The two models disagree *systematically* on entity types, so a corpus must be extracted by one
+    model only - the pipeline enforces this (ADR-0014 rule 2). Never mix without a re-extraction.
     """
 
     model_config = _BASE
 
     provider: Literal["ollama", "bedrock"] = Field(
-        default="ollama", validation_alias="LLM_PROVIDER"
+        default="bedrock", validation_alias="LLM_PROVIDER"
     )
     model: str = Field(default="qwen3:4b", validation_alias="LLM_MODEL")
     ollama_url: str = Field(default="http://ollama:11434", validation_alias="OLLAMA_URL")

@@ -14,8 +14,9 @@ the memory system applies to itself). Index maintained by A01 (Build Observer).
 | [0006](ADR-0006-tiered-ingestion.md) | Tiered ingestion (registry → embed → LLM) with serial CPU extraction | accepted | 2026-09-13 |
 | [0007](ADR-0007-loopback-exposure.md) | All published ports bind to 127.0.0.1; databases exposed only in the dev override | accepted | 2026-09-13 |
 | [0008](ADR-0008-mcp-write-policy.md) | MCP writes are off by default, confirmed, audited, append-only | accepted | 2026-09-13 |
-| 0009 | Knowledge engine verdict (Graphiti vs native) — written by A05 after the P4 gate | pending | — |
+| [0009](ADR-0009-knowledge-engine-verdict.md) | Knowledge engine verdict: the native temporal engine, not Graphiti | accepted | 2026-09-15 |
 | [0010](ADR-0010-evaluation-protocol.md) | Ongoing evaluation protocol and model-upgrade rule | accepted | 2026-09-14 |
 | [0011](ADR-0011-ops-dashboard.md) | Built-in offline Ops dashboard and always-on ingestion worker | accepted | 2026-09-14 |
 | [0012](ADR-0012-dual-llm-provider-evaluation.md) | Two extraction providers (local qwen3:4b and Bedrock Haiku 4.5) are built and compared; neither privileged. Amends B16/§T/AC-8 | accepted | 2026-09-14 |
 | [0013](ADR-0013-neo4j-community-no-readonly-user.md) | Neo4j Community cannot enforce a read-only user; access constrained in the client instead. Amends §T/§Q/§S | accepted | 2026-09-14 |
+| [0014](ADR-0014-extraction-provider-and-model-consistency.md) | Claude Haiku 4.5 is the default extraction provider; one model per corpus. Amends ADR-0012 §2, B16, AC-8 | accepted | 2026-09-15 |
