@@ -43,17 +43,28 @@ __all__ = [
     "claim_episode_for_extraction",
     "count_chunks",
     "delete_run_request",
+    "ensure_extraction_model",
+    "episode_scope_ids",
+    "episodes_for_version",
     "existing_embedding_hashes",
+    "extraction_models_in_use",
+    "facts_by_extraction_model",
     "fail_run_request",
     "failed_episode_ids",
     "finish_run_request",
+    "flag_other_model_facts",
     "get_job",
+    "get_source_text",
     "known_project_ids",
     "known_sources_for_root",
     "mark_derived_unconfirmed",
     "project_alias_map",
     "queue_failed_episodes",
+    "record_run_extraction_model",
+    "requeue_episode",
+    "requeue_episodes_for_reextraction",
     "requeue_failed_jobs",
+    "source_events",
     "source_text_version_for_hash",
     "stage_state_counts",
     "status_report",
@@ -483,30 +494,48 @@ def failed_episode_ids(session: Session, *, limit: int = 50) -> list[UUID]:
     return [row[0] for row in rows]
 
 
-def claim_episode_for_extraction(session: Session) -> dict[str, Any] | None:
+def claim_episode_for_extraction(
+    session: Session, *, project_id: str | None = None, root_id: str | None = None
+) -> dict[str, Any] | None:
     """Claim the next Tier 2 episode, honouring the ADR-0006 priority order.
 
     Mirrors :meth:`aimemory.persistence.repositories.EpisodeRepo.claim_next` but **excludes sources
-    flagged ``secret_suspected``** as a second gate in the database itself: under ADR-0012 a Bedrock
-    run transmits episode text off-machine, so "a suspected secret is never sent to an LLM" is a
-    privacy control, not hygiene. The pipeline also refuses to create such an episode at all.
+    flagged ``secret_suspected``** as a second gate in the database itself: under ADR-0014 the default
+    provider is AWS Bedrock, so episode text leaves the machine and "a suspected secret is never sent
+    to an LLM" is a privacy control on egress, not hygiene. The pipeline also refuses to create such
+    an episode at all - this query is the belt to that suspenders, and
+    ``tests/memory/test_change_detection.py`` asserts both.
+
+    ``project_id`` / ``root_id`` narrow the claim to one corpus scope, which is what
+    ``reprocess --re-extract`` needs to re-run a single project under one model.
     """
+    conditions = [
+        "e.status IN ('pending', 'queued')",
+        "coalesce(s.secret_suspected, false) = false",
+    ]
+    params: dict[str, Any] = {}
+    if project_id:
+        conditions.append("e.project_id = :pid")
+        params["pid"] = project_id
+    if root_id:
+        conditions.append("s.root_id = :rid")
+        params["rid"] = root_id
     row = session.execute(
         text(
-            """
+            f"""
             UPDATE episodes SET status = 'running', updated_at = now()
              WHERE id = (
                 SELECT e.id FROM episodes e
                   LEFT JOIN sources s ON s.id = e.source_id
-                 WHERE e.status IN ('pending', 'queued')
-                   AND coalesce(s.secret_suspected, false) = false
+                 WHERE {" AND ".join(conditions)}
                  ORDER BY e.priority ASC, e.created_at ASC
                  FOR UPDATE OF e SKIP LOCKED
                  LIMIT 1
              )
             RETURNING *
             """
-        )
+        ),
+        params,
     ).first()
     return dict(row._mapping) if row is not None else None
 
@@ -793,3 +822,177 @@ def stage_state_counts(session: Session, stage: JobStage) -> dict[JobState, int]
         {"s": stage.value},
     ).all()
     return {JobState(row[0]): int(row[1]) for row in rows}
+
+
+# --------------------------------------------------------------------------------------------------
+# ADR-0014: one extraction model per corpus
+# --------------------------------------------------------------------------------------------------
+
+
+def ensure_extraction_model(session: Session, identity: Any) -> str:
+    """Register an ``extraction_models`` row for a live provider identity. Returns its id.
+
+    ``facts.extraction_model_id`` (and the same column on ``entity_mentions`` and
+    ``knowledge_artifacts``) is a foreign key, so the model has to exist before anything stamped with
+    it can be written. Migration 0001 seeds ``deterministic:registry-v1`` and ``qwen3-4b``; a Bedrock
+    identity (``bedrock:us.anthropic.claude-haiku-4-5-...``) is registered on first use.
+    """
+    session.execute(
+        text(
+            """
+            INSERT INTO extraction_models (id, provider, name, digest, parameters)
+            VALUES (:id, :provider, :name, :digest, :parameters)
+            ON CONFLICT (id) DO NOTHING
+            """
+        ),
+        {
+            "id": identity.id,
+            "provider": getattr(identity, "provider", "unknown"),
+            "name": identity.name,
+            "digest": getattr(identity, "digest", None),
+            "parameters": Jsonb({k: str(v) for k, v in (getattr(identity, "parameters", {}) or {}).items()}),
+        },
+    )
+    return str(identity.id)
+
+
+def extraction_models_in_use(
+    session: Session, *, project_id: str | None = None, root_id: str | None = None
+) -> dict[str, int]:
+    """``{extraction_model_id: current fact count}`` for a corpus scope (ADR-0014 rule 2).
+
+    Deterministic ids (``deterministic:*``) are excluded on purpose: Tier 0 seeds and the structural
+    projection are produced without a model and are compatible with every model, so counting them
+    would make the guard fire on a corpus no LLM has ever touched.
+    """
+    sql = [
+        "SELECT extraction_model_id, count(*) FROM facts f",
+        "WHERE f.status <> 'historical' AND f.valid_to IS NULL",
+        "AND f.extraction_model_id IS NOT NULL",
+        "AND f.extraction_model_id NOT LIKE 'deterministic:%'",
+    ]
+    params: dict[str, Any] = {}
+    if project_id:
+        sql.append("AND f.project_id = :pid")
+        params["pid"] = project_id
+    if root_id:
+        sql.append("AND f.source_id IN (SELECT id FROM sources WHERE root_id = :rid)")
+        params["rid"] = root_id
+    sql.append("GROUP BY 1")
+    rows = session.execute(text(" ".join(sql)), params).all()
+    return {str(row[0]): int(row[1]) for row in rows}
+
+
+def facts_by_extraction_model(session: Session) -> dict[str, int]:
+    """Whole-corpus view of the same question, for ``aimemory-ingest status``."""
+    return extraction_models_in_use(session)
+
+
+def episode_scope_ids(
+    session: Session, *, project_id: str | None = None, root_id: str | None = None
+) -> list[UUID]:
+    """Episode ids inside a re-extraction scope (``reprocess --re-extract``)."""
+    sql = ["SELECT e.id FROM episodes e WHERE true"]
+    params: dict[str, Any] = {}
+    if project_id:
+        sql.append("AND e.project_id = :pid")
+        params["pid"] = project_id
+    if root_id:
+        sql.append("AND e.source_id IN (SELECT id FROM sources WHERE root_id = :rid)")
+        params["rid"] = root_id
+    sql.append("ORDER BY e.priority ASC, e.created_at ASC")
+    return [row[0] for row in session.execute(text(" ".join(sql)), params).all()]
+
+
+def requeue_episodes_for_reextraction(
+    session: Session, *, project_id: str | None = None, root_id: str | None = None
+) -> int:
+    """Put every already-extracted episode of a scope back on the Tier 2 queue.
+
+    The old facts are **not** touched here: they are superseded by the re-extraction through the
+    normal ADR-0005 path (A08 closes them as ``historical`` when the new generation contradicts
+    them). ADR-0014 rule 2: *"the remedy is an explicit re-extraction, not a silent mix"*.
+    """
+    sql = [
+        "UPDATE episodes SET status = 'queued', error = NULL, updated_at = now()",
+        "WHERE status IN ('extracted', 'failed', 'skipped')",
+    ]
+    params: dict[str, Any] = {}
+    if project_id:
+        sql.append("AND project_id = :pid")
+        params["pid"] = project_id
+    if root_id:
+        sql.append("AND source_id IN (SELECT id FROM sources WHERE root_id = :rid)")
+        params["rid"] = root_id
+    return int(session.execute(text(" ".join(sql)), params).rowcount)
+
+
+def flag_other_model_facts(
+    session: Session, model_id: str, *, project_id: str | None = None, root_id: str | None = None
+) -> int:
+    """Mark a scope's current facts from *other* models ``unconfirmed`` before a re-extraction.
+
+    Not a deletion and not a closure: ``valid_to`` stays ``NULL``, so the fact is still current and
+    still answerable - it is simply no longer confirmed by the generation that is about to be
+    written, and retrieval ranks it down (``boosts.unconfirmed_penalty``). Facts the new model
+    re-observes are promoted back to ``current`` by A08's ``apply_fact``; facts it contradicts are
+    closed as ``historical`` through the normal ADR-0005 path. Deterministic rows are left alone.
+    """
+    sql = [
+        "UPDATE facts SET status = 'unconfirmed'",
+        "WHERE status = 'current' AND valid_to IS NULL",
+        "AND extraction_model_id IS NOT NULL",
+        "AND extraction_model_id <> :model",
+        "AND extraction_model_id NOT LIKE 'deterministic:%'",
+    ]
+    params: dict[str, Any] = {"model": model_id}
+    if project_id:
+        sql.append("AND project_id = :pid")
+        params["pid"] = project_id
+    if root_id:
+        sql.append("AND source_id IN (SELECT id FROM sources WHERE root_id = :rid)")
+        params["rid"] = root_id
+    return int(session.execute(text(" ".join(sql)), params).rowcount)
+
+
+def record_run_extraction_model(
+    session: Session, run_id: UUID, *, model_id: str, allow_model_mix: bool
+) -> None:
+    """Record which extraction model a run used, and whether the mix guard was overridden.
+
+    ADR-0014 rule 2 asks for this on ``ingestion_runs``; that table has no such column in A04's
+    schema (0001/0002), and migrations are not A07a's to write - so the model id is recorded on the
+    ``metrics_snapshots`` row for the run (``scope='ingestion_run'``, ``model_id`` is already a FK to
+    ``extraction_models``) and the override is recorded as an integer counter on
+    ``ingestion_runs.counters``, which is typed ``dict[str, int]``. See the NEEDS_HANDOFF note in the
+    P6-T03/T04 result: A04 should add ``ingestion_runs.extraction_model_id`` and
+    ``ingestion_runs.allow_model_mix`` so this stops being an indirection.
+    """
+    session.execute(
+        text(
+            "UPDATE ingestion_runs SET counters = counters || "
+            "jsonb_build_object('allow_model_mix', :mix) WHERE id = :id"
+        ),
+        {"id": run_id, "mix": 1 if allow_model_mix else 0},
+    )
+    session.execute(
+        text(
+            """
+            INSERT INTO metrics_snapshots (id, at, scope, run_id, model_id, extra)
+            VALUES (:id, now(), 'ingestion_run', :run_id, :model_id, :extra)
+            ON CONFLICT (id) DO NOTHING
+            """
+        ),
+        {
+            "id": _uuid5_for_run(run_id, model_id),
+            "run_id": run_id,
+            "model_id": model_id,
+            "extra": Jsonb({"allow_model_mix": bool(allow_model_mix)}),
+        },
+    )
+
+
+def _uuid5_for_run(run_id: UUID, model_id: str) -> UUID:
+    from ..common.ids import deterministic_id
+
+    return deterministic_id("metrics_snapshot", str(run_id), model_id)

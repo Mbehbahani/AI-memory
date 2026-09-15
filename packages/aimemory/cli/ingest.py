@@ -5,7 +5,8 @@ Commands
 ``run``        scan one or all roots up to a tier (``--tier 0|1|2``), optionally ``--dry-run``
 ``scan``       alias of ``run`` kept because plan section AF calls a scan "``scripts/ingest``"
 ``status``     per-stage counts, coverage per project, failures (plan section AF, Ops page data)
-``reprocess``  ``--failed`` re-queues failed jobs and failed episodes; vectors are never discarded
+``reprocess``  ``--failed`` re-queues failed jobs and failed episodes; vectors are never discarded;
+               ``--re-extract --model <id>`` re-runs extraction for a scope under one model (ADR-0014)
 ``tier2``      drain the Tier 2 extraction queue serially (``INGEST_LLM_CONCURRENCY=1``)
 ``worker``     the always-on ``run_requests`` poller the compose ``ingestion`` service runs
 ``enqueue``    put a request on that queue from the CLI (same path the Ops page uses)
@@ -65,6 +66,10 @@ def run_ingestion(
     tier: int = 2,
     dry_run: bool = False,
     llm_provider: Any = None,
+    engine: Any = None,
+    writer: Any = None,
+    allow_model_mix: bool = False,
+    subpath: str | None = None,
     embedder: Any = None,
     settings: Any = None,
     **_ignored: Any,
@@ -127,12 +132,37 @@ def run_ingestion(
         dry_run=dry_run,
         trigger=RunTrigger.TEST if session is not None else RunTrigger.CLI,
         requested_by="run_ingestion",
+        subpath=subpath,
     )
-    if llm_provider is not None and tier >= int(Tier.KNOWLEDGE) and not dry_run:
-        from ..sources.tier2 import run_tier2
+    if (engine is not None or llm_provider is not None) and tier >= int(Tier.KNOWLEDGE) and not dry_run:
+        from ..sources.tier2 import run_tier2, run_tier2_with_provider
 
-        tier2 = run_tier2(scope, provider=llm_provider, settings=settings)
+        if engine is None:
+            # An explicit bare provider means "validate responses, persist nothing" and must stay on
+            # that path even once A08's engine is importable - otherwise this seam would silently
+            # change behaviour the day P8 lands.
+            tier2 = run_tier2_with_provider(
+                scope,
+                llm_provider,
+                settings=settings,
+                root_id=source_root.root_id,
+                allow_model_mix=allow_model_mix,
+                run_id=report.run_id,
+            )
+        else:
+            tier2 = run_tier2(
+                scope,
+                engine=engine,
+                writer=writer,
+                settings=settings,
+                root_id=source_root.root_id,
+                allow_model_mix=allow_model_mix,
+                run_id=report.run_id,
+            )
         report.counters.update(tier2.as_counters())
+        # Attached rather than merged: the caller (the scenario suite) asserts on the Tier 2 half
+        # separately, and ``counters`` is typed ``dict[str, int]``.
+        report.tier2 = tier2
     return report
 
 
@@ -169,6 +199,12 @@ def run(
         False, "--extract", help="Also drain the Tier 2 queue now (serial, slow)."
     ),
     limit: int = typer.Option(None, "--limit", help="With --extract: stop after N episodes."),
+    allow_model_mix: bool = typer.Option(
+        False,
+        "--allow-model-mix",
+        help="Benchmarking only (ADR-0014): extract into a corpus that already holds facts from "
+        "another model. Never the default; recorded on the run.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Print the counters as JSON."),
 ) -> None:
     """Scan roots and apply the plan section L change-detection rules."""
@@ -196,14 +232,24 @@ def run(
             totals[key] = totals.get(key, 0) + value
 
     if extract and not dry_run:
-        from ..sources.tier2 import run_tier2
+        from ..sources.tier2 import ExtractionModelMismatch, run_tier2
 
-        tier2 = run_tier2(database, limit=limit, settings=settings)
+        try:
+            tier2 = run_tier2(
+                database,
+                limit=limit,
+                settings=settings,
+                root_id=root,
+                allow_model_mix=allow_model_mix,
+            )
+        except ExtractionModelMismatch as mismatch:
+            typer.secho(f"tier2 refused: {mismatch}", fg="red", err=True)
+            raise typer.Exit(code=4) from None
         for note in tier2.notes:
             typer.secho(f"tier2: {note}", fg="yellow")
         typer.echo(
-            f"tier2: processed={tier2.processed} extracted={tier2.extracted} "
-            f"failed={tier2.failed} in {tier2.seconds:.1f}s"
+            f"tier2: model={tier2.model_id} processed={tier2.processed} "
+            f"extracted={tier2.extracted} failed={tier2.failed} in {tier2.seconds:.1f}s"
         )
         totals.update(tier2.as_counters())
     if json_output:
@@ -217,7 +263,16 @@ def scan(
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
     """Alias for ``run`` (plan section AF calls an update a "scan run")."""
-    run(root=root, tier=tier, dry_run=dry_run, subpath=None, extract=False, limit=None, json_output=False)
+    run(
+        root=root,
+        tier=tier,
+        dry_run=dry_run,
+        subpath=None,
+        extract=False,
+        limit=None,
+        allow_model_mix=False,
+        json_output=False,
+    )
 
 
 @app.command()
@@ -231,8 +286,11 @@ def status(
     database = _database()
     with database.session() as session:
         report = ingest_repo.status_report(session, root_id=root, failures=failures)
+        models_in_use = ingest_repo.extraction_models_in_use(session, root_id=root)
     if json_output:
-        typer.echo(json.dumps(_status_dict(report), default=str, indent=2))
+        payload = _status_dict(report)
+        payload["extraction_models_in_use"] = models_in_use
+        typer.echo(json.dumps(payload, default=str, indent=2))
         return
 
     typer.secho("Sources", bold=True)
@@ -266,6 +324,14 @@ def status(
         f"  projects={report.projects} entities={report.entities} facts={report.facts} "
         f"artifacts={report.artifacts}"
     )
+    # ADR-0014 rule 2: more than one entry here means the corpus is mixed and needs a re-extraction.
+    typer.echo(f"  extraction models in use: {models_in_use or '{} (no LLM facts yet)'}")
+    if len(models_in_use) > 1:
+        typer.secho(
+            "  WARNING: more than one extraction model has current facts. "
+            "Run `aimemory-ingest reprocess --re-extract --model <id>` (ADR-0014).",
+            fg="red",
+        )
     if report.failures:
         typer.secho("Recent failures", bold=True, fg="red")
         for failure in report.failures:
@@ -282,36 +348,118 @@ def status(
 @app.command()
 def reprocess(
     failed: bool = typer.Option(False, "--failed", help="Re-queue failed jobs and failed episodes."),
+    re_extract: bool = typer.Option(
+        False,
+        "--re-extract",
+        help="ADR-0014 remedy: re-run extraction for a scope under ONE model, superseding the old "
+        "facts through the normal temporal path (they become historical, never deleted).",
+    ),
+    model: str = typer.Option(
+        None, "--model", help="extraction_models.id to re-extract under. Default: the configured one."
+    ),
+    project: str = typer.Option(None, "--project", help="Restrict the scope to one project id."),
     root: str = typer.Option(None, "--root"),
+    run_now: bool = typer.Option(
+        False, "--run", help="With --re-extract: drain the re-queued episodes immediately."
+    ),
+    limit: int = typer.Option(None, "--limit", help="With --run: stop after N episodes."),
 ) -> None:
-    """Recovery path of plan section L: failures are re-queued, never re-extracted from scratch."""
+    """Recovery path of plan section L, and the ADR-0014 re-extraction remedy.
+
+    ``--failed`` re-queues failed jobs and episodes; the vectors they already produced are never
+    discarded. ``--re-extract --model <id>`` re-queues an entire scope so one model owns it again -
+    the only sanctioned way out of a model mismatch, because the alternative (extracting the rest of
+    the corpus with a second model) is exactly the mismatch the guard exists to prevent.
+    """
     configure_logging()
-    if not failed:
-        typer.secho("nothing to do: pass --failed", fg="yellow")
+    if not failed and not re_extract:
+        typer.secho("nothing to do: pass --failed or --re-extract", fg="yellow")
         raise typer.Exit(code=1)
+    settings = get_settings()
     database = _database()
+
+    if failed:
+        with database.session() as session:
+            jobs = ingest_repo.requeue_failed_jobs(session, root_id=root)
+            episodes = ingest_repo.queue_failed_episodes(session, root_id=root)
+        typer.echo(f"re-queued jobs: {jobs}")
+        typer.echo(f"re-queued episodes: {episodes}")
+
+    if not re_extract:
+        return
+
+    from ..sources.tier2 import ExtractionModelMismatch, resolve_extraction_model_id, run_tier2
+
+    model_id = model or resolve_extraction_model_id(settings)
     with database.session() as session:
-        jobs = ingest_repo.requeue_failed_jobs(session, root_id=root)
-        episodes = ingest_repo.queue_failed_episodes(session, root_id=root)
-    typer.echo(f"re-queued jobs: {jobs}")
-    typer.echo(f"re-queued episodes: {episodes}")
+        in_use = ingest_repo.extraction_models_in_use(session, project_id=project, root_id=root)
+        requeued = ingest_repo.requeue_episodes_for_reextraction(
+            session, project_id=project, root_id=root
+        )
+        flagged = ingest_repo.flag_other_model_facts(
+            session, model_id, project_id=project, root_id=root
+        )
+    scope = project or root or "whole corpus"
+    typer.secho(f"re-extraction of {scope} under {model_id}", bold=True)
+    typer.echo(f"  models currently in that scope: {in_use or '{}'}")
+    typer.echo(f"  episodes re-queued: {requeued}")
+    typer.echo(f"  facts from other models flagged unconfirmed (never deleted): {flagged}")
+    if not run_now:
+        typer.echo("  run `aimemory-ingest tier2` (or repeat with --run) to drain the queue")
+        return
+    try:
+        report = run_tier2(
+            database,
+            limit=limit,
+            settings=settings,
+            project_id=project,
+            root_id=root,
+            model_id=model_id,
+            # The guard is deliberately bypassed *here only*: --re-extract is its sanctioned remedy,
+            # so the scope is being taken over by one model rather than mixed. The old generation was
+            # flagged above and is superseded by the engine through the ADR-0005 path; nothing is
+            # deleted, and `allow_model_mix` is still recorded on the run either way.
+            allow_model_mix=True,
+        )
+    except ExtractionModelMismatch as mismatch:  # pragma: no cover - allow_model_mix is set above
+        typer.secho(f"refused: {mismatch}", fg="red", err=True)
+        raise typer.Exit(code=4) from None
+    typer.echo(
+        f"  extracted={report.extracted} failed={report.failed} processed={report.processed} "
+        f"model={report.model_id}"
+    )
 
 
 @app.command("tier2")
 def tier2_command(
     limit: int = typer.Option(None, "--limit", help="Stop after N episodes."),
+    project: str = typer.Option(None, "--project", help="Restrict to one project id."),
+    root: str = typer.Option(None, "--root", help="Restrict to one source root."),
+    allow_model_mix: bool = typer.Option(
+        False, "--allow-model-mix", help="Benchmarking only (ADR-0014). Recorded on the run."
+    ),
 ) -> None:
     """Drain the Tier 2 LLM queue serially (ADR-0006); needs A08's engine to be available."""
     configure_logging()
-    from ..sources.tier2 import run_tier2
+    from ..sources.tier2 import ExtractionModelMismatch, run_tier2
 
     database = _database()
-    report = run_tier2(database, limit=limit)
+    try:
+        report = run_tier2(
+            database,
+            limit=limit,
+            project_id=project,
+            root_id=root,
+            allow_model_mix=allow_model_mix,
+        )
+    except ExtractionModelMismatch as mismatch:
+        typer.secho(f"refused: {mismatch}", fg="red", err=True)
+        raise typer.Exit(code=4) from None
     for note in report.notes:
         typer.secho(note, fg="yellow")
     typer.echo(
         f"processed={report.processed} extracted={report.extracted} failed={report.failed} "
-        f"engine={report.engine} seconds={report.seconds:.1f}"
+        f"engine={report.engine} model={report.model_id} seconds={report.seconds:.1f}"
     )
     if report.engine is None:
         raise typer.Exit(code=3)

@@ -158,6 +158,9 @@ class RunReport:
     errors: list[str] = field(default_factory=list)
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    #: The :class:`aimemory.sources.tier2.Tier2Report` of the same run, when Tier 2 was drained in
+    #: the same call (``run_ingestion(engine=...)``). ``None`` for a Tier 0/1 scan.
+    tier2: Any = None
 
     def count(self, key: str, delta: int = 1) -> None:
         self.counters[key] = self.counters.get(key, 0) + delta
@@ -262,6 +265,7 @@ class IngestionPipeline:
             # ---- Tier 0: the deterministic project registry (my-vault only, ADR-0006) ----------
             if ctx.root.registry_role == "bootstrap" and not dry_run:
                 from .registry import seed_registry  # local import: registry imports nothing heavy
+                from .seeds import seed_deterministic_entities
 
                 with self._scope.session() as session:
                     seeded = seed_registry(session, ctx, run_id=report.run_id)
@@ -274,6 +278,13 @@ class IngestionPipeline:
                         ingest_repo.attach_root_project(
                             session, ctx.root_id, ctx.root.default_project_id
                         )
+                # ADR-0014 rule 3: the PARA folders and the registry projects are typed here, by
+                # construction, so no extraction model gets a vote on them later.
+                with self._scope.session() as session:
+                    for key, value in seed_deterministic_entities(
+                        session, ctx, now=self._clock()
+                    ).items():
+                        report.count(key, value)
 
             # ---- discover + fingerprint --------------------------------------------------------
             observed, fingerprints = self._discover(ctx, report, subpath=subpath)
@@ -297,6 +308,11 @@ class IngestionPipeline:
                 report.counters[key] = value
 
             if dry_run:
+                # The walk numbers are the whole point of a dry run ("what would you have looked
+                # at, and what did you prune"), so they are folded in before the early return as
+                # well as at the end of a real scan.
+                for key, value in report.walk.as_counters().items():
+                    report.counters[key] = value
                 report.finished_at = self._clock()
                 return report
 
