@@ -105,6 +105,21 @@ def get_knowledge_engine(settings: Settings | None = None) -> KnowledgeEngine | 
         return None
 
 
+def get_knowledge_writer(scope: SessionScope) -> ResultWriter | None:
+    """A08's persistence writer, if it has been built yet. Never raises - see
+    :func:`get_knowledge_engine` for why a half-built system degrades instead of crashing.
+    """
+    try:
+        from ..knowledge import get_writer  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 - not built yet, or an optional dependency is missing
+        return None
+    try:
+        return get_writer(scope)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("tier2.writer_unavailable", error=f"{type(exc).__name__}: {exc}")
+        return None
+
+
 # --------------------------------------------------------------------------------------------------
 # ADR-0014 rule 2: one extraction model per corpus
 # --------------------------------------------------------------------------------------------------
@@ -330,6 +345,15 @@ def run_tier2(
     if engine is None:
         report.notes.append(
             "no KnowledgeEngine available (A08/P8-T02 not built yet) - queue left untouched"
+        )
+        return report
+    # Without this, an engine with no writer would call the LLM for every episode and then throw
+    # every result away (the persist call below is guarded by `writer is not None`) - paying for the
+    # extraction, and the egress, to produce nothing.
+    writer = writer or get_knowledge_writer(scope)
+    if writer is None:
+        report.notes.append(
+            "no ResultWriter available - refusing to extract, since nothing could be persisted"
         )
         return report
     report.engine = str(getattr(engine, "kind", "unknown"))

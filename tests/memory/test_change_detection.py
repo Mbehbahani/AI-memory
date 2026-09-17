@@ -832,7 +832,13 @@ def test_extraction_refuses_a_second_model_on_the_same_corpus(tmp_source_root, p
     # Generation 1: the corpus is extracted by one model.
     first = _ingest_and_extract(tmp_source_root.root, pg_session, StubKnowledgeEngine())
     assert first.tier2.extracted > 0
-    assert list(ingest_repo.extraction_models_in_use(pg_session)) == [STUB_MODEL_ID]
+    # Scoped to this fixture's root: the shared dev database also holds the real vault corpus, whose
+    # facts carry the configured provider's model id. The ADR-0014 guard is a statement about *a*
+    # corpus, so an unscoped assertion here would be an assertion about whatever else has been
+    # ingested - it passed only while the database happened to be empty.
+    assert list(
+        ingest_repo.extraction_models_in_use(pg_session, root_id=FIXTURE_LABEL)
+    ) == [STUB_MODEL_ID]
 
     # Generation 2: a different model tries to extend it. Everything is re-queued so there is work
     # to do; the guard must stop it anyway.
@@ -840,7 +846,12 @@ def test_extraction_refuses_a_second_model_on_the_same_corpus(tmp_source_root, p
     other = StubKnowledgeEngine(model_id=OTHER_MODEL_ID)
     scope = single_session_scope(pg_session)
     with pytest.raises(ExtractionModelMismatch) as raised:
-        run_tier2(scope, engine=other, writer=lambda r, e: persist_result(pg_session, r, e))
+        run_tier2(
+            scope,
+            engine=other,
+            writer=lambda r, e: persist_result(pg_session, r, e),
+            root_id=FIXTURE_LABEL,
+        )
 
     message = str(raised.value)
     assert STUB_MODEL_ID in message and OTHER_MODEL_ID in message
@@ -871,6 +882,7 @@ def test_allow_model_mix_is_the_only_way_past_the_guard(tmp_source_root, pg_sess
         writer=lambda r, e: persist_result(pg_session, r, e),
         allow_model_mix=True,
         run_id=run_id,
+        root_id=FIXTURE_LABEL,
     )
     assert report.extracted > 0
     assert report.model_id == OTHER_MODEL_ID
@@ -904,7 +916,9 @@ def test_allow_model_mix_is_the_only_way_past_the_guard(tmp_source_root, pg_sess
     # are the record that does show both. Recorded as a known limitation for A04/A08 rather than
     # papered over here: closing it means either restamping on re-confirmation (which would lose
     # the originating model) or a separate confirming-model record, and that is an ADR decision.
-    assert set(ingest_repo.extraction_models_in_use(pg_session)) == {STUB_MODEL_ID}
+    assert set(
+        ingest_repo.extraction_models_in_use(pg_session, root_id=FIXTURE_LABEL)
+    ) == {STUB_MODEL_ID}
 
 
 def test_deterministic_seed_types_cannot_be_overruled_by_extraction(
