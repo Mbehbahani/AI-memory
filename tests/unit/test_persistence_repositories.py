@@ -253,6 +253,21 @@ def test_embedding_reuse_key_is_idempotent(session: Session, source: Source, ver
 
 
 def test_claim_next_and_mark_failed(session: Session, episode: Episode) -> None:
+    """``EpisodeRepo.claim_next()`` is intentionally global over the whole queue (ADR-0006 fixes
+    concurrency at one worker, so it never needed a scope argument) - against a real corpus sharing
+    this dev database, dozens of already-pending episodes from an actual ingest legitimately outrank
+    this test's fixture episode by ``priority``/``created_at`` and get claimed instead, which used to
+    fail this test whenever a corpus existed. Production behaviour is not being changed (that is A04's
+    file); instead, every *other* pending/queued episode is moved out of contention for the length of
+    this test's own transaction, which ``pg_session`` always rolls back at teardown
+    (tests/conftest.py) - so nothing here ever touches committed data. Same idea as the ``root_id``
+    scoping A07a added to ``claim_episode_for_extraction`` (tests/memory/test_change_detection.py),
+    applied at the test level because ``claim_next()`` itself takes no scope arguments.
+    """
+    session.execute(
+        sa.text("UPDATE episodes SET status = 'skipped' WHERE status IN ('pending', 'queued') AND id != :id"),
+        {"id": episode.id},
+    )
     repo = EpisodeRepo(session)
     claimed = repo.claim_next()
     assert claimed is not None and claimed.id == episode.id and claimed.status.value == "running"
