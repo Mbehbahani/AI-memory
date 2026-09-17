@@ -7,14 +7,23 @@ exact character offsets into the input string.
 
 Two hard rules, enforced structurally rather than by post-hoc checking:
 
-1. **Never split inside a fenced code block.** The size check that triggers a chunk boundary is only
-   evaluated when the running fence-tracking state is "not inside a fence" - so a single oversized
-   fenced block simply produces one oversized chunk rather than being cut in half.
+1. **Never split inside a fenced code block.** Interior fence lines never trigger the size check at
+   all - so a single fenced block that is itself larger than ``max_tokens`` still becomes exactly one
+   (accepted) oversized chunk rather than being cut in half. Fence *open* and *close* lines are
+   additionally treated as hard chunk boundaries - like an ATX heading, whatever is currently buffered
+   is flushed unconditionally (not size-gated) the moment a fence starts, and again the moment it
+   ends. Without the open-side flush, prose accumulated just under ``max_tokens`` would silently absorb
+   the entire fence on top of it before any size check ever fires, producing a chunk that is prose
+   *plus* fence - which is not an accepted oversized shape (only a standalone oversized fence is;
+   MEASURED regression: a 28,446-character single chunk in a real vault note came from exactly this -
+   intro prose merged with one large fenced block because the fence-open transition never flushed the
+   prose first).
 2. **A ``#`` inside a fence is never a heading.** The heading regex is only tried when not inside a
    fence, for the same reason.
 
-Chunk boundaries are placed at (a) every ATX heading line (level 1-6, outside a fence) and (b) the
-first opportunity after the running token estimate reaches ``max_tokens`` while not inside a fence.
+Chunk boundaries are placed at (a) every ATX heading line (level 1-6, outside a fence), (b) every fence
+open/close transition (see rule 1), and (c) the first opportunity after the running token estimate
+reaches ``max_tokens`` while not inside a fence.
 
 Offsets and ``ChunkDraft.text``: :class:`~aimemory.domain.base.DomainModel` (frozen, A02) sets
 ``str_strip_whitespace=True`` on every model, so ``ChunkDraft.text`` can never itself carry leading or
@@ -97,6 +106,26 @@ class _Builder:
     def on_fence_line(self, line: str) -> None:
         self.buf += line
 
+    def on_fence_open(self, line: str, pos_before: int) -> None:
+        """Flush whatever is buffered, then start the fence in a chunk of its own.
+
+        Unconditional, exactly like :meth:`on_heading` - deliberately *not* size-gated. A size gate
+        here would be no gate at all: prose sitting just under ``max_tokens`` passes it, and then the
+        whole fenced block is appended on top before any further check can fire (interior fence lines
+        never trigger one, by rule 1).
+        """
+        if self._emit():
+            self.buf = ""
+            self.buf_start = pos_before
+        self.buf += line
+
+    def on_fence_close(self, pos_after: int) -> None:
+        """Close the fence and flush it, so following prose starts a new chunk rather than being
+        appended to the block."""
+        if self._emit():
+            self.buf = ""
+            self.buf_start = pos_after
+
     def maybe_split(self, pos: int) -> None:
         if not self.buf.strip():
             return
@@ -174,12 +203,12 @@ def chunk_markdown_text(
             builder.on_fence_line(line)
             if delim is not None and _closes_fence(delim, fence_run):
                 fence_run = None
-                builder.maybe_split(pos_after)
+                builder.on_fence_close(pos_after)
             pos = pos_after
             continue
         if delim is not None:
             fence_run = delim[0]
-            builder.on_fence_line(line)
+            builder.on_fence_open(line, pos)
             pos = pos_after
             continue
         heading_match = _HEADING_RE.match(stripped)
