@@ -2,7 +2,7 @@
 
 ``config/retrieval.yaml`` is the only tuning surface of the pipeline, so a renamed or dropped key
 must be a loud startup failure, never a silently-defaulted weight. These tests pin that, plus the
-one documented optional key (``boosts.low_trust_penalty``, ``retrieval.md`` deviation 2).
+one documented optional key (``boosts.low_trust_penalty``, ``retrieval.md`` deviation 10).
 """
 
 from __future__ import annotations

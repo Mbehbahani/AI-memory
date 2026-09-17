@@ -185,6 +185,37 @@ class HybridRetriever:
             degraded=bool(warnings),
         )
 
+    def rerank(
+        self,
+        outcome: RetrievalOutcome,
+        query: SearchQuery,
+        *,
+        entity_linked_keys: set[HitKey],
+        now: datetime | None = None,
+    ) -> RetrievalOutcome:
+        """Re-run stage 6 on an existing outcome once P10's graph expansion knows what is linked.
+
+        Stage 4 needs the *fused* list (stage 3) as its input and produces the ``entity_linked``
+        signal that stage 6 consumes, so the ranking is computed twice: once without the signal to
+        obtain the fused list, once with it. No SQL is re-issued - :attr:`RetrievalOutcome.fused`
+        and :attr:`RetrievalOutcome.metadata` carry everything the boost stage needs, which is the
+        whole reason they are returned.
+        """
+        if not entity_linked_keys:
+            return outcome
+        hits = rank_candidates(
+            outcome.fused,
+            outcome.metadata,
+            config=self._config,
+            project_ids=query.project_ids,
+            entity_linked_keys=entity_linked_keys,
+            limit=min(query.limit, self._config.final_k) if query.limit else self._config.final_k,
+            now=now,
+        )
+        counts = dict(outcome.candidate_counts)
+        counts["returned"] = len(hits)
+        return outcome.model_copy(update={"hits": hits, "candidate_counts": counts})
+
     # ------------------------------------------------------------------------------- degradation
 
     def _safe_model_id(self, session: Session, warnings: list[str]) -> str | None:

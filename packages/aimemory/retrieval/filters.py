@@ -91,9 +91,9 @@ def artifact_type_values() -> tuple[str, ...]:
 #: Predicates for the ``chunks c`` / ``sources s`` / ``source_versions sv`` join.
 #:
 #: ``since`` is evaluated against ``sv.observed_at`` and not ``c.created_at``: ``temporal.md`` §8
-#: and its deviation 5 fix ``since`` on the *observation* axis ("what changed lately"), while
-#: ``chunks.created_at`` is ingestion time. The literal SQL in ``retrieval.md`` §1 uses
-#: ``c.created_at``; that is the documented deviation reported with P9-T01.
+#: fixes ``since`` on the *observation* axis ("what changed lately"), while ``chunks.created_at`` is
+#: ingestion time. ``retrieval.md`` §1 agreed with this code as of commit ff19689 (A02 corrected the
+#: doc after P9-T01 reported the drift).
 CHUNK_PREDICATES = """
           AND (
               CAST(:project_ids AS text[]) IS NULL

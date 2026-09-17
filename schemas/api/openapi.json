@@ -1,0 +1,3353 @@
+{
+  "components": {
+    "schemas": {
+      "ArtifactType": {
+        "description": "Mirrors ``schemas/ontology.yaml: artifact_types``. ``SUMMARY`` is produced by the engine, not\nby the LLM artifact list, so it is absent from ``episode_extraction.schema.json``.",
+        "enum": [
+          "decision",
+          "requirement",
+          "task",
+          "finding",
+          "hypothesis",
+          "experiment",
+          "summary"
+        ],
+        "title": "ArtifactType",
+        "type": "string"
+      },
+      "ArtifactView": {
+        "additionalProperties": false,
+        "description": "A ``knowledge_artifacts`` row with its supersession chain (decisions, tasks, findings, ...).",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "citation": {
+            "default": "",
+            "title": "Citation",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "entity_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Entity Ids",
+            "type": "array"
+          },
+          "evidence_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Quote"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Provenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_status": {
+            "default": "active",
+            "title": "Source Status",
+            "type": "string"
+          },
+          "status": {
+            "default": "current",
+            "title": "Status",
+            "type": "string"
+          },
+          "structured": {
+            "additionalProperties": true,
+            "title": "Structured",
+            "type": "object"
+          },
+          "superseded_by_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By Id"
+          },
+          "superseded_by_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By Title"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "supersedes_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Title"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "track": {
+            "default": "unknown",
+            "title": "Track",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ArtifactType"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "body"
+        ],
+        "title": "ArtifactView",
+        "type": "object"
+      },
+      "AssembledContext": {
+        "additionalProperties": false,
+        "description": "The budgeted, ordered context text (plan section P step 6).\n\n``truncated`` is true when ``token_budget`` cut blocks; ``dropped_blocks`` names what was cut, so\nan answer can never silently lose the decisions section.",
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ContextBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "dropped_blocks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dropped Blocks",
+            "type": "array"
+          },
+          "token_budget": {
+            "default": 6000,
+            "minimum": 0.0,
+            "title": "Token Budget",
+            "type": "integer"
+          },
+          "tokens_used": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Tokens Used",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "title": "AssembledContext",
+        "type": "object"
+      },
+      "ComponentHealth": {
+        "additionalProperties": false,
+        "description": "One dependency's liveness. ``detail`` is sanitized - never a DSN, path or credential.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "latency_ms": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok"
+        ],
+        "title": "ComponentHealth",
+        "type": "object"
+      },
+      "ContextBlock": {
+        "additionalProperties": false,
+        "description": "One ordered section of the assembled context.\n\n``kind`` is a member of ``config/retrieval.yaml: context.block_order``\n(``project_summary``, ``current_facts``, ``decisions``, ``evidence_chunks``,\n``related_entities``). Every block carries its own citations so the text handed to a future AI\nclient is never uncited.",
+        "properties": {
+          "citations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "flags": {
+            "description": "e.g. 'unconfirmed', 'source-deleted', 'low-trust'",
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "object_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Object Ids",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tokens": {
+            "minimum": 0.0,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "text",
+          "tokens"
+        ],
+        "title": "ContextBlock",
+        "type": "object"
+      },
+      "CurrentState": {
+        "additionalProperties": false,
+        "description": "``GET /v1/state`` - status, current facts, open tasks, latest decisions, ingestion, coverage.\n\nResults are grouped by track in :attr:`by_track` and every nested view carries its own ``track``;\nnothing is merged across tracks without a label (plan section Q).",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "by_track": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "track -> project ids included in this answer",
+            "title": "By Track",
+            "type": "object"
+          },
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectCoverage"
+            },
+            "title": "Coverage",
+            "type": "array"
+          },
+          "current_facts": {
+            "items": {
+              "$ref": "#/components/schemas/FactView"
+            },
+            "title": "Current Facts",
+            "type": "array"
+          },
+          "last_ingestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngestionSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactView"
+            },
+            "title": "Latest Decisions",
+            "type": "array"
+          },
+          "open_tasks": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactView"
+            },
+            "title": "Open Tasks",
+            "type": "array"
+          },
+          "project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Project Ids",
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectView"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "as_of"
+        ],
+        "title": "CurrentState",
+        "type": "object"
+      },
+      "DecisionCreate": {
+        "additionalProperties": false,
+        "description": "``POST /v1/decisions`` body. ``supersedes_id`` adds the ADR-0005 rule 6 link, never a delete.",
+        "properties": {
+          "body": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "DecisionCreate",
+        "type": "object"
+      },
+      "EntityType": {
+        "description": "The ontology node labels (``schemas/ontology.yaml: node_types``).\n\n``SUB_PROJECT`` is a modelling type, not a distinct Neo4j label: it is stored as ``:Project`` with\n``parent_id`` set (``stored_as: Project`` in the ontology file). That is why\n``infra/neo4j/schema/constraints.cypher`` declares 18 uniqueness constraints for 19 types.",
+        "enum": [
+          "Project",
+          "SubProject",
+          "Person",
+          "Organization",
+          "Technology",
+          "Concept",
+          "Document",
+          "Repository",
+          "Source",
+          "Device",
+          "Decision",
+          "Requirement",
+          "Task",
+          "Experiment",
+          "Dataset",
+          "ResearchFinding",
+          "Episode",
+          "Application",
+          "InfrastructureComponent"
+        ],
+        "title": "EntityType",
+        "type": "string"
+      },
+      "EntityView": {
+        "additionalProperties": false,
+        "description": "An entity, the facts current at ``as_of``, and where the knowledge came from.",
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "canonical_name": {
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "engine": {
+            "default": "deterministic",
+            "title": "Engine",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/FactView"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "mention_count": {
+            "default": 0,
+            "title": "Mention Count",
+            "type": "integer"
+          },
+          "normalized_name": {
+            "default": "",
+            "title": "Normalized Name",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "provenance": {
+            "items": {
+              "$ref": "#/components/schemas/Provenance"
+            },
+            "title": "Provenance",
+            "type": "array"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedEntity"
+            },
+            "title": "Related",
+            "type": "array"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "track": {
+            "default": "unknown",
+            "title": "Track",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "canonical_name"
+        ],
+        "title": "EntityView",
+        "type": "object"
+      },
+      "EpisodeCreate": {
+        "additionalProperties": false,
+        "description": "``POST /v1/episodes`` body. ``client`` tags the writer (ADR-0008 audit requirement).",
+        "properties": {
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MCP client id; omitted for a manual write",
+            "title": "Client"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "text": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "EpisodeCreate",
+        "type": "object"
+      },
+      "ExplainChain": {
+        "additionalProperties": false,
+        "description": "``Gateway.explain(id)`` / ``memory.explain`` (plan section J).\n\nThe ordered chain ``artifact|fact -> episode -> version -> source -> root/device`` plus the\nmodels and the run, with a plain-language rendering for humans. Never returns file bytes.",
+        "properties": {
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation"
+          },
+          "complete": {
+            "default": false,
+            "description": "Provenance.is_complete for this object",
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "evidence_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Quote"
+          },
+          "explanation": {
+            "default": "",
+            "description": "Human-readable sentence chain",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "object_id": {
+            "format": "uuid",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "object_type": {
+            "$ref": "#/components/schemas/ObjectType"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceChainStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id",
+          "provenance"
+        ],
+        "title": "ExplainChain",
+        "type": "object"
+      },
+      "FactStatus": {
+        "description": "ADR-0005. ``UNCONFIRMED`` still has ``valid_to IS NULL`` - it is current but not re-observed\nin the newest source version, and is ranked down by ``boosts.unconfirmed_penalty``.",
+        "enum": [
+          "current",
+          "historical",
+          "unconfirmed"
+        ],
+        "title": "FactStatus",
+        "type": "string"
+      },
+      "FactView": {
+        "additionalProperties": false,
+        "description": "One fact with its ``[PROV]`` stamp and rendered citation (``GET /v1/entities/{id}``).",
+        "properties": {
+          "citation": {
+            "default": "",
+            "title": "Citation",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "object_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Entity Id"
+          },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Name"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "predicate": {
+            "title": "Predicate",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Provenance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "status": {
+            "default": "current",
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Entity Id"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "track": {
+            "default": "unknown",
+            "title": "Track",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "id",
+          "statement",
+          "predicate"
+        ],
+        "title": "FactView",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthReport": {
+        "additionalProperties": false,
+        "description": "``GET /health``: postgres, neo4j (as the read user) and the embedding service.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentHealth"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "status": {
+            "description": "ok | degraded | down",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "default": "0.1.0",
+            "title": "Version",
+            "type": "string"
+          },
+          "writes_enabled": {
+            "default": false,
+            "title": "Writes Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "HealthReport",
+        "type": "object"
+      },
+      "IngestionSummary": {
+        "additionalProperties": false,
+        "description": "The most recent ``ingestion_runs`` row - \"when did the memory last learn anything?\".",
+        "properties": {
+          "counters": {
+            "additionalProperties": true,
+            "title": "Counters",
+            "type": "object"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "root_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          }
+        },
+        "title": "IngestionSummary",
+        "type": "object"
+      },
+      "MetricsSnapshotView": {
+        "additionalProperties": false,
+        "description": "``GET /metrics`` - simple in-process counters plus a few corpus totals (plan section Q).\n\nCounters are MEASURED since process start; corpus totals are MEASURED at request time. Nothing\nhere is an estimate, and nothing here is a target.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "corpus": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Corpus",
+            "type": "object"
+          },
+          "errors_total": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Errors Total",
+            "type": "object"
+          },
+          "latency_ms": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Latency Ms",
+            "type": "object"
+          },
+          "requests_total": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Requests Total",
+            "type": "object"
+          },
+          "responses_total": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Responses Total",
+            "type": "object"
+          },
+          "uptime_seconds": {
+            "minimum": 0.0,
+            "title": "Uptime Seconds",
+            "type": "number"
+          },
+          "warnings_total": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Warnings Total",
+            "type": "object"
+          }
+        },
+        "required": [
+          "at",
+          "uptime_seconds"
+        ],
+        "title": "MetricsSnapshotView",
+        "type": "object"
+      },
+      "ObjectType": {
+        "description": "Polymorphic target of ``embeddings``, ``retrieval_logs``, ``extraction_reviews`` and\n``Gateway.explain(id)``.",
+        "enum": [
+          "chunk",
+          "artifact",
+          "fact",
+          "entity",
+          "episode",
+          "source"
+        ],
+        "title": "ObjectType",
+        "type": "string"
+      },
+      "ProjectCoverage": {
+        "additionalProperties": false,
+        "description": "What the memory actually holds for one project - ADR-0006's \"honest coverage\".",
+        "properties": {
+          "artifacts": {
+            "default": 0,
+            "title": "Artifacts",
+            "type": "integer"
+          },
+          "chunks": {
+            "default": 0,
+            "title": "Chunks",
+            "type": "integer"
+          },
+          "embed_coverage": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Embed Coverage",
+            "type": "number"
+          },
+          "entities": {
+            "default": 0,
+            "title": "Entities",
+            "type": "integer"
+          },
+          "episodes_extracted": {
+            "default": 0,
+            "title": "Episodes Extracted",
+            "type": "integer"
+          },
+          "episodes_failed": {
+            "default": 0,
+            "title": "Episodes Failed",
+            "type": "integer"
+          },
+          "episodes_total": {
+            "default": 0,
+            "title": "Episodes Total",
+            "type": "integer"
+          },
+          "extraction_coverage": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Extraction Coverage",
+            "type": "number"
+          },
+          "facts": {
+            "default": 0,
+            "title": "Facts",
+            "type": "integer"
+          },
+          "note": {
+            "default": "",
+            "description": "Plain-language coverage statement, safe to show a caller verbatim",
+            "title": "Note",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "sources_embedded": {
+            "default": 0,
+            "title": "Sources Embedded",
+            "type": "integer"
+          },
+          "sources_indexable": {
+            "default": 0,
+            "title": "Sources Indexable",
+            "type": "integer"
+          },
+          "sources_total": {
+            "default": 0,
+            "title": "Sources Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectCoverage",
+        "type": "object"
+      },
+      "ProjectView": {
+        "additionalProperties": false,
+        "description": "A ``projects`` row plus its aliases and coverage (``GET /v1/projects``).",
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "goal_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Goal Ids",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "root_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Root Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "track": {
+            "title": "Track",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "track",
+          "status"
+        ],
+        "title": "ProjectView",
+        "type": "object"
+      },
+      "Provenance": {
+        "additionalProperties": false,
+        "description": "The provenance stamp carried by every derived row.\n\n``source_version`` is the ``source_versions.id`` the row was derived from - the plan's column\nname is kept verbatim even though it holds a version *id*, because A04's DDL, the\n``provenance_v`` view and the MCP payload all use that name.\n\nThe three chunk-only fields (``heading_path``, ``char_start``, ``char_end``) are optional and set\nonly when the provenance points at a chunk.",
+        "properties": {
+          "char_end": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char End"
+          },
+          "char_start": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Start"
+          },
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "device_id": {
+            "description": "devices.id; 'local-development-machine' in V0.1",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "embedding_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "embedding_models.id",
+            "title": "Embedding Model Id"
+          },
+          "episode_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Id"
+          },
+          "extraction_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "extraction_models.id, or 'deterministic:registry-v1'",
+            "title": "Extraction Model Id"
+          },
+          "heading_path": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Heading Path",
+            "type": "array"
+          },
+          "ingestion_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingestion Run Id"
+          },
+          "observed_at": {
+            "description": "Source time (mtime/commit) or run time (ADR-0005 #6)",
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "projects.id slug",
+            "title": "Project Id"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "sha256: content hash of the version",
+            "title": "Source Hash"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "sources.id",
+            "title": "Source Id"
+          },
+          "source_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Logical URI (ADR-0004)",
+            "title": "Source Uri"
+          },
+          "source_version": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "source_versions.id",
+            "title": "Source Version"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NULL = still current",
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "device_id",
+          "observed_at"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "ProvenanceChainStep": {
+        "additionalProperties": false,
+        "description": "One hop of the human-readable chain returned by ``Gateway.explain(id)``.\n\nThe chain is ordered ``artifact|fact -> episode -> version -> source -> root -> device`` with the\nmodels and the run appended, exactly as plan section J describes.",
+        "properties": {
+          "detail": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "description": "Identifier of the object at this hop (UUID or slug)",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "artifact | fact | entity | episode | version | source | root | device | model | run",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "Human-readable label shown in explain output",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "label"
+        ],
+        "title": "ProvenanceChainStep",
+        "type": "object"
+      },
+      "RelatedEntity": {
+        "additionalProperties": false,
+        "description": "An entity reached by 1-hop graph expansion, with the edge that got us there.",
+        "properties": {
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "direction": {
+            "default": "out",
+            "description": "out | in",
+            "title": "Direction",
+            "type": "string"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "predicate": {
+            "title": "Predicate",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/EntityType"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "entity_id",
+          "name",
+          "type",
+          "predicate"
+        ],
+        "title": "RelatedEntity",
+        "type": "object"
+      },
+      "RelatedResult": {
+        "additionalProperties": false,
+        "description": "``GET /v1/related`` - graph expansion on its own, with its degradation warning.",
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "degraded": {
+            "default": false,
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "entity_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Entity Ids",
+            "type": "array"
+          },
+          "related": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedEntity"
+            },
+            "title": "Related",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "title": "RelatedResult",
+        "type": "object"
+      },
+      "RetrieverKind": {
+        "description": "Which retriever produced a candidate before Reciprocal Rank Fusion (plan section P).",
+        "enum": [
+          "semantic",
+          "keyword",
+          "graph"
+        ],
+        "title": "RetrieverKind",
+        "type": "string"
+      },
+      "ScoredHit": {
+        "additionalProperties": false,
+        "description": "A fused, boosted, temporally filtered hit - the unit returned to callers.\n\n``score = rrf_score + sum(boosts.values())`` with the weights of ``config/retrieval.yaml``\n(``project_match``, ``entity_linked``, recency decay, ``unconfirmed_penalty``). ``boosts`` keeps\neach contribution separately so a ranking regression can be explained instead of guessed at.\n\n``provenance`` is always populated: the plan's acceptance criterion is provenance completeness\n100 % on returned evidence.",
+        "properties": {
+          "boosts": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Boosts",
+            "type": "object"
+          },
+          "citation": {
+            "default": "",
+            "description": "config/retrieval.yaml context.citation_format",
+            "title": "Citation",
+            "type": "string"
+          },
+          "entity_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Entity Ids",
+            "type": "array"
+          },
+          "object_id": {
+            "format": "uuid",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "object_type": {
+            "$ref": "#/components/schemas/ObjectType"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "rank": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "retrievers": {
+            "items": {
+              "$ref": "#/components/schemas/RetrieverKind"
+            },
+            "title": "Retrievers",
+            "type": "array"
+          },
+          "rrf_score": {
+            "default": 0.0,
+            "title": "Rrf Score",
+            "type": "number"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FactStatus"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fact/artifact status; surfaced so 'unconfirmed' is visible",
+            "title": "Status"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id",
+          "text",
+          "score",
+          "provenance"
+        ],
+        "title": "ScoredHit",
+        "type": "object"
+      },
+      "SearchQuery": {
+        "additionalProperties": false,
+        "description": "A scoped, time-aware retrieval request.\n\n``project_ids`` scopes to one or more registry slugs (empty = all projects). ``as_of`` applies the\nADR-0005 point-in-time predicate to facts and artifacts; ``since`` filters on\n``observed_at``/version time and answers \"what changed lately\". ``limit`` is the number of hits\nreturned (``candidates.final_k`` is the default), not the number of candidates retrieved.\n\n``include_unconfirmed`` defaults to true because ADR-0005 rule 3 keeps unconfirmed facts\n*current*; they are penalised by ``boosts.unconfirmed_penalty`` and flagged in the context rather\nthan hidden (risk R6).",
+        "properties": {
+          "artifact_types": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactType"
+            },
+            "title": "Artifact Types",
+            "type": "array"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "assemble_context": {
+            "default": true,
+            "title": "Assemble Context",
+            "type": "boolean"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MCP client id or 'rest'",
+            "title": "Client"
+          },
+          "entity_types": {
+            "items": {
+              "$ref": "#/components/schemas/EntityType"
+            },
+            "title": "Entity Types",
+            "type": "array"
+          },
+          "expand": {
+            "default": true,
+            "description": "Graph expansion; false = vector+keyword only",
+            "title": "Expand",
+            "type": "boolean"
+          },
+          "include_deleted_sources": {
+            "default": false,
+            "description": "Sources with status=deleted; knowledge is kept but flagged",
+            "title": "Include Deleted Sources",
+            "type": "boolean"
+          },
+          "include_unconfirmed": {
+            "default": true,
+            "title": "Include Unconfirmed",
+            "type": "boolean"
+          },
+          "k": {
+            "default": 10,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "K",
+            "type": "integer"
+          },
+          "object_types": {
+            "description": "Empty = chunks + artifacts",
+            "items": {
+              "$ref": "#/components/schemas/ObjectType"
+            },
+            "title": "Object Types",
+            "type": "array"
+          },
+          "project_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Project Ids",
+            "type": "array"
+          },
+          "query": {
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchQuery",
+        "type": "object"
+      },
+      "SearchResult": {
+        "additionalProperties": false,
+        "description": "The Gateway's answer to a :class:`SearchQuery` (``/v1/search`` and ``memory.search``).\n\n``warnings`` carries degraded-mode notices - the plan's failure tests require \"Neo4j down ->\nvector-only with warning\", and that warning must reach the caller, not just the log.",
+        "properties": {
+          "candidate_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Candidate Counts",
+            "type": "object"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssembledContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/ScoredHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "latency_ms": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Latency Ms",
+            "type": "integer"
+          },
+          "provenance": {
+            "items": {
+              "$ref": "#/components/schemas/Provenance"
+            },
+            "title": "Provenance",
+            "type": "array"
+          },
+          "query": {
+            "$ref": "#/components/schemas/SearchQuery"
+          },
+          "related_entities": {
+            "items": {
+              "$ref": "#/components/schemas/RelatedEntity"
+            },
+            "title": "Related Entities",
+            "type": "array"
+          },
+          "retrieval_log_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Log Id"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "SourceView": {
+        "additionalProperties": false,
+        "description": "A ``sources`` row - URIs and metadata only. The Gateway never returns file bytes.",
+        "properties": {
+          "chunks": {
+            "default": 0,
+            "title": "Chunks",
+            "type": "integer"
+          },
+          "container_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mapped container path, only when the root is currently mounted (never bytes)",
+            "title": "Container Path"
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "current_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "file",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "origin": {
+            "default": "internal",
+            "title": "Origin",
+            "type": "string"
+          },
+          "policy": {
+            "default": "CATALOG_ONLY",
+            "title": "Policy",
+            "type": "string"
+          },
+          "policy_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Reason"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "relative_path": {
+            "title": "Relative Path",
+            "type": "string"
+          },
+          "root_id": {
+            "title": "Root Id",
+            "type": "string"
+          },
+          "secret_suspected": {
+            "default": false,
+            "title": "Secret Suspected",
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "status": {
+            "default": "active",
+            "title": "Status",
+            "type": "string"
+          },
+          "track": {
+            "default": "unknown",
+            "title": "Track",
+            "type": "string"
+          },
+          "trust": {
+            "default": "high",
+            "title": "Trust",
+            "type": "string"
+          },
+          "uri": {
+            "title": "Uri",
+            "type": "string"
+          },
+          "versions": {
+            "default": 0,
+            "title": "Versions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "uri",
+          "root_id",
+          "relative_path"
+        ],
+        "title": "SourceView",
+        "type": "object"
+      },
+      "TimelineEvent": {
+        "additionalProperties": false,
+        "description": "One dated event on the merged timeline (``temporal.md`` §8).\n\n``kind`` is the axis the date came from, so a caller can tell \"the file changed\" from \"the fact\nbecame valid\" instead of seeing one undifferentiated stream.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Detail",
+            "type": "object"
+          },
+          "kind": {
+            "description": "source_version | episode | fact | artifact | run",
+            "title": "Kind",
+            "type": "string"
+          },
+          "object_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Id"
+          },
+          "object_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "track": {
+            "default": "unknown",
+            "title": "Track",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "kind"
+        ],
+        "title": "TimelineEvent",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WriteReceipt": {
+        "additionalProperties": false,
+        "description": "ADR-0008 append-only write result. ``accepted=False`` carries the reason, never a stack.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "episode_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Id"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "object_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Object Id"
+          },
+          "object_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObjectType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "WriteReceipt",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Local personal memory infrastructure (V0.1). Hybrid retrieval over a personal corpus with provenance on every returned object, point-in-time reads, and append-only writes that are disabled by default (ADR-0008). Published on 127.0.0.1 only (ADR-0007).",
+    "title": "AI Memory Gateway",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness of pg, neo4j and embedding",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsSnapshotView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "In-process counters + corpus",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/artifacts/{artifact_id}": {
+      "get": {
+        "operationId": "get_artifact_v1_artifacts__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Artifact with its supersession chain",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/decisions": {
+      "get": {
+        "operationId": "get_decisions_v1_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_superseded",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Superseded",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactView"
+                  },
+                  "title": "Response Get Decisions V1 Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decision artifacts",
+        "tags": [
+          "read"
+        ]
+      },
+      "post": {
+        "operationId": "record_decision_v1_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Append a decision artifact (403 unless GATEWAY_WRITE_ENABLED)",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/entities/{entity_id}": {
+      "get": {
+        "operationId": "get_entity_v1_entities__entity_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_related",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Related",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Entity with the facts current at as_of, its provenance and its neighbours",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/episodes": {
+      "post": {
+        "operationId": "add_episode_v1_episodes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EpisodeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Append an episode (403 unless GATEWAY_WRITE_ENABLED)",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/explain/{object_id}": {
+      "get": {
+        "operationId": "explain_v1_explain__object_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Object Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "object_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainChain"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provenance chain: object -> episode -> version -> source -> root/device + models + run",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "operationId": "list_projects_v1_projects_get",
+        "parameters": [
+          {
+            "description": "Repeatable filter",
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Repeatable filter",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectView"
+                  },
+                  "title": "Response List Projects V1 Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project registry + coverage",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "operationId": "get_project_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One project",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/related": {
+      "get": {
+        "operationId": "get_related_v1_related_get",
+        "parameters": [
+          {
+            "description": "Repeatable; at least one",
+            "in": "query",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "description": "Repeatable; at least one",
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "title": "Entity Id",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelatedResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "1-hop graph expansion (degrades to an empty list with a warning)",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/search": {
+      "post": {
+        "operationId": "search_v1_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hybrid search (vector + keyword + graph) with assembled context",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/v1/sources": {
+      "get": {
+        "operationId": "get_sources_v1_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "root_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Root Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "uri",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uri"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceView"
+                  },
+                  "title": "Response Get Sources V1 Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source registry (never bytes)",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/state": {
+      "get": {
+        "operationId": "get_state_v1_state_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Current state: status, facts, open tasks, decisions, last ingestion, coverage",
+        "tags": [
+          "read"
+        ]
+      }
+    },
+    "/v1/timeline": {
+      "get": {
+        "operationId": "get_timeline_v1_timeline_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "entity_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TimelineEvent"
+                  },
+                  "title": "Response Get Timeline V1 Timeline Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Merged temporal events",
+        "tags": [
+          "read"
+        ]
+      }
+    }
+  }
+}
