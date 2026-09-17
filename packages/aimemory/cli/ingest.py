@@ -287,9 +287,11 @@ def status(
     with database.session() as session:
         report = ingest_repo.status_report(session, root_id=root, failures=failures)
         models_in_use = ingest_repo.extraction_models_in_use(session, root_id=root)
+        unembeddable = ingest_repo.unembeddable_sources(session, root_id=root)
     if json_output:
         payload = _status_dict(report)
         payload["extraction_models_in_use"] = models_in_use
+        payload["unembeddable_sources"] = unembeddable
         typer.echo(json.dumps(payload, default=str, indent=2))
         return
 
@@ -312,13 +314,32 @@ def status(
     typer.secho("Episodes (Tier 2 queue)", bold=True)
     typer.echo(f"  {report.episodes_by_status or '{}'}")
     typer.secho("Coverage per project", bold=True)
-    typer.echo(f"  {'project':<28} {'indexed':>8} {'embedded':>9} {'episodes':>9} {'extracted':>10} {'cov':>6}")
+    typer.echo(
+        f"  {'project':<28} {'indexed':>8} {'embedded':>9} {'embed%':>7} "
+        f"{'episodes':>9} {'extracted':>10} {'extract%':>9}"
+    )
+    totals = [0, 0]
     for row in report.coverage:
+        totals[0] += row.sources_indexable
+        totals[1] += row.sources_embedded
         typer.echo(
             f"  {row.project_id[:28]:<28} {row.sources_indexable:>8} {row.sources_embedded:>9} "
-            f"{row.episodes_total:>9} {row.episodes_extracted:>10} "
-            f"{row.extraction_coverage * 100:>5.1f}%"
+            f"{row.embed_coverage * 100:>6.1f}% {row.episodes_total:>9} "
+            f"{row.episodes_extracted:>10} {row.extraction_coverage * 100:>8.1f}%"
         )
+    # The Tier 1 acceptance line (P7-T02) is the total, not any single project row.
+    overall = (totals[1] / totals[0] * 100) if totals[0] else 0.0
+    typer.echo(f"  {'TOTAL':<28} {totals[0]:>8} {totals[1]:>9} {overall:>6.1f}%")
+    # Everything below 100 % is listed by name: a coverage gap with no explanation next to it is
+    # indistinguishable from a bug, and these are settled outcomes rather than pending retries.
+    if unembeddable:
+        typer.secho(
+            f"Indexable but nothing to embed ({len(unembeddable)}) - each is a settled outcome",
+            bold=True,
+            fg="yellow",
+        )
+        for item in unembeddable:
+            typer.echo(f"  [{item['stage']}] {item['path']}: {str(item['reason'])[:90]}")
     typer.secho("Knowledge", bold=True)
     typer.echo(
         f"  projects={report.projects} entities={report.entities} facts={report.facts} "

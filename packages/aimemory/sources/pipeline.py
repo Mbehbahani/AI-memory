@@ -38,7 +38,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from ..chunking import get_chunker
+from ..chunking import count_tokens, get_chunker
 from ..common.config import Settings, get_settings
 from ..common.ids import deterministic_id, new_id, normalize_name
 from ..common.logging import get_logger
@@ -95,6 +95,12 @@ logger = get_logger(__name__)
 
 #: Chunk target. MiniLM-L6-v2 has ``max_seq=256``, so chunks aim at ~200 tokens (ports.ChunkDraft).
 CHUNK_MAX_TOKENS = 200
+
+#: Hard ceiling on the characters in a single chunk, mirroring ``MAX_CHARS`` in A06's
+#: ``apps/embedding-service/app.py``: the service answers ``422 texts[i] exceeds 8000 characters``
+#: and the batch is lost. This is a *backstop*, not the chunking strategy - see
+#: :func:`_bounded_drafts` for the two chunker defects it currently covers for.
+EMBED_MAX_CHARS = 8000
 
 
 class SessionScope(Protocol):
@@ -258,6 +264,14 @@ class IngestionPipeline:
                 requeued = JobRepo(session).requeue_stuck()
                 if requeued:
                     report.count("jobs_requeued", requeued)
+                # Lease recovery for the run row itself, not just its jobs: a killed scan would
+                # otherwise stay `running` in `status` for ever. Scoped to this root and executed
+                # after the new run row exists, so it can only ever close *earlier* runs.
+                abandoned = ingest_repo.abandon_stale_runs(
+                    session, root_id=ctx.root_id, exclude_run_id=run.id
+                )
+                if abandoned:
+                    report.count("runs_abandoned", abandoned)
                 self._project_ids = ingest_repo.known_project_ids(session)
                 self._alias_map = ingest_repo.project_alias_map(session)
 
@@ -327,6 +341,16 @@ class IngestionPipeline:
                         unchanged_ids.append(decision.known.source_id)
                     if decision.restored:
                         self._restore(decision, report)
+                    if int(tier) >= int(Tier.EMBED):
+                        try:
+                            self._backfill_unchanged(ctx, decision, fingerprints, report, tier)
+                        except Exception as exc:  # noqa: BLE001 - same rule as _process below
+                            message = f"{type(exc).__name__}: {exc}"
+                            report.errors.append(f"{decision.uri}: {message}")
+                            report.count("errors")
+                            logger.warning(
+                                "ingestion.backfill_failed", uri=decision.uri, error=message
+                            )
                     continue
                 try:
                     self._process(ctx, decision, fingerprints, report, tier, git_head)
@@ -541,7 +565,7 @@ class IngestionPipeline:
             return
 
         self._process_content(
-            ctx, decision, source, version, fingerprint, classification, report, tier
+            ctx, decision, source, version.id, fingerprint, classification, report, tier
         )
 
     # -------------------------------------------------------------------------------- sub-cases
@@ -601,12 +625,62 @@ class IngestionPipeline:
                 )
             )
 
+    def _backfill_unchanged(
+        self,
+        ctx: RootContext,
+        decision: ChangeDecision,
+        fingerprints: dict[str, Fingerprint],
+        report: RunReport,
+        tier: Tier,
+    ) -> None:
+        """Owe-nothing rule for a file that did not change: finish the Tier 1 stages it never got.
+
+        "Tiers are ceilings, not steps" is only true if a later, higher scan can still reach a
+        version that an earlier, lower one left alone. Without this, the obvious sequence
+        ``run --tier 0`` (catalog the vault) then ``run --tier 1`` (embed it) produces nothing at
+        all: every file is ``unchanged`` by the second scan, and ``_process`` - the only place that
+        ever ran the content stages - is reached only by changed versions. It is also the resume
+        path for an interrupted scan: the killed version is unchanged on disk, so the restart has to
+        recognise it by its unfinished job rows rather than by its content hash.
+
+        Nothing here re-writes work that is already settled: :func:`ingest_repo.tier1_backfill_needed`
+        is the gate, and every stage underneath is still keyed on ``(version_id, stage)``.
+        """
+        known = decision.known
+        if report.run_id is None or known is None or known.version_id is None:
+            return
+        fingerprint = fingerprints.get(decision.uri)
+        if fingerprint is None:
+            return
+        with self._scope.session() as session:
+            if not ingest_repo.tier1_backfill_needed(session, known.version_id):
+                return
+            source = SourceRepo(session).get_by_uri(decision.uri)
+        if source is None:  # pragma: no cover - the diff only reports URIs it read from `sources`
+            return
+
+        classification = self._classify(ctx, decision.relative_path, fingerprint)
+        if not classification.policy.stores_text or classification.secret_suspected:
+            self._skip_content_stages(
+                report,
+                known.version_id,
+                source.id,
+                "policy is metadata-only"
+                if not classification.secret_suspected
+                else "secret suspected",
+            )
+            return
+        report.count("backfilled_versions")
+        self._process_content(
+            ctx, decision, source, known.version_id, fingerprint, classification, report, tier
+        )
+
     def _process_content(
         self,
         ctx: RootContext,
         decision: ChangeDecision,
         source: Source,
-        version: SourceVersion,
+        version_id: UUID,
         fingerprint: Fingerprint,
         classification: _Classification,
         report: RunReport,
@@ -619,40 +693,53 @@ class IngestionPipeline:
         makes "killed mid-run, restarted" finish the job instead of leaving a half-processed version.
         """
         extracted: ExtractedText | None = None
+        downgrade_reason: str | None = None
+
+        def _downgrade_to_catalog(reason: str) -> None:
+            """Record "this file cannot be content-indexed" and skip the stage.
+
+            Plan section P6-T02: a file whose text cannot be obtained downgrades to CATALOG_ONLY
+            with a recorded reason - it does not fail the run, and it stops counting against Tier 1
+            coverage, because no number of re-runs will ever embed it while its content is unchanged.
+            The downgrade is *not* sticky: ``_classify`` recomputes the policy from the path on every
+            scan and ``upsert_source`` overwrites it, so the next time the file actually changes it
+            gets another attempt at the full pipeline.
+
+            The write cannot happen here, inside the stage body: ``_StageSkipped`` propagates out of
+            the scope block :meth:`_stage` opened around this body and that block rolls back, so a
+            downgrade written on the stage's session is discarded along with the exception (which is
+            what happened until 2026-09-17 - the source stayed INDEX_CONTENT with no text, no
+            recorded reason, and a permanent unexplained hole in the coverage number). Under
+            :class:`aimemory.persistence.db.Database` an independent session would survive that, but
+            under :func:`single_session_scope` - the same code path the scenario suite runs - it is a
+            SAVEPOINT inside the very savepoint being rolled back, and it would not. So the reason is
+            recorded here and applied by the caller once the stage has settled.
+            """
+            nonlocal downgrade_reason
+            downgrade_reason = reason
+            raise _StageSkipped(reason)
 
         def _extract(session: Session) -> None:
             nonlocal extracted
             data = fingerprint.data
             if data is None:
-                raise _StageSkipped("content not read (file above INGEST_MAX_TEXT_BYTES)")
+                _downgrade_to_catalog(
+                    "extractor: content not read (file above INGEST_MAX_TEXT_BYTES)"
+                )
             extractor = get_extractor(decision.relative_path, classification.media_type)
             if extractor is None:
-                raise _StageSkipped("no extractor claims this file")
+                _downgrade_to_catalog("extractor: no extractor claims this file type")
+            assert extractor is not None and data is not None  # _downgrade_to_catalog always raises
             result = extractor.extract(
                 data,
                 relative_path=decision.relative_path,
                 max_bytes=self._settings.ingest.max_text_bytes,
             )
             if not result.ok:
-                # Plan section P6-T02: a broken pdf/docx downgrades to CATALOG_ONLY with a recorded
-                # reason; it does not fail the run.
-                ingest_repo.apply_classification(
-                    session,
-                    source.id,
-                    relative_path=decision.relative_path,
-                    policy=StoragePolicy.CATALOG_ONLY.value,
-                    policy_reason=f"extractor: {result.reason}",
-                    media_type=classification.media_type,
-                    origin=classification.origin.value,
-                    trust=classification.trust.value,
-                    secret_suspected=classification.secret_suspected,
-                    project_id=classification.project_id,
-                    at=self._clock(),
-                )
-                raise _StageSkipped(f"extractor: {result.reason}")
+                _downgrade_to_catalog(f"extractor: {result.reason}")
             SourceRepo(session).upsert_text(
                 SourceText(
-                    version_id=version.id,
+                    version_id=version_id,
                     text=result.text,
                     extractor=result.extractor,
                     extractor_version=result.extractor_version,
@@ -666,11 +753,29 @@ class IngestionPipeline:
             extracted = result
             report.count("texts_stored")
 
-        outcome = self._stage(report, version.id, source.id, JobStage.EXTRACT_TEXT, _extract)
+        outcome = self._stage(report, version_id, source.id, JobStage.EXTRACT_TEXT, _extract)
         if not outcome.ok:
+            if downgrade_reason is not None:
+                # Applied here, after the stage has settled, so it is not inside the transaction (or
+                # SAVEPOINT) that the skip rolled back. See _downgrade_to_catalog.
+                with self._scope.session() as session:
+                    ingest_repo.apply_classification(
+                        session,
+                        source.id,
+                        relative_path=decision.relative_path,
+                        policy=StoragePolicy.CATALOG_ONLY.value,
+                        policy_reason=downgrade_reason,
+                        media_type=classification.media_type,
+                        origin=classification.origin.value,
+                        trust=classification.trust.value,
+                        secret_suspected=classification.secret_suspected,
+                        project_id=classification.project_id,
+                        at=self._clock(),
+                    )
+                report.count("policy_downgraded_catalog_only")
             self._skip_content_stages(
                 report,
-                version.id,
+                version_id,
                 source.id,
                 "no stored text",
                 skip=(JobStage.CHUNK, JobStage.EMBED, JobStage.EPISODE),
@@ -679,7 +784,7 @@ class IngestionPipeline:
         if extracted is None:
             # Resume path: the text is already in the database from an earlier run.
             with self._scope.session() as session:
-                stored = ingest_repo.get_source_text(session, version.id)
+                stored = ingest_repo.get_source_text(session, version_id)
             if stored is None:
                 return
             extracted = stored
@@ -695,12 +800,21 @@ class IngestionPipeline:
                 relative_path=decision.relative_path,
                 max_tokens=CHUNK_MAX_TOKENS,
             )
+            drafts, oversized = _bounded_drafts(drafts)
+            if oversized:
+                report.count("chunks_hard_split", oversized)
+                logger.warning(
+                    "ingestion.chunk_over_limit",
+                    path=decision.relative_path,
+                    oversized_drafts=oversized,
+                    limit_chars=EMBED_MAX_CHARS,
+                )
             built = [
                 chunk_from_draft(
                     draft,
                     # Deterministic id: replaying this stage rewrites the same rows (common/ids.py).
-                    chunk_id=deterministic_id("chunk", version.id, draft.ordinal),
-                    version_id=version.id,
+                    chunk_id=deterministic_id("chunk", version_id, draft.ordinal),
+                    version_id=version_id,
                     source_id=source.id,
                     project_id=classification.project_id,
                 )
@@ -710,10 +824,10 @@ class IngestionPipeline:
             chunks.extend(built)
             report.count("chunks_written", len(built))
 
-        self._stage(report, version.id, source.id, JobStage.CHUNK, _chunk)
+        self._stage(report, version_id, source.id, JobStage.CHUNK, _chunk)
 
         def _embed(session: Session) -> None:
-            local_chunks = chunks or ChunkRepo(session).get_by_version(version.id)
+            local_chunks = chunks or ChunkRepo(session).get_by_version(version_id)
             if not local_chunks:
                 raise _StageSkipped("no chunks")
             embedder = self._embedding_provider()
@@ -754,7 +868,7 @@ class IngestionPipeline:
             inserted = EmbeddingRepo(session).bulk_insert(rows)
             report.count("embeddings_written", inserted)
 
-        self._stage(report, version.id, source.id, JobStage.EMBED, _embed)
+        self._stage(report, version_id, source.id, JobStage.EMBED, _embed)
 
         def _episode(session: Session) -> None:
             assert extracted is not None
@@ -771,7 +885,7 @@ class IngestionPipeline:
                     id=new_id(),
                     type=EpisodeType.DOCUMENT,
                     source_id=source.id,
-                    version_id=version.id,
+                    version_id=version_id,
                     project_id=classification.project_id,
                     title=decision.relative_path.rsplit("/", 1)[-1],
                     section_path=[],
@@ -792,7 +906,7 @@ class IngestionPipeline:
                         id=new_id(),
                         type=EpisodeType.DOCUMENT_CHANGE,
                         source_id=source.id,
-                        version_id=version.id,
+                        version_id=version_id,
                         project_id=classification.project_id,
                         title=f"change: {decision.relative_path.rsplit('/', 1)[-1]}",
                         # A distinct section_path so this row can coexist with the document episode
@@ -809,7 +923,7 @@ class IngestionPipeline:
                 )
                 report.count("change_episodes")
 
-        self._stage(report, version.id, source.id, JobStage.EPISODE, _episode)
+        self._stage(report, version_id, source.id, JobStage.EPISODE, _episode)
 
     # ------------------------------------------------------------------------------ job plumbing
 
@@ -1047,6 +1161,57 @@ _MEDIA_TYPES = {
     ".sql": "application/sql",
     ".csv": "text/csv",
 }
+
+
+def _bounded_drafts(drafts: Sequence[Any]) -> tuple[list[Any], int]:
+    """Guarantee no draft exceeds :data:`EMBED_MAX_CHARS`, re-numbering the ordinals.
+
+    This is a backstop for the embedding contract, deliberately placed at the pipeline boundary
+    rather than inside a chunker: the pipeline is what talks to the provider, so the pipeline is what
+    must never hand it input it will reject with a 422 and lose the whole batch for.
+
+    It is currently load-bearing for two defects in A07b's chunkers, both MEASURED on the real vault
+    (2026-09-17) and reported to A07b rather than fixed here:
+
+    * ``MarkdownChunker`` never size-checks a fenced code block - ``on_fence_line`` appends without
+      calling ``maybe_split`` - so one ```` ``` ```` fence became a single 28 446-character
+      (~8 366-token) chunk in ``07 Workflows/Workflow - Tailored Word CV and Motivation Letter.md``.
+    * ``CodeChunker`` can only cut on physical line boundaries (``while end > start + 1``), so a
+      one-line 12 623-character JSON file (``03 Resources/GitHub/.github-readme-update.json``)
+      became a single chunk.
+
+    A hard character cut is a poor chunk boundary, which is exactly why this reports a counter
+    (``chunks_hard_split``) and a warning instead of doing it quietly: a chunk that needed this is a
+    chunk whose retrieval quality is already compromised, because MiniLM truncates at 256 tokens.
+    """
+    from ..common.hashing import text_hash as _text_hash
+    from ..domain.ports import ChunkDraft
+
+    bounded: list[Any] = []
+    oversized = 0
+    for draft in drafts:
+        if len(draft.text) <= EMBED_MAX_CHARS:
+            bounded.append(draft)
+            continue
+        oversized += 1
+        offset = 0
+        while offset < len(draft.text):
+            piece = draft.text[offset : offset + EMBED_MAX_CHARS]
+            bounded.append(
+                ChunkDraft(
+                    ordinal=0,  # renumbered below; ordinals must stay dense and in reading order
+                    text=piece,
+                    text_hash=_text_hash(piece),
+                    heading_path=list(draft.heading_path),
+                    char_start=draft.char_start + offset,
+                    char_end=draft.char_start + offset + len(piece),
+                    token_count=count_tokens(piece),
+                )
+            )
+            offset += len(piece)
+    if oversized:
+        bounded = [draft.model_copy(update={"ordinal": i}) for i, draft in enumerate(bounded)]
+    return bounded, oversized
 
 
 def _media_type_for(relative_path: str) -> str | None:

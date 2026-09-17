@@ -37,6 +37,7 @@ __all__ = [
     "CoverageRow",
     "KnownSourceRow",
     "StatusReport",
+    "abandon_stale_runs",
     "already_done",
     "apply_classification",
     "attach_root_project",
@@ -69,7 +70,9 @@ __all__ = [
     "stage_state_counts",
     "status_report",
     "sync_source_roots",
+    "tier1_backfill_needed",
     "touch_last_seen",
+    "unembeddable_sources",
     "update_run_request_progress",
 ]
 
@@ -340,6 +343,47 @@ def already_done(session: Session, version_id: UUID, stage: JobStage) -> bool:
         {"vid": version_id, "stage": stage.value},
     ).first()
     return row is not None
+
+
+#: The four Tier 1 stages. A version is "settled" for Tier 1 once each of them has reached a
+#: terminal state - ``done`` or ``skipped`` (CATALOG_ONLY, secret-suspected and no-extractor files
+#: settle as ``skipped``, which is a correct outcome and must not be retried on every scan).
+_TIER1_STAGES = ("extract_text", "chunk", "embed", "episode")
+
+
+def tier1_backfill_needed(session: Session, version_id: UUID) -> bool:
+    """True when Tier 1 work is still owed for this version, even though the file did not change.
+
+    Two situations produce this, and both are normal:
+
+    * the version was catalogued by a ``--tier 0`` run, so the content stages were never attempted
+      (no ``ingestion_jobs`` rows exist for them at all) and a later ``--tier 1`` scan sees the file
+      as ``unchanged``; and
+    * a run was killed part-way through a version - some stages are ``done``, the rest are missing
+      or were re-queued out of ``running`` by :meth:`JobRepo.requeue_stuck`.
+
+    The embedding half is checked against the data rather than the job row as well, so a version
+    whose ``embed`` stage was skipped because the embedding service was down (a ``skipped`` row, not
+    a ``failed`` one) is picked up by the next scan instead of staying unembedded forever.
+    """
+    row = session.execute(
+        text(
+            """
+            SELECT (SELECT count(*) FROM ingestion_jobs
+                     WHERE version_id = :vid AND stage = ANY(:stages)
+                       AND state IN ('done', 'skipped')),
+                   (SELECT count(*) FROM chunks c
+                     WHERE c.version_id = :vid
+                       AND NOT EXISTS (SELECT 1 FROM embeddings e
+                                        WHERE e.text_hash = c.text_hash))
+            """
+        ),
+        {"vid": version_id, "stages": list(_TIER1_STAGES)},
+    ).first()
+    if row is None:  # pragma: no cover - the scalar subqueries always return a row
+        return True
+    settled, unembedded = int(row[0]), int(row[1])
+    return settled < len(_TIER1_STAGES) or unembedded > 0
 
 
 def existing_embedding_hashes(
@@ -720,10 +764,21 @@ def status_report(session: Session, *, root_id: str | None = None, failures: int
                 SELECT coalesce(project_id, '(unassigned)') AS project_id,
                        count(*) FILTER (WHERE policy IN ('INDEX_CONTENT','MIRROR')
                                           AND status <> 'deleted') AS indexable,
+                       -- "Embedded" is deliberately strict (P7-T02 acceptance is "100 % of
+                       -- INDEX_CONTENT embedded"): the source must have chunks AND every one of
+                       -- them must have a vector. Counting "has chunks" would report a source whose
+                       -- embed stage failed halfway as fully covered.
                        count(*) FILTER (WHERE policy IN ('INDEX_CONTENT','MIRROR')
                                           AND status <> 'deleted'
                                           AND EXISTS (SELECT 1 FROM chunks c
-                                                       WHERE c.source_id = sources.id)) AS embedded
+                                                       WHERE c.source_id = sources.id)
+                                          AND NOT EXISTS (
+                                                SELECT 1 FROM chunks c
+                                                 WHERE c.source_id = sources.id
+                                                   AND NOT EXISTS (
+                                                        SELECT 1 FROM embeddings e
+                                                         WHERE e.text_hash = c.text_hash))
+                                       ) AS embedded
                   FROM sources
                  GROUP BY 1
             ), eps AS (
@@ -802,6 +857,67 @@ def status_report(session: Session, *, root_id: str | None = None, failures: int
 
     report.generated_at = session.execute(text("SELECT now()")).scalar()
     return report
+
+
+def unembeddable_sources(
+    session: Session, *, root_id: str | None = None, limit: int = 50
+) -> list[dict[str, Any]]:
+    """INDEX_CONTENT/MIRROR sources that produced no chunk, with the stage and reason.
+
+    These are the entire difference between ``sources_embedded`` and ``sources_indexable``, so
+    ``aimemory-ingest status`` prints them rather than leaving a coverage percentage below 100 %
+    unexplained. Each one is a settled outcome, not a pending retry: a file whose extracted body is
+    empty (a web clipping that is all YAML frontmatter, say) has nothing to embed until it changes.
+    """
+    rows = session.execute(
+        text(
+            """
+            SELECT s.relative_path, s.root_id, j.stage, j.error
+              FROM sources s
+              LEFT JOIN ingestion_jobs j
+                     ON j.version_id = s.current_version_id AND j.stage = 'embed'
+             WHERE s.policy IN ('INDEX_CONTENT', 'MIRROR')
+               AND s.status <> 'deleted'
+               AND (cast(:rid AS text) IS NULL OR s.root_id = :rid)
+               AND NOT EXISTS (SELECT 1 FROM chunks c WHERE c.source_id = s.id)
+             ORDER BY s.relative_path
+             LIMIT :n
+            """
+        ),
+        {"rid": root_id, "n": limit},
+    ).all()
+    return [
+        {"path": r[0], "root_id": r[1], "stage": r[2] or "embed", "reason": r[3] or "unknown"}
+        for r in rows
+    ]
+
+
+def abandon_stale_runs(
+    session: Session, *, root_id: str | None = None, exclude_run_id: UUID | None = None
+) -> int:
+    """Close ``ingestion_runs`` rows left ``running`` by a process that died (lease recovery).
+
+    :meth:`JobRepo.requeue_stuck` already recovers the *job* rows, but nothing closed the run row
+    itself, so every killed scan left a permanent ``running`` entry in ``status``'s "Recent runs"
+    and in the Ops page. Scans of one root are serial by design (ADR-0011: the worker executes them
+    one at a time), so any ``running`` row for this root that is not the run being started now
+    belongs to a process that is gone.
+    """
+    result = session.execute(
+        text(
+            """
+            UPDATE ingestion_runs
+               SET status = 'failed',
+                   finished_at = now(),
+                   error = coalesce(error, 'abandoned: process exited before the run finished')
+             WHERE status = 'running'
+               AND (cast(:rid AS text) IS NULL OR root_id = :rid)
+               AND (cast(:exclude AS uuid) IS NULL OR id <> :exclude)
+            """
+        ),
+        {"rid": root_id, "exclude": exclude_run_id},
+    )
+    return int(result.rowcount or 0)
 
 
 def recent_stage_durations_ms(session: Session, stage: JobStage, *, limit: int = 200) -> list[int]:

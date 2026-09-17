@@ -57,33 +57,52 @@ PROJECT_GRAPH_PATHS = ("AIOS/Maps/project-graph.md", "AIOS/project-graph.md")
 
 _WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
+_ITALIC = re.compile(r"\*([^*]+?)\*")
+_CODE_SPAN = re.compile(r"`([^`]+)`")
 _GOAL = re.compile(r"\bG(\d)\b")
 _TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:|-]+\|[\s:|-]*$")
 
-_TRACK_KEYWORDS: tuple[tuple[str, Track], ...] = (
+#: Checked *before* the loose keywords below. One heading in the real vault reads "Research track
+#: (keep separate from business content unless explicitly connected)": it names two tracks and only
+#: one of them is its own, so the track a heading explicitly *declares* always wins.
+_TRACK_PHRASES: tuple[tuple[str, Track], ...] = (
+    ("research track", Track.RESEARCH),
+    ("career track", Track.CAREER),
     ("build track", Track.BUSINESS),
-    ("business", Track.BUSINESS),
-    ("product", Track.BUSINESS),
-    ("career", Track.CAREER),
-    ("research", Track.RESEARCH),
+    ("business track", Track.BUSINESS),
+    ("product track", Track.BUSINESS),
+    ("foundations", Track.FOUNDATION),
     ("foundation", Track.FOUNDATION),
-    ("unknown", Track.FOUNDATION),
-    ("infrastructure", Track.FOUNDATION),
 )
 
+#: Fallback for cells that name a track without the word "track" ("Business / AI Engineering",
+#: "Research + product"). ``research`` outranks ``product`` because a row naming both is research
+#: work with a product angle, not the other way round.
+_TRACK_KEYWORDS: tuple[tuple[str, Track], ...] = (
+    ("career", Track.CAREER),
+    ("research", Track.RESEARCH),
+    ("business", Track.BUSINESS),
+    ("product", Track.BUSINESS),
+    ("infrastructure", Track.FOUNDATION),
+    ("unknown", Track.FOUNDATION),
+)
+
+#: Order matters. A terminal or negative state anywhere in the cell beats an activity word, but an
+#: explicit "Live"/"Operating" beats a past-tense completion word, because these cells narrate:
+#: "Live; blog redesign shipped 2026-08-18" is a live project, not a completed one.
 _STATUS_KEYWORDS: tuple[tuple[str, ProjectStatus], ...] = (
     ("abandon", ProjectStatus.ABANDONED),
     ("archive", ProjectStatus.ABANDONED),
     ("park", ProjectStatus.PAUSED),
     ("pause", ProjectStatus.PAUSED),
     ("defer", ProjectStatus.PAUSED),
+    ("live", ProjectStatus.ACTIVE),
+    ("operating", ProjectStatus.ACTIVE),
     ("complete", ProjectStatus.COMPLETED),
     ("done", ProjectStatus.COMPLETED),
     ("shipped", ProjectStatus.COMPLETED),
     ("plan", ProjectStatus.PLANNED),
     ("template", ProjectStatus.PLANNED),
-    ("live", ProjectStatus.ACTIVE),
-    ("operating", ProjectStatus.ACTIVE),
     ("active", ProjectStatus.ACTIVE),
     ("in progress", ProjectStatus.ACTIVE),
     ("mvp", ProjectStatus.ACTIVE),
@@ -93,9 +112,16 @@ _STATUS_KEYWORDS: tuple[tuple[str, ProjectStatus], ...] = (
     ("phase", ProjectStatus.ACTIVE),
 )
 
+#: A cell that *opens* by declaring the project unknown is unknown, whatever the rest of the
+#: sentence proposes doing about it ("Unknown - confirm or archive" is not an archived project).
+_UNKNOWN_PREFIXES = ("unknown", "unclear", "tbd", "to confirm", "?")
+
 
 def _track_from(text: str, default: Track = Track.FOUNDATION) -> Track:
     lowered = text.lower()
+    for phrase, track in _TRACK_PHRASES:
+        if phrase in lowered:
+            return track
     for keyword, track in _TRACK_KEYWORDS:
         if keyword in lowered:
             return track
@@ -103,7 +129,9 @@ def _track_from(text: str, default: Track = Track.FOUNDATION) -> Track:
 
 
 def _status_from(text: str) -> ProjectStatus:
-    lowered = text.lower()
+    lowered = _clean_cell(text).lower().strip("*_ ").strip()
+    if not lowered or lowered.startswith(_UNKNOWN_PREFIXES):
+        return ProjectStatus.UNKNOWN
     for keyword, status in _STATUS_KEYWORDS:
         if keyword in lowered:
             return status
@@ -115,6 +143,7 @@ def _clean_cell(cell: str) -> str:
     value = cell.strip()
     value = _WIKILINK.sub(lambda m: m.group(1).split("/")[-1], value)
     value = _BOLD.sub(lambda m: m.group(1), value)
+    value = _ITALIC.sub(lambda m: m.group(1), value)
     return value.replace("`", "").strip()
 
 
@@ -123,6 +152,18 @@ def _cell(header: list[str], cells: list[str], key: str, default: str = "") -> s
     for index, column in enumerate(header):
         if key in column and index < len(cells):
             return _clean_cell(cells[index])
+    return default
+
+
+def _raw_cell(header: list[str], cells: list[str], key: str, default: str = "") -> str:
+    """Same lookup as :func:`_cell`, without cleaning - the markup itself carries meaning.
+
+    Only the ``Path`` column needs it: the backticks are what separate a real filesystem path from
+    the prose around it, and :func:`_clean_cell` removes them.
+    """
+    for index, column in enumerate(header):
+        if key in column and index < len(cells):
+            return cells[index].strip()
     return default
 
 
@@ -167,6 +208,28 @@ class ParsedProject:
             self.attributes.setdefault(key, value)
 
 
+def _path_candidates(path_cell: str) -> list[str]:
+    """The filesystem paths named in a ``Path`` cell - and nothing else.
+
+    An alias is matched against *directory names* when a source is attached to a project
+    (:meth:`aimemory.sources.pipeline.IngestionPipeline._project_for`), so a junk alias does not just
+    add a row - it silently mis-files documents. The real map writes paths as code spans separated by
+    ``·`` and wraps commentary around them: ``(KLM, ofi, slides)``, ``· other laptop``,
+    ``*no folder, no note, no tracker slot*``. Splitting that on commas produced aliases such as
+    ``ofi``, ``slides)`` and ``no tracker slot``. So: take the code spans, and for a cell that has
+    none, accept only the pieces that actually contain a path separator.
+    """
+    spans = list(_CODE_SPAN.findall(path_cell))
+    if not spans:
+        spans = [piece for piece in path_cell.split("·") if "/" in piece or "\\" in piece]
+    candidates: list[str] = []
+    for span in spans:
+        cleaned = _clean_cell(span).replace("\\", "/").strip().strip("/")
+        if cleaned:
+            candidates.append(cleaned)
+    return candidates
+
+
 def _aliases_for(name: str, path_cell: str | None = None) -> list[str]:
     aliases = [name]
     slug = None
@@ -176,14 +239,10 @@ def _aliases_for(name: str, path_cell: str | None = None) -> list[str]:
         slug = None
     if slug and slug != name:
         aliases.append(slug)
-    if path_cell:
-        for raw in re.split(r"[·,]", path_cell):
-            candidate = _clean_cell(raw).replace("\\", "/").strip().strip("/")
-            if not candidate:
-                continue
-            basename = candidate.rsplit("/", 1)[-1]
-            if basename and basename not in aliases and len(basename) > 1:
-                aliases.append(basename)
+    for candidate in _path_candidates(path_cell or ""):
+        basename = candidate.rsplit("/", 1)[-1]
+        if basename and basename not in aliases and len(basename) > 1:
+            aliases.append(basename)
     return aliases
 
 
@@ -317,7 +376,8 @@ def parse_project_graph(text: str) -> list[ParsedProject]:
         status_cell = _cell(header, cells, "status") or (
             _clean_cell(cells[-1]) if len(cells) > 1 else ""
         )
-        path_cell = _cell(header, cells, "path")
+        path_cell_raw = _raw_cell(header, cells, "path")
+        path_cell = _clean_cell(path_cell_raw)
         serves = _cell(header, cells, "serves")
         attributes: dict[str, str] = {}
         if path_cell:
@@ -338,7 +398,7 @@ def parse_project_graph(text: str) -> list[ParsedProject]:
                 summary=_cell(header, cells, "purpose") or None,
                 goal_ids=sorted({f"G{m}" for m in _GOAL.findall(serves)}),
                 attributes=attributes,
-                aliases=_aliases_for(name, path_cell),
+                aliases=_aliases_for(name, path_cell_raw),
                 source_file="project-graph",
             )
         )

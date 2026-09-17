@@ -1005,5 +1005,8 @@ def test_secret_suspected_source_is_never_queued_or_transmitted(
         ),
         {"s": flagged[0].id, "v": flagged[0].current_version_id},
     )
-    assert ingest_repo.claim_episode_for_extraction(pg_session) is None
+    # Scoped to this fixture root: `pg_session` shares the dev database with whatever has really
+    # been ingested (P7-T02 put the whole vault in it), and an unscoped claim would hand back some
+    # unrelated vault episode - proving nothing either way about the flagged source.
+    assert ingest_repo.claim_episode_for_extraction(pg_session, root_id=FIXTURE_LABEL) is None
     assert "leaked" not in engine.seen
