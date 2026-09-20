@@ -1,0 +1,2 @@
+# Mounted at /sources/<root> when an optional HOST_*_ROOT variable is unset, so a missing
+# path cannot stop the stack from starting. Intentionally empty.

@@ -64,6 +64,13 @@ class GoldQuestion:
     expected_timeline_order: tuple[str, ...] = ()
     provenance_required: bool = False
     fixture: str | None = None
+    expect_absent: bool = False
+    """True for a deliberately unanswerable question (plan section Y / the P14-T03 instruction to
+    measure "should NOT answer" cases): nothing in the corpus supports it, so no ``expected_*`` field
+    applies. Scored by :func:`score_question` via ``hit_count``/``top_score`` (no pass/fail threshold
+    is invented - see the module docstring's MEASURED-not-guessed rule); the report groups these
+    separately from answerable questions so a reader can compare, unassisted by any fabricated cutoff.
+    """
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> GoldQuestion:
@@ -81,6 +88,7 @@ class GoldQuestion:
             expected_timeline_order=tuple(data.get("expected_timeline_order", ())),
             provenance_required=bool(data.get("provenance_required", False)),
             fixture=data.get("fixture"),
+            expect_absent=bool(data.get("expect_absent", False)),
         )
 
     @property
@@ -93,6 +101,7 @@ class GoldQuestion:
             or self.expected_facts_contain
             or self.expected_timeline_order
             or self.provenance_required
+            or self.expect_absent
         )
 
 
@@ -225,6 +234,9 @@ class QuestionScore:
     facts_presence: float | None = None
     provenance_completeness: float | None = None
     temporal_correct: bool | None = None
+    expect_absent: bool = False
+    hit_count: int = 0
+    top_score: float | None = None
     notes: list[str] = field(default_factory=list)
 
 
@@ -237,6 +249,9 @@ def score_question(question: GoldQuestion, result: SearchResult) -> QuestionScor
         type_presence=score_expected_types(result, question.expected_types),
         facts_presence=score_facts_contain(result, question.expected_facts_contain),
         temporal_correct=score_temporal_order(result, question.expected_timeline_order),
+        expect_absent=question.expect_absent,
+        hit_count=len(result.hits),
+        top_score=result.hits[0].score if result.hits else None,
     )
     if question.provenance_required or result.hits:
         score.provenance_completeness = score_provenance_completeness(result)
@@ -258,6 +273,8 @@ def aggregate_scores(scores: Sequence[QuestionScore]) -> dict[str, Any]:
     entity_values = [s.entity_presence for s in scores if s.entity_presence is not None]
     provenance_values = [s.provenance_completeness for s in scores if s.provenance_completeness is not None]
     temporal_values = [s.temporal_correct for s in scores if s.temporal_correct is not None]
+    answerable = [s for s in scores if not s.expect_absent]
+    absent = [s for s in scores if s.expect_absent]
     return {
         "n_questions": len(scores),
         "hit_at_5_rate": _mean(1.0 if v else 0.0 for v in hit_values),
@@ -269,4 +286,13 @@ def aggregate_scores(scores: Sequence[QuestionScore]) -> dict[str, Any]:
         "provenance_completeness_is_100pct": all(v >= 1.0 for v in provenance_values) if provenance_values else None,
         "temporal_correctness_rate": _mean(1.0 if v else 0.0 for v in temporal_values),
         "temporal_correctness_n": len(temporal_values),
+        # Answerable- vs absent-question contrast (plan section Y / P14-T03's "should NOT answer"
+        # requirement). No pass/fail threshold is invented here - raw MEASURED numbers only; the
+        # report shows both groups side by side and lets the reader judge discriminative power.
+        "answerable_n": len(answerable),
+        "answerable_hit_count_mean": _mean(float(s.hit_count) for s in answerable) if answerable else None,
+        "answerable_top_score_mean": _mean(s.top_score for s in answerable if s.top_score is not None) or None,
+        "absent_n": len(absent),
+        "absent_hit_count_mean": _mean(float(s.hit_count) for s in absent) if absent else None,
+        "absent_top_score_mean": _mean(s.top_score for s in absent if s.top_score is not None) or None,
     }

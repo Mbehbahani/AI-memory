@@ -1,12 +1,19 @@
-"""P9-T01 (A09): boosts and final ranking (``retrieval.md`` §6).
+"""P9-T01 (A09): boosts and final ranking (``retrieval.md`` §6, revised after the P14 evaluation).
 
-Two properties are load-bearing and are tested here rather than inferred:
+Three properties are load-bearing and are tested here rather than inferred:
 
 1. **Every boost is recorded separately.** ``ScoredHit.boosts`` is what makes a ranking change
    explainable from a stored ``retrieval_logs`` row; a term folded into the total is a term nobody
-   can audit.
-2. **Ordering is deterministic** (score desc, ``observed_at`` desc, ``object_id``). Without it the
-   gold-set numbers wobble and a regression cannot be told apart from noise (ADR-0010).
+   can audit. Since the P14 fix the map also carries the base components, so
+   ``score == sum(boosts.values())`` exactly.
+2. **Boosts are proportional, not absolute.** A configured ``0.10`` means "+10 % of this hit's
+   relevance". The gold-set evaluation measured what absolute points did instead: a penalty of
+   -0.15 against an RRF range of 0.003 removed the *correct* document from the results entirely
+   (the Apache Tika clipping, rank-1 semantic candidate, returned last at score -0.034). The tests
+   below pin the proportionality so that cannot come back.
+3. **Ordering is deterministic** (score desc, ``rrf_score`` desc, ``observed_at`` desc,
+   ``object_id``). Without it the gold-set numbers wobble and a regression cannot be told apart
+   from noise (ADR-0010).
 """
 
 from __future__ import annotations
@@ -25,6 +32,7 @@ from aimemory.retrieval.boosts import (
     rank_candidates,
     recency_boost,
 )
+from aimemory.retrieval.relevance import RelevanceScore
 from aimemory.retrieval.types import HitMetadata, ScoredCandidate
 
 NOW = datetime(2026, 9, 14, 12, 0, 0, tzinfo=UTC)
@@ -145,13 +153,65 @@ def test_low_trust_sources_carry_their_own_named_penalty() -> None:
 
 def test_every_term_is_recorded_separately_and_sums_to_the_score() -> None:
     meta = _meta("a", status="unconfirmed", trust="low")
+    relevance = RelevanceScore(relevance=0.60, parts={"semantic": 0.35, "lexical": 0.25})
 
     hit = apply_boosts(
-        _fused("a", 0.5), meta, config=CONFIG, project_ids=["joblab-de"], entity_linked=True, now=NOW
+        _fused("a", 0.5),
+        meta,
+        config=CONFIG,
+        relevance=relevance,
+        project_ids=["joblab-de"],
+        entity_linked=True,
+        now=NOW,
     )
 
-    assert set(hit.boosts) == {"project_match", "entity_linked", "recency", "unconfirmed", "low_trust"}
-    assert hit.score == pytest.approx(hit.rrf_score + sum(hit.boosts.values()))
+    assert set(hit.boosts) == {
+        "semantic",
+        "lexical",
+        "project_match",
+        "entity_linked",
+        "recency",
+        "unconfirmed",
+        "low_trust",
+    }
+    # The map is a complete, auditable decomposition of the score - base components included.
+    assert hit.score == pytest.approx(sum(hit.boosts.values()))
+    assert hit.relevance == pytest.approx(0.60)
+    assert hit.boost_fractions["low_trust"] == pytest.approx(-0.15)
+    assert hit.boosts["low_trust"] == pytest.approx(-0.15 * 0.60)
+
+
+def test_boosts_are_a_fraction_of_relevance_so_they_nudge_instead_of_deciding() -> None:
+    """The P14 regression in one assertion: a penalised strong hit still beats a clean weak one."""
+    strong = apply_boosts(
+        _fused("strong", 0.016),
+        _meta("strong", project_id=None, observed_at=None, trust="low"),
+        config=CONFIG,
+        relevance=RelevanceScore(relevance=0.65, parts={"semantic": 0.65}),
+        now=NOW,
+    )
+    weak = apply_boosts(
+        _fused("weak", 0.015),
+        _meta("weak", project_id=None, observed_at=None),
+        config=CONFIG,
+        relevance=RelevanceScore(relevance=0.20, parts={"semantic": 0.20}),
+        now=NOW,
+    )
+
+    assert strong.score == pytest.approx(0.65 * 0.85)
+    assert weak.score == pytest.approx(0.20)
+    assert strong.score > weak.score, "AC-6 asks clippings to rank lower, not to be unreachable"
+
+
+def test_without_a_relevance_score_the_rrf_value_is_the_base() -> None:
+    """Callers with no database session (unit tests, total degradation) still get an ordering."""
+    hit = apply_boosts(
+        _fused("a", 0.25), _meta("a", project_id=None, observed_at=None), config=CONFIG, now=NOW
+    )
+
+    assert hit.relevance == pytest.approx(0.25)
+    assert hit.boosts == {"rrf": pytest.approx(0.25)}
+    assert hit.score == pytest.approx(0.25)
 
 
 def test_zero_valued_terms_are_omitted_so_the_map_reads_as_what_moved_the_hit() -> None:
@@ -226,7 +286,8 @@ def test_limit_applies_final_k_after_boosting_not_before() -> None:
     )
 
     assert [hit.object_id for hit in ranked] == [_id("a"), _id("c")]
-    assert ranked[1].boosts == {"project_match": pytest.approx(0.10)}
+    assert ranked[1].boost_fractions == {"project_match": pytest.approx(0.10)}
+    assert ranked[1].boosts["project_match"] == pytest.approx(0.10 * ranked[1].relevance)
 
 
 def test_entity_linked_keys_reach_only_the_hits_they_name() -> None:
@@ -245,5 +306,5 @@ def test_entity_linked_keys_reach_only_the_hits_they_name() -> None:
     )
 
     assert ranked[0].object_id == _id("b")
-    assert ranked[0].boosts == {"entity_linked": pytest.approx(0.10)}
-    assert ranked[1].boosts == {}
+    assert ranked[0].boost_fractions == {"entity_linked": pytest.approx(0.10)}
+    assert ranked[1].boost_fractions == {}

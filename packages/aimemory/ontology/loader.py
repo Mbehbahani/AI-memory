@@ -12,7 +12,9 @@ Contract guarantees, all enforced at load time by :meth:`Ontology.validate_contr
 * every :class:`~aimemory.domain.enums.Predicate` member is either a relationship type or a
   functional predicate, and vice versa;
 * every ``from``/``to`` label in a relationship definition is a known label or the wildcard ``"*"``;
-* ``functional`` lists on node types name known predicates;
+* ``functional`` lists on node types name predicates that are actually functional, and every
+  functional predicate is claimed by at least one node type (that claim *is* its subject list -
+  see :meth:`Ontology.functional_subjects`);
 * ``artifact_types``, ``artifact_status``, ``episode_types`` and ``tracks`` match
   :class:`ArtifactType`, :class:`ArtifactStatus`, :class:`EpisodeType` and :class:`Track`.
 
@@ -43,9 +45,12 @@ from ..domain.enums import (
 )
 
 __all__ = [
+    "LITERAL",
     "WILDCARD",
+    "FunctionalPredicateSpec",
     "NodeTypeSpec",
     "Ontology",
+    "Orientation",
     "PropertyContract",
     "RelationshipTypeSpec",
     "is_functional",
@@ -55,6 +60,11 @@ __all__ = [
 
 #: ``"*"`` in a ``from``/``to`` list means "any label" (``MENTIONS``, ``RELATED_TO``, ...).
 WILDCARD = "*"
+
+#: ``literal`` in a functional predicate's ``to`` list means "the object is a value in
+#: ``facts.object_value``, not a resolved entity" (``HAS_STATUS`` is the archetype). Lower-case so it
+#: can never collide with a node label, all of which are ``CamelCase``.
+LITERAL = "literal"
 
 
 class NodeTypeSpec(DomainModel):
@@ -92,6 +102,31 @@ class RelationshipTypeSpec(DomainModel):
         return ok_from and ok_to
 
 
+class FunctionalPredicateSpec(DomainModel):
+    """One entry of ``functional_predicates`` (ADR-0015).
+
+    Consumers: A08 (``apply_fact`` asks :meth:`Ontology.is_functional`; the projection asks
+    :meth:`Ontology.validate_relationship` / :meth:`Ontology.orient`), A04 (the predicate list behind
+    ``uq_facts_functional_current``), A12 (contract tests).
+
+    A functional predicate is attribute-like, not an edge type, so it declares no ``from`` list: its
+    legal subjects are the node types that name it in ``node_types.<T>.functional`` and are filled in
+    at load time. ``reason`` records *why* one current value per subject is the truth for this
+    predicate - the membership test ADR-0015 introduced after ``USES_ARCHITECTURE`` was found
+    closing concurrently-true facts as ``historical``.
+    """
+
+    name: str
+    subjects: list[str] = Field(default_factory=list)
+    to_labels: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+    @property
+    def allows_literal(self) -> bool:
+        """True when the object may be a value in ``facts.object_value`` rather than an entity."""
+        return LITERAL in self.to_labels
+
+
 class PropertyContract(DomainModel):
     """``node_properties`` / ``relationship_properties``: which keys must be present on write."""
 
@@ -107,6 +142,26 @@ class PropertyContract(DomainModel):
         return [key for key in self.required if payload.get(key) is None]
 
 
+class Orientation(DomainModel):
+    """The result of :meth:`Ontology.orient`: which way round a triple must be written.
+
+    Consumers: A08 (extraction persistence and the Neo4j projection call ``orient`` before writing a
+    fact and record ``flipped`` so ``explain`` can show that the system, not the document, chose the
+    direction), A12 (contract tests).
+
+    ``flipped`` is ``True`` only when the triple as extracted is *illegal* in the declared direction
+    and *legal* reversed - an unambiguous repair. When both directions are legal (``Person HAS_OWNER
+    Person``) nothing is changed and ``flipped`` is ``False``; when neither is legal the call raises
+    instead of guessing.
+    """
+
+    predicate: str
+    from_label: str
+    to_label: str
+    flipped: bool = False
+    reason: str = ""
+
+
 class Ontology(DomainModel):
     """The parsed, validated ontology. Build it with :func:`load_ontology` (cached)."""
 
@@ -114,6 +169,7 @@ class Ontology(DomainModel):
     node_types: dict[str, NodeTypeSpec]
     relationship_types: dict[str, RelationshipTypeSpec]
     functional_predicates: list[Predicate]
+    functional_specs: dict[str, FunctionalPredicateSpec] = Field(default_factory=dict)
     node_properties: PropertyContract
     relationship_properties: PropertyContract
     artifact_types: list[ArtifactType]
@@ -147,9 +203,25 @@ class Ontology(DomainModel):
         return spec.stored_label
 
     def is_functional(self, predicate: Predicate | str) -> bool:
-        """ADR-0005 rule 1: does ``(subject, predicate)`` admit only one current object?"""
+        """ADR-0005 rule 1: does ``(subject, predicate)`` admit only one current object?
+
+        ADR-0015 narrowed the answer: ``True`` only for predicates where two concurrent values are a
+        contradiction (``HAS_STATUS``, ``HAS_STAGE``, ``SELECTED_OPTION``). ``USES_ARCHITECTURE``,
+        ``HAS_OWNER`` and ``DEPLOYED_ON`` used to return ``True`` here and no longer do - a project
+        legitimately uses several technologies at once.
+        """
         name = predicate.value if isinstance(predicate, Predicate) else str(predicate)
         return name in {p.value for p in self.functional_predicates}
+
+    def functional(self, predicate: Predicate | str) -> FunctionalPredicateSpec | None:
+        """The functional spec, or ``None`` when the predicate is an edge type."""
+        name = predicate.value if isinstance(predicate, Predicate) else str(predicate)
+        return self.functional_specs.get(name)
+
+    def functional_subjects(self, predicate: Predicate | str) -> list[str]:
+        """Node types that may carry this functional predicate (their ``functional:`` lists)."""
+        spec = self.functional(predicate)
+        return list(spec.subjects) if spec else []
 
     def relationship(self, predicate: Predicate | str) -> RelationshipTypeSpec | None:
         """The edge spec, or ``None`` for a functional predicate (which is not an edge type)."""
@@ -161,19 +233,159 @@ class Ontology(DomainModel):
         return spec.group if spec else None
 
     def validate_relationship(
-        self, predicate: Predicate | str, from_label: str, to_label: str
+        self, predicate: Predicate | str, from_label: str, to_label: str | None
     ) -> None:
-        """Raise :class:`OntologyError` if this edge is not allowed between these labels."""
+        """Raise :class:`OntologyError` if this triple is not allowed in this direction.
+
+        ``to_label=None`` means the object is a literal (``facts.object_value``) rather than a
+        resolved entity; only a functional predicate that declares ``literal`` in its ``to`` list
+        accepts one.
+
+        Before ADR-0015 this method returned early for functional predicates ("endpoints are not
+        constrained"), which is why ``Person -[HAS_OWNER]-> Project`` - the exact reverse of the
+        declared direction - was written 38 times without a single complaint. Functional predicates
+        now declare their subjects (via ``node_types.<T>.functional``) and their object kind, and are
+        checked like every other predicate.
+        """
+        functional = self.functional(predicate)
+        if functional is not None:
+            self._validate_functional(functional, from_label, to_label)
+            return
+
         spec = self.relationship(predicate)
         if spec is None:
-            if self.is_functional(predicate):
-                return  # functional predicates are attribute-like; endpoints are not constrained
             raise OntologyError("Unknown relationship type.", detail=f"predicate={predicate!r}")
-        if not spec.allows(self.stored_label(from_label), self.stored_label(to_label)):
+        if to_label is None:
+            raise OntologyError(
+                "Only a functional predicate may take a literal object.",
+                detail=f"{from_label} -[{spec.name}]-> <literal>",
+            )
+        # Both sides of the comparison must be expressed in the *same* vocabulary. The incoming
+        # labels are mapped to storage, so the spec's endpoint lists - written conceptually in
+        # `ontology.yaml` - have to be mapped the same way. Comparing a stored label against the raw
+        # list made every type carrying a `stored_as` alias permanently unmatchable: `SubProject`
+        # (stored_as: Project) became `Project`, which does not appear in PART_OF's
+        # `from: [SubProject, Document, Task, Requirement]`, so `SubProject -[PART_OF]-> Project`
+        # could never validate even though the ontology plainly intends to allow it.
+        #
+        # Normalising the lists means `Project -[PART_OF]-> Project` is now also accepted. That is
+        # the unavoidable consequence of the `stored_as` design, not a widening of the rule: at the
+        # graph level a sub-project *is* a `:Project` node, and what distinguishes it is `parent_id`,
+        # not its label. A validator cannot tell the two apart, so it must accept both or reject both.
+        if not self._allows_stored(spec, from_label, to_label):
             raise OntologyError(
                 "Relationship endpoints violate the ontology.",
                 detail=f"{from_label} -[{spec.name}]-> {to_label}",
             )
+
+    def _validate_functional(
+        self, spec: FunctionalPredicateSpec, from_label: str, to_label: str | None
+    ) -> None:
+        """Endpoint check for an attribute-like predicate (ADR-0015)."""
+        allowed_from = self._stored_endpoints(spec.subjects)
+        if self.stored_label(from_label) not in allowed_from:
+            raise OntologyError(
+                "Relationship endpoints violate the ontology.",
+                detail=(
+                    f"{from_label} -[{spec.name}]-> {to_label or '<literal>'}: "
+                    f"{spec.name} may only describe {sorted(spec.subjects)}"
+                ),
+            )
+        if to_label is None:
+            if not spec.allows_literal:
+                raise OntologyError(
+                    "Relationship endpoints violate the ontology.",
+                    detail=f"{from_label} -[{spec.name}]-> <literal>: object must be an entity",
+                )
+            return
+        allowed_to = self._stored_endpoints([lbl for lbl in spec.to_labels if lbl != LITERAL])
+        if WILDCARD in allowed_to or self.stored_label(to_label) in allowed_to:
+            return
+        raise OntologyError(
+            "Relationship endpoints violate the ontology.",
+            detail=(
+                f"{from_label} -[{spec.name}]-> {to_label}: object must be "
+                + ("a literal value" if spec.to_labels == [LITERAL] else f"one of {spec.to_labels}")
+            ),
+        )
+
+    def orient(
+        self, predicate: Predicate | str, from_label: str, to_label: str
+    ) -> Orientation:
+        """Return the triple in the direction the ontology declares, flipping it when unambiguous.
+
+        Consumers: A08 (call this instead of :meth:`validate_relationship` when persisting an
+        extracted fact whose object is a resolved entity).
+
+        Three outcomes, and no fourth:
+
+        * the triple is legal as written -> returned unchanged, ``flipped=False``;
+        * it is illegal as written but legal reversed -> returned reversed, ``flipped=True``. This is
+          the ``Mohammad HAS_OWNER JobLab`` case: a true statement said backwards, repaired instead
+          of dropped;
+        * it is illegal both ways, or legal both ways -> the first raises :class:`OntologyError`, the
+          second returns it unchanged. Ambiguity is never resolved by guessing.
+
+        Never call this with a literal object: a literal cannot become a subject, so there is nothing
+        to flip. Use :meth:`validate_relationship` with ``to_label=None`` instead.
+        """
+        name = predicate.value if isinstance(predicate, Predicate) else str(predicate)
+        forward = self._legal(name, from_label, to_label)
+        if forward:
+            return Orientation(
+                predicate=name, from_label=from_label, to_label=to_label, flipped=False
+            )
+        if self._legal(name, to_label, from_label):
+            return Orientation(
+                predicate=name,
+                from_label=to_label,
+                to_label=from_label,
+                flipped=True,
+                reason=(
+                    f"{from_label} -[{name}]-> {to_label} is not a declared direction; "
+                    f"{to_label} -[{name}]-> {from_label} is"
+                ),
+            )
+        self.validate_relationship(name, from_label, to_label)  # raises with the detailed message
+        raise OntologyError(  # pragma: no cover - defensive; the line above always raises
+            "Relationship endpoints violate the ontology.",
+            detail=f"{from_label} -[{name}]-> {to_label}",
+        )
+
+    def _legal(self, predicate: str, from_label: str, to_label: str | None) -> bool:
+        try:
+            self.validate_relationship(predicate, from_label, to_label)
+        except OntologyError:
+            return False
+        return True
+
+    def _allows_stored(
+        self, spec: RelationshipTypeSpec, from_label: str, to_label: str
+    ) -> bool:
+        """``spec.allows`` with both the endpoints *and* the spec's lists mapped to stored labels."""
+        allowed_from = self._stored_endpoints(spec.from_labels)
+        allowed_to = self._stored_endpoints(spec.to_labels)
+        ok_from = WILDCARD in allowed_from or self.stored_label(from_label) in allowed_from
+        ok_to = WILDCARD in allowed_to or self.stored_label(to_label) in allowed_to
+        return ok_from and ok_to
+
+    def _stored_endpoints(self, labels: list[str]) -> set[str]:
+        """The endpoint names of a relationship spec, mapped through ``stored_as``.
+
+        ``"*"`` is passed through untouched. A name that is not a known node type is kept verbatim
+        rather than raising, so a typo in `ontology.yaml` still surfaces as a normal endpoint
+        violation (and via :meth:`validate_contracts`) instead of as an unrelated lookup error.
+        """
+        out: set[str] = set()
+        for name in labels:
+            if name == WILDCARD:
+                out.add(WILDCARD)
+                continue
+            try:
+                out.add(self.stored_label(name))
+            except OntologyError:
+                out.add(name)
+        return out
 
     # ---- validation ----------------------------------------------------------------------------
 
@@ -206,9 +418,33 @@ class Ontology(DomainModel):
                 if label != WILDCARD and label not in file_labels:
                     problems.append(f"{spec.name}: unknown endpoint label {label!r}")
 
+        overlap = set(self.relationship_types) & set(self.functional_specs)
+        if overlap:
+            problems.append(
+                f"predicates declared both as edge types and as functional: {sorted(overlap)}"
+            )
+
+        for fname, fspec in self.functional_specs.items():
+            for label in fspec.to_labels:
+                if label not in (WILDCARD, LITERAL) and label not in file_labels:
+                    problems.append(f"{fname}: unknown object label {label!r}")
+            if not fspec.to_labels:
+                problems.append(f"{fname}: no object kind declared (`to` is empty)")
+            if not fspec.subjects:
+                problems.append(
+                    f"{fname}: no node type declares it in `functional:`, so it has no legal "
+                    "subject and every fact using it would be rejected"
+                )
+
         for name, node in self.node_types.items():
             if node.stored_as is not None and node.stored_as not in file_labels:
                 problems.append(f"{name}: stored_as {node.stored_as!r} is not a known label")
+            for predicate in node.functional:
+                if predicate.value not in self.functional_specs:
+                    problems.append(
+                        f"{name}: `functional: [{predicate.value}]` but {predicate.value} is not a "
+                        "functional predicate (ADR-0015 moved it to relationship_types)"
+                    )
 
         for enum_cls, values, key in (
             (ArtifactType, self.artifact_types, "artifact_types"),
@@ -265,6 +501,43 @@ def _parse_relationships(raw: dict[str, Any]) -> dict[str, RelationshipTypeSpec]
     return out
 
 
+def _parse_functional(
+    raw: Any, node_types: dict[str, NodeTypeSpec]
+) -> dict[str, FunctionalPredicateSpec]:
+    """Parse ``functional_predicates`` and fill each spec's subject list from the node types.
+
+    Accepts the ADR-0015 mapping form (``{HAS_STATUS: {to: [...], reason: "..."}}``). The pre-0015
+    list form is still read so an older copy of the file loads, but it yields specs with no declared
+    object kind, which :meth:`Ontology.validate_contracts` then rejects - an old file fails loudly
+    rather than silently reinstating the unchecked behaviour ADR-0015 removed.
+    """
+    subjects: dict[str, list[str]] = {}
+    for label, node in node_types.items():
+        for predicate in node.functional:
+            subjects.setdefault(predicate.value, []).append(label)
+
+    if isinstance(raw, list):
+        entries: dict[str, dict[str, Any]] = {str(name): {} for name in raw}
+    elif isinstance(raw, dict):
+        entries = {str(name): (body or {}) for name, body in raw.items()}
+    elif raw is None:
+        entries = {}
+    else:
+        raise OntologyError(
+            "functional_predicates must be a mapping.", detail=f"got {type(raw).__name__}"
+        )
+
+    out: dict[str, FunctionalPredicateSpec] = {}
+    for name, body in entries.items():
+        out[name] = FunctionalPredicateSpec(
+            name=name,
+            subjects=subjects.get(name, []),
+            to_labels=[str(v) for v in body.get("to", [])],
+            reason=" ".join(str(body.get("reason", "")).split()),
+        )
+    return out
+
+
 def _load_file(path: Path) -> Ontology:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -276,11 +549,14 @@ def _load_file(path: Path) -> Ontology:
         raise OntologyError("Ontology file must be a mapping.", detail=str(path))
 
     try:
+        node_types = _parse_node_types(raw.get("node_types", {}))
+        functional_specs = _parse_functional(raw.get("functional_predicates"), node_types)
         ontology = Ontology(
             version=str(raw.get("version", "0.0.0")),
-            node_types=_parse_node_types(raw.get("node_types", {})),
+            node_types=node_types,
             relationship_types=_parse_relationships(raw.get("relationship_types", {})),
-            functional_predicates=[Predicate(p) for p in raw.get("functional_predicates", [])],
+            functional_predicates=[Predicate(p) for p in functional_specs],
+            functional_specs=functional_specs,
             node_properties=PropertyContract(**(raw.get("node_properties") or {})),
             relationship_properties=PropertyContract(
                 **(raw.get("relationship_properties") or {})

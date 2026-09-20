@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AI Memory — Ops{% endblock %}</title>
+  <meta name="ops-build" content="{{ ops_build | default('dev') }}">
+  <!-- Inline, no external file, and deliberately first in <head>: applies the saved theme and the
+       saved panel states before first paint, and defines opsLive() before htmx.min.js loads so the
+       very first poll can already be suppressed. Everything here degrades silently - a browser with
+       localStorage disabled still gets a working page, just without remembered preferences. -->
+  <script>
+    (function () {
+      function read(key) {
+        try { return window.localStorage.getItem(key); } catch (e) { return null; }
+      }
+      function write(key, value) {
+        try { window.localStorage.setItem(key, value); } catch (e) { /* not persisted this session */ }
+      }
+      window.opsPrefs = { read: read, write: write };
+
+      var savedTheme = read("ops-theme");
+      if (savedTheme === "dark" || savedTheme === "light") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      }
+
+      // --- auto-refresh gate -----------------------------------------------------------------
+      // Every polling element gates its trigger on opsLive(). htmx evaluates that filter at fire
+      // time, so returning false simply skips the request - there are no timers to cancel and
+      // nothing to restart when polling resumes.
+      //
+      // Two separate reasons to skip, and they are not the same thing:
+      //
+      //   paused   - the operator pressed the button. Explicit, remembered across visits, and shown
+      //              in amber in the header so a frozen page never looks like a live one.
+      //   busy     - the operator is *using* something right now. A refresh replaces a section's
+      //              whole DOM, so an open note, an expanded error or a focused dropdown is
+      //              destroyed by it. This was the actual complaint: a "?" that closed itself and a
+      //              dropdown that reset. No polling interval fixes that - only not polling does.
+      //
+      // Also skipped for a hidden tab: refreshing a dashboard nobody is looking at is pure cost.
+      var paused = read("ops-paused") === "1";
+
+      function opsBusy() {
+        // Anything the operator has deliberately opened inside a refreshing section.
+        if (document.querySelector("details.helptag[open], details.longtext[open], details.note[open]")) {
+          return true;
+        }
+        // Anything focused that holds a value or a pending choice. A native <select> takes focus
+        // when its list is open, which is what made the dropdown reset mid-use.
+        var active = document.activeElement;
+        if (active && active.closest && active.closest("main")) {
+          var tag = (active.tagName || "").toLowerCase();
+          if (tag === "select" || tag === "textarea" || tag === "option") return true;
+          if (tag === "input" && active.type !== "hidden") return true;
+        }
+        return false;
+      }
+      window.opsBusy = opsBusy;
+
+      window.opsLive = function () {
+        if (paused) return false;
+        if (document.hidden) return false;
+        return !opsBusy();
+      };
+      window.opsSetPaused = function (value) {
+        paused = !!value;
+        write("ops-paused", paused ? "1" : "0");
+        document.documentElement.setAttribute("data-ops-paused", paused ? "1" : "0");
+      };
+      document.documentElement.setAttribute("data-ops-paused", paused ? "1" : "0");
+    })();
+  </script>
+  <link rel="stylesheet" href="/ops/static/ops.css">
+  <script src="/ops/static/htmx.min.js"></script>
+</head>
+<body>
+  {% block body %}{% endblock %}
+  <script>
+    (function () {
+      var prefs = window.opsPrefs;
+
+      // --- theme toggle -----------------------------------------------------------------------
+      var themeBtn = document.getElementById("theme-toggle");
+      function currentTheme() {
+        var explicit = document.documentElement.getAttribute("data-theme");
+        if (explicit) return explicit;
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        return prefersDark ? "dark" : "light";
+      }
+      if (themeBtn) {
+        var relabelTheme = function () {
+          themeBtn.textContent = currentTheme() === "dark" ? "Light mode" : "Dark mode";
+        };
+        relabelTheme();
+        themeBtn.addEventListener("click", function () {
+          var next = currentTheme() === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          prefs.write("ops-theme", next);
+          relabelTheme();
+        });
+      }
+
+      // --- pause auto-refresh ------------------------------------------------------------------
+      var pauseBtn = document.getElementById("pause-toggle");
+      if (pauseBtn) {
+        var relabelPause = function () {
+          var off = !window.opsLive();
+          pauseBtn.textContent = off ? "Auto-refresh: off" : "Auto-refresh: on";
+          pauseBtn.setAttribute("aria-pressed", off ? "true" : "false");
+          pauseBtn.classList.toggle("is-paused", off);
+        };
+        relabelPause();
+        pauseBtn.addEventListener("click", function () {
+          window.opsSetPaused(window.opsLive());
+          relabelPause();
+        });
+      }
+
+      // --- "Refresh now" ------------------------------------------------------------------------
+      // Pausing is only comfortable if a manual refresh is one click away. This fires every polling
+      // element once, regardless of the pause state.
+      var refreshBtn = document.getElementById("refresh-now");
+      if (refreshBtn && window.htmx) {
+        refreshBtn.addEventListener("click", function () {
+          document.querySelectorAll("[data-ops-poll]").forEach(function (el) {
+            window.htmx.trigger(el, "ops:refresh");
+          });
+        });
+      }
+
+      // --- remembered <details> state ------------------------------------------------------------
+      // HTMX replaces a section's entire innerHTML on every poll, which throws away the DOM state of
+      // anything inside it - including whether the operator had collapsed that section. The open
+      // flag therefore lives in localStorage keyed by `data-remember`, and is re-applied to whatever
+      // markup arrives. `toggle` does not bubble, so the listener is registered in the capture phase.
+      function restore(root) {
+        var scope = root && root.querySelectorAll ? root : document;
+        scope.querySelectorAll("details[data-remember]").forEach(function (el) {
+          var saved = prefs.read(el.getAttribute("data-remember"));
+          if (saved === "0") el.open = false;
+          else if (saved === "1") el.open = true;
+        });
+      }
+      document.addEventListener("toggle", function (event) {
+        var el = event.target;
+        if (el && el.matches && el.matches("details[data-remember]")) {
+          prefs.write(el.getAttribute("data-remember"), el.open ? "1" : "0");
+        }
+      }, true);
+      document.body.addEventListener("htmx:afterSwap", function (event) { restore(event.target); });
+      restore(document);
+
+      // --- help notes must not toggle the section they explain -------------------------------------
+      // A `?` note is a <details> nested inside the section's own <summary>, so one click would
+      // otherwise reach two disclosures: the note opens and the whole section collapses underneath
+      // it. Both have to be suppressed and the wanted one re-applied by hand, because:
+      //
+      //   * stopPropagation alone is not enough - stopping in the capture phase means the note's own
+      //     <summary> never receives the click either, so nothing opens at all;
+      //   * preventDefault alone is not enough - it cancels the activation behaviour of *both*
+      //     summaries, the note included.
+      //
+      // So: intercept before either element sees the event, cancel the default toggle, stop the
+      // event reaching the section heading, and toggle the note directly. Keyboard activation is
+      // covered too - Enter/Space on a focused <summary> dispatches a click.
+      document.addEventListener("click", function (event) {
+        var summary = event.target.closest ? event.target.closest(".helptag > summary") : null;
+        if (!summary) return;
+        event.preventDefault();
+        event.stopPropagation();
+        var note = summary.parentElement;
+        note.open = !note.open;
+      }, true);
+
+      // Clicking anywhere else closes any open note, so they behave like the tooltips they look like
+      // rather than accumulating on the page.
+      document.addEventListener("click", function (event) {
+        var inside = event.target.closest ? event.target.closest("details.helptag") : null;
+        document.querySelectorAll("details.helptag[open]").forEach(function (note) {
+          if (note !== inside) note.open = false;
+        });
+      });
+
+      // --- "this tab is showing an old version of the page" ---------------------------------------
+      // memory-api bakes its templates into the image, so a change reaches the browser only after a
+      // rebuild, a restart *and* a reload. A tab left open across that sequence keeps polling the
+      // endpoints of the version it was served and quietly contradicts every fix. That happened:
+      // one tab polled a retired endpoint for half an hour while the rebuilt page was never
+      // requested once. Every response carries the server's build id; if it stops matching this
+      // page's, say so instead of letting the operator debug a version that no longer exists.
+      var meta = document.querySelector('meta[name="ops-build"]');
+      var pageBuild = meta ? meta.getAttribute("content") : null;
+      var banner = document.getElementById("stale-banner");
+      document.body.addEventListener("htmx:afterRequest", function (event) {
+        if (!pageBuild || !banner || !event.detail || !event.detail.xhr) return;
+        var serverBuild = event.detail.xhr.getResponseHeader("X-Ops-Build");
+        if (serverBuild && serverBuild !== pageBuild) {
+          banner.hidden = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

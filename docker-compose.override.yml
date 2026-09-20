@@ -33,6 +33,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NEO4J_URI: ${NEO4J_URI}
+      GRAPH_ALLOW_ONTOLOGY_VIOLATIONS: ${GRAPH_ALLOW_ONTOLOGY_VIOLATIONS:-false}
       NEO4J_USER: ${NEO4J_USER}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       OLLAMA_URL: ${OLLAMA_URL}
@@ -49,6 +50,11 @@ services:
       AWS_REGION: ${BEDROCK_REGION:-us-east-1}
     volumes:
       - .:/workspace
+      # Same relay directory the ingestion service mounts, so a `tools` run can drive an extraction
+      # pass with LLM_PROVIDER=relay and read the prompts back out.
+      - ./.relay:/relay
+      # The project's own design docs as a source root (config/source-roots.yaml: ai-memory).
+      - ${HOST_AIMEMORY_ROOT:-./infra/docker/empty-root}:/sources/ai-memory:ro
       - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
       # Optional, read-only — see docker-compose.yml `ingestion` service comment and
       # docs/operations/bedrock-extraction.md. tools.Dockerfile also creates uid 1000 => /home/app.

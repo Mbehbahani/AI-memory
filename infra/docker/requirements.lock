@@ -65,6 +65,8 @@ idna==3.19
     #   httpx
 iniconfig==2.3.0
     # via pytest
+jinja2==3.1.6
+    # via aimemory (pyproject.toml)
 jmespath==1.1.0
     # via
     #   boto3
@@ -82,7 +84,9 @@ mako==1.4.1
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.3
-    # via mako
+    # via
+    #   jinja2
+    #   mako
 mcp==1.30.0
     # via aimemory (pyproject.toml)
 mdurl==0.1.2
@@ -144,7 +148,9 @@ python-dotenv==1.2.3
     #   pydantic-settings
     #   uvicorn
 python-multipart==0.0.32
-    # via mcp
+    # via
+    #   aimemory (pyproject.toml)
+    #   mcp
 pytz==2026.3.post1
     # via neo4j
 pyyaml==6.0.3

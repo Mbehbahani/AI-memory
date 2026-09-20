@@ -22,6 +22,7 @@ from aimemory.retrieval.pipeline import (
     EMBEDDING_MODEL_UNKNOWN_WARNING,
     HybridRetriever,
 )
+from aimemory.retrieval.relevance import LEXICAL_DEGRADED_WARNING
 
 NOW = datetime(2026, 9, 14, 12, 0, 0, tzinfo=UTC)
 MODEL_ID = "minilm-l6-v2-384"
@@ -62,6 +63,9 @@ class _FakeResult:
 
     def first(self) -> Any:
         return self._rows[0] if self._rows else None
+
+    def scalar_one(self) -> Any:
+        return self._rows[0][0] if self._rows else 0
 
 
 class FakeSession:
@@ -143,10 +147,15 @@ def test_both_retrievers_run_and_their_counts_are_measured_per_query() -> None:
     assert outcome.warnings == []
     assert outcome.degraded is False
     assert outcome.embedding_model_id == MODEL_ID
-    # 'b' was found by both retrievers; RRF rewards the agreement.
-    assert outcome.hits[0].object_id == _id("b")
-    assert [r.value for r in outcome.hits[0].retrievers] == ["semantic", "keyword"]
+    # 'b' was found by both retrievers and therefore wins the *fusion* stage...
+    assert outcome.fused[0].object_id == _id("b")
+    assert [r.value for r in outcome.fused[0].retrievers] == ["semantic", "keyword"]
+    # ...but the final ranking is by calibrated relevance (P14 fix): 'a' has the higher cosine
+    # (0.91 vs 0.80) and this fake session returns no lexemes, so rank agreement is only the
+    # tie-break. Both hits are returned and ranked densely either way.
+    assert outcome.hits[0].object_id == _id("a")
     assert [hit.rank for hit in outcome.hits] == [1, 2]
+    assert outcome.hits[0].relevance == pytest.approx(0.91)
 
 
 def test_ef_search_is_set_for_the_semantic_statement() -> None:
@@ -200,6 +209,51 @@ def test_no_embedder_configured_is_keyword_only_and_says_so() -> None:
 
     assert outcome.warnings == [EMBEDDING_DEGRADED_WARNING]
     assert len(outcome.hits) == 1
+
+
+def test_a_failing_lexical_channel_degrades_with_a_warning_and_still_ranks() -> None:
+    """The lexical relevance statements are best-effort: a failure must cost the query its lexical
+    component and a warning, never its results (plan section Y: degraded, visible, still useful)."""
+
+    class _NoCoverageSession(FakeSession):
+        def execute(self, statement, params=None):  # type: ignore[override]
+            sql = str(statement)
+            if "candidates.tsv @@" in sql:
+                raise RuntimeError("coverage statement failed")
+            if "unnest(to_tsvector('english'" in sql:
+                return _FakeResult([("pgvector",), ("hnsw",)])
+            if "SELECT count(*) FROM chunks" in sql:
+                return _FakeResult([(2,)])
+            if "AS capped" in sql:
+                return _FakeResult([("pgvector", 1), ("hnsw", 2)])
+            return super().execute(statement, params)
+
+    session = _NoCoverageSession(
+        {
+            "FROM embedding_models": MODEL_ROW,
+            SEMANTIC_MARKER: [_chunk_row("a", 0.91), _chunk_row("b", 0.42)],
+            KEYWORD_MARKER: [],
+        }
+    )
+
+    outcome = HybridRetriever(FakeEmbedder(), config=CONFIG).retrieve(
+        session, SearchQuery(query="pgvector hnsw"), now=NOW
+    )
+
+    assert LEXICAL_DEGRADED_WARNING in outcome.warnings
+    assert [hit.object_id for hit in outcome.hits] == [_id("a"), _id("b")]
+    assert outcome.hits[0].relevance == pytest.approx(0.91), "semantic-only renormalisation"
+
+
+def test_a_stop_word_only_query_skips_the_lexical_statements_without_a_warning() -> None:
+    session = _session(semantic=[_chunk_row("a", 0.80)])
+
+    outcome = HybridRetriever(FakeEmbedder(), config=CONFIG).retrieve(
+        session, SearchQuery(query="the and of"), now=NOW
+    )
+
+    assert outcome.warnings == []
+    assert outcome.hits[0].relevance == pytest.approx(0.80)
 
 
 def test_keyword_search_is_never_skipped_even_when_the_embedding_path_is_healthy() -> None:

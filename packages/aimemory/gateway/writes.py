@@ -22,9 +22,13 @@ section Y completeness metric is measured over source-derived rows only (see
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
+from psycopg.types.json import Jsonb
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from ..common.config import Settings, get_settings
@@ -45,7 +49,7 @@ from ..domain.provenance import DETERMINISTIC_MODEL_ID, Provenance
 from ..persistence.repositories import ArtifactRepo, EpisodeRepo
 from .models import WriteReceipt
 
-__all__ = ["add_episode", "record_decision"]
+__all__ = ["add_episode", "record_decision", "record_mcp_audit"]
 
 logger = get_logger(__name__)
 
@@ -220,3 +224,61 @@ def record_decision(
         episode_id=episode.id,
         message="Decision recorded." + (" Previous decision superseded." if previous else ""),
     )
+
+
+def record_mcp_audit(session: Session, payload: Mapping[str, Any]) -> UUID:
+    """Persist one ``mcp_audit_log`` row on behalf of the MCP server (ADR-0008).
+
+    **Deliberately not behind ``GATEWAY_WRITE_ENABLED``.** Every other write in this module is gated
+    by :func:`_guard`; this one must not be. The rows that matter most are the *refusals* - and a
+    refusal only happens while writes are disabled, so gating the audit sink on the write flag would
+    guarantee that exactly the records ADR-0008 exists to capture are the ones never stored.
+
+    This is not a knowledge write: it appends to an append-only observability table, touches no
+    entity, fact or artifact, and cannot alter memory. The MCP server holds no database credentials
+    (the ADR-0008 boundary), so memory-api owning this insert is what keeps that boundary intact.
+
+    Idempotent on ``id``: the MCP server generates the uuid and may retry after a transport failure,
+    and a duplicated retry must not double-count a refusal.
+    """
+    record_id = payload.get("id")
+    record_id = UUID(str(record_id)) if record_id else uuid4()
+    at = payload.get("at")
+    observed = _as_datetime(at) if at else datetime.now(UTC)
+    session.execute(
+        sql_text(
+            """
+            INSERT INTO mcp_audit_log
+                (id, at, tool, kind, client_id, arguments, confirmed, allowed, denied_reason,
+                 result_ref, latency_ms)
+            VALUES
+                (:id, :at, :tool, :kind, :client_id, :arguments, :confirmed, :allowed,
+                 :denied_reason, :result_ref, :latency_ms)
+            ON CONFLICT (id) DO NOTHING
+            """
+        ),
+        {
+            "id": record_id,
+            "at": observed,
+            "tool": str(payload.get("tool") or "unknown"),
+            "kind": str(payload.get("kind") or "read"),
+            "client_id": payload.get("client_id"),
+            "arguments": Jsonb(dict(payload.get("arguments") or {})),
+            "confirmed": bool(payload.get("confirmed", False)),
+            "allowed": bool(payload.get("allowed", True)),
+            "denied_reason": payload.get("denied_reason"),
+            "result_ref": payload.get("result_ref"),
+            "latency_ms": payload.get("latency_ms"),
+        },
+    )
+    return record_id
+
+
+def _as_datetime(value: Any) -> datetime:
+    """Parse the ISO timestamp the MCP server sends; fall back to now() rather than reject a record."""
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return datetime.now(UTC)

@@ -73,6 +73,7 @@ from ..domain.models import (
 )
 from ..domain.ports import EmbeddingProvider, ExtractedText, chunk_from_draft
 from ..extractors import get_extractor
+from ..extractors.markdown import split_frontmatter
 from ..persistence import ingest_repo
 from ..persistence.repositories import (
     ChunkRepo,
@@ -1104,24 +1105,64 @@ class IngestionPipeline:
             media_type=_media_type_for(relative_path),
             origin=origin,
             trust=trust,
-            project_id=self._project_for(ctx, relative_path),
+            project_id=self._project_for(ctx, relative_path, fingerprint),
             priority=ctx.priority_for(relative_path),
         )
 
-    def _project_for(self, ctx: RootContext, relative_path: str) -> str | None:
-        """Attach the source to a project: an alias match on a path segment, else the root default.
+    def _project_for(
+        self, ctx: RootContext, relative_path: str, fingerprint: Fingerprint | None = None
+    ) -> str | None:
+        """Attach the source to a project, strongest claim first.
 
-        Only ids that exist in ``projects`` are returned - ``sources.project_id`` is a foreign key and
-        the registry (Tier 0) may not have seeded a matching row.
+        1. ``project:`` in the note's front matter - the author saying so outright.
+        2. A project alias matching a folder on the path - where the note happens to live.
+        3. ``area:`` in the front matter - the PARA grouping, the weakest of the three.
+        4. The root default.
+
+        Front matter outranks the folder because it is a statement rather than a coincidence: a note
+        in ``00 Inbox/`` can still say which project it belongs to, and before this it could not. The
+        folder still beats ``area:`` because an Area is an ongoing responsibility, not a project, and
+        a note filed *inside* a project folder has already answered the question.
+
+        Every candidate is resolved through the registry alias map, so only ids that exist in
+        ``projects`` are ever returned - ``sources.project_id`` is a foreign key and Tier 0 may not
+        have seeded a matching row. A name the registry does not know is **ignored, not invented**:
+        writing it into ``AIOS/Maps/project-graph.md`` is what makes it resolve. That keeps the rule
+        the registry earns elsewhere - nothing outside your own map file gets to create a project.
         """
+        declared, area = _frontmatter_project_hints(relative_path, fingerprint)
+
+        if declared:
+            resolved = self._resolve_project_name(declared)
+            if resolved:
+                return resolved
+
         for segment in reversed(relative_path.split("/")[:-1]):
             candidate = self._alias_map.get(normalize_name(segment))
             if candidate:
                 return candidate
+
+        if area:
+            resolved = self._resolve_project_name(area)
+            if resolved:
+                return resolved
+
         default = ctx.root.default_project_id
         if default and default in self._project_ids:
             return default
         return None
+
+    def _resolve_project_name(self, name: str) -> str | None:
+        """A name as a human wrote it -> a registry project id, or ``None`` if unknown.
+
+        Tries the alias map first, then an exact id match so that writing ``project: oploy-website``
+        works as well as ``project: Oploy Website``.
+        """
+        normalized = normalize_name(name)
+        candidate = self._alias_map.get(normalized)
+        if candidate:
+            return candidate
+        return normalized if normalized in self._project_ids else None
 
 
 @dataclass(frozen=True)
@@ -1212,6 +1253,58 @@ def _bounded_drafts(drafts: Sequence[Any]) -> tuple[list[Any], int]:
     if oversized:
         bounded = [draft.model_copy(update={"ordinal": i}) for i, draft in enumerate(bounded)]
     return bounded, oversized
+
+
+#: Bytes of a markdown file inspected when looking for YAML front matter. The block is by definition
+#: at the top, so a window is enough; a note whose front matter does not close inside it simply
+#: yields no hint and falls through to the folder match.
+_FRONTMATTER_WINDOW_BYTES = 8192
+
+_MARKDOWN_SUFFIXES = (".md", ".markdown")
+
+
+def _frontmatter_project_hints(
+    relative_path: str, fingerprint: Fingerprint | None
+) -> tuple[str | None, str | None]:
+    """``(project, area)`` as written in a markdown note's front matter, else ``(None, None)``.
+
+    Costs no extra I/O: the bytes are already in memory for the secret scan, and only the head of
+    them is decoded.
+
+    ``tags:`` is deliberately **not** consulted. Tags are topical - a note tagged ``databricks`` or
+    ``content`` is about that subject, not owned by a project of the same name - and honouring them
+    would attach notes to projects they merely mention. That is precisely the mislabelling this
+    matcher exists to avoid, and a wrong project label is worse than none: it silently removes a note
+    from one project's answers and inserts it into another's.
+
+    Every failure mode degrades to "no hint": a non-markdown file, a large file hashed by streaming,
+    malformed YAML, a missing block. A project label is a convenience, and failing a scan over one
+    would not be.
+    """
+    if fingerprint is None or fingerprint.data is None:
+        return None, None
+    if not relative_path.lower().endswith(_MARKDOWN_SUFFIXES):
+        return None, None
+
+    head = fingerprint.data[:_FRONTMATTER_WINDOW_BYTES].decode("utf-8", errors="replace")
+    try:
+        meta, _ = split_frontmatter(head)
+    except Exception:  # noqa: BLE001 - see the docstring; a label never fails a scan
+        return None, None
+
+    def _scalar(key: str) -> str | None:
+        """One name from ``key``. A list yields its first entry: a note may sit under several areas,
+        but ``sources.project_id`` holds exactly one, so the first written wins rather than none."""
+        value = meta.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, str) and item.strip():
+                    return item.strip()
+        return None
+
+    return _scalar("project"), _scalar("area")
 
 
 def _media_type_for(relative_path: str) -> str | None:

@@ -29,6 +29,7 @@ from ..common.time import utc_now
 from ..domain.models import RetrievalLog
 from ..domain.retrieval import RetrievalConfig, ScoredHit, SearchQuery
 from ..persistence.repositories import AuditRepo
+from .relevance import W_LEXICAL, W_SEMANTIC
 
 __all__ = ["effective_params", "log_payload", "write_retrieval_log"]
 
@@ -54,6 +55,8 @@ def effective_params(config: RetrievalConfig) -> dict[str, float]:
         "recency_half_life_days": float(config.recency_half_life_days),
         "graph_max_nodes": float(config.graph_max_nodes),
         "token_budget": float(config.token_budget),
+        "w_semantic": float(W_SEMANTIC),
+        "w_lexical": float(W_LEXICAL),
     }
 
 

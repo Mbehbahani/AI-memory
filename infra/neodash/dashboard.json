@@ -1,0 +1,436 @@
+{
+  "title": "AI Memory",
+  "version": "2.4",
+  "settings": {
+    "pagenumber": 0,
+    "editable": true,
+    "fullscreenEnabled": false,
+    "parameters": {
+      "neodash_project_name": "Oploy Website",
+      "neodash_node_id": "01a0aea5-42bb-7877-846a-82cc2bf348dc"
+    },
+    "queryTimeLimit": 30
+  },
+  "extensions": {},
+  "pages": [
+    {
+      "title": "Project Map",
+      "id": "page-project-map",
+      "reports": [
+        {
+          "id": "r-pm-stat-projects",
+          "title": "Projects",
+          "query": "MATCH (p:Project) RETURN count(p) AS value",
+          "width": 4,
+          "height": 2,
+          "x": 0,
+          "y": 0,
+          "type": "value",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-pm-stat-tech",
+          "title": "Technologies",
+          "query": "MATCH (t:Technology) RETURN count(t) AS value",
+          "width": 4,
+          "height": 2,
+          "x": 4,
+          "y": 0,
+          "type": "value",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-pm-stat-uses",
+          "title": "Project -> Technology links (USES)",
+          "query": "MATCH (:Project)-[r:USES]->(:Technology) RETURN count(r) AS value",
+          "width": 4,
+          "height": 2,
+          "x": 8,
+          "y": 0,
+          "type": "value",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-pm-graph",
+          "title": "Portfolio structure: project/subproject hierarchy (PART_OF) and technology use (USES)",
+          "query": "MATCH (p:Project)-[r:PART_OF]->(parent:Project)\nRETURN p AS a, r AS rel, parent AS b\nUNION\nMATCH (p:Project)-[r:USES]->(t:Technology)\nRETURN p AS a, r AS rel, t AS b",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 2,
+          "type": "graph",
+          "selection": {
+            "Project": "name",
+            "Technology": "name"
+          },
+          "settings": {
+            "nodePositions": {},
+            "relationshipColors": {}
+          }
+        },
+        {
+          "id": "r-pm-table-projects",
+          "title": "All projects (name, status, project_id)",
+          "query": "MATCH (p:Project)\nRETURN p.name AS project, p.status AS status, p.project_id AS project_id\nORDER BY p.name",
+          "width": 6,
+          "height": 5,
+          "x": 0,
+          "y": 8,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-pm-table-tech-rank",
+          "title": "Technology usage ranked (which projects share a technology)",
+          "query": "MATCH (p:Project)-[:USES]->(t:Technology)\nRETURN t.name AS technology, count(DISTINCT p) AS project_count, collect(DISTINCT p.name) AS projects\nORDER BY project_count DESC, technology",
+          "width": 6,
+          "height": 5,
+          "x": 6,
+          "y": 8,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "title": "Decisions Timeline",
+      "id": "page-decisions",
+      "reports": [
+        {
+          "id": "r-dt-note",
+          "title": "",
+          "query": "# Decisions Timeline\n\nADR-0005 keeps superseded knowledge instead of deleting it. **Current** decisions (status = 'current') are shown\nfirst; **proposed** decisions are shown separately (not yet in force); superseded/historical state is shown in\nits own labelled panel below so current and closed facts are never mixed silently.\n\nNote: this pilot graph has no 'Decision' node yet in status = 'historical' (all Decision-level supersession is\nstill 'current'/'proposed'). The real supersession data in this graph lives on **functional-predicate facts**\n(RELATED_TO edges, e.g. USES_ARCHITECTURE, HAS_OWNER, DEPLOYED_ON) that ADR-0005 rule 1 closes\nautomatically when a new fact replaces an old one — see the panel below.",
+          "width": 12,
+          "height": 3,
+          "x": 0,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-current",
+          "title": "Current decisions (status = current), most recent first",
+          "query": "MATCH (d:Decision) WHERE d.status = 'current'\nRETURN d.name AS decision, d.valid_from AS valid_from, d.summary AS summary\nORDER BY d.valid_from DESC",
+          "width": 12,
+          "height": 5,
+          "x": 0,
+          "y": 3,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-proposed",
+          "title": "Proposed decisions (not yet in force)",
+          "query": "MATCH (d:Decision) WHERE d.status = 'proposed'\nRETURN d.name AS decision, d.valid_from AS valid_from, d.summary AS summary\nORDER BY d.valid_from DESC",
+          "width": 12,
+          "height": 3,
+          "x": 0,
+          "y": 8,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-superseded",
+          "title": "SUPERSEDED (historical) functional facts — what replaced what (RELATED_TO, status = historical)",
+          "query": "MATCH (subj)-[old:RELATED_TO {status: 'historical'}]->(old_obj)\nOPTIONAL MATCH (subj)-[new:RELATED_TO]->(new_obj) WHERE new.supersedes_fact_id = old.fact_id\nRETURN subj.name AS subject, old.predicate AS predicate, old_obj.name AS superseded_value,\n       old.valid_from AS was_valid_from, old.valid_to AS closed_at, new_obj.name AS superseded_by\nORDER BY subject, was_valid_from",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 11,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-zerowidth-note",
+          "title": "",
+          "query": "**Temporal wrinkle (documented, not hidden):** of the closed ('historical') edges above, most have\nvalid_to == valid_from — the old and new fact were observed in the *same* extraction run, so the window has\nzero width. An 'as_of' time-travel slider would show no visible difference for those edges (there is no\ninstant when the old fact was current and queryable at a different time than its replacement), so this\ndashboard does not build one. The table on the right shows, MEASURED live, how many closed edges are\nzero-width vs. have a real duration.",
+          "width": 6,
+          "height": 3,
+          "x": 0,
+          "y": 17,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-zerowidth-check",
+          "title": "Closed-edge window width check",
+          "query": "MATCH ()-[r:RELATED_TO {status: 'historical'}]->()\nRETURN r.valid_from = r.valid_to AS zero_width_window, count(*) AS edges\nORDER BY zero_width_window",
+          "width": 6,
+          "height": 3,
+          "x": 6,
+          "y": 17,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-dt-chain-graph",
+          "title": "Example supersession chain: JobLab / JobPilot architecture decisions (USES_ARCHITECTURE)",
+          "query": "MATCH (subj:Project)-[r:RELATED_TO]->(obj)\nWHERE subj.name IN ['JobLab', 'JobLab DE Lakehouse', 'JobPilot'] AND r.predicate = 'USES_ARCHITECTURE'\nRETURN subj, r, obj",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 20,
+          "type": "graph",
+          "selection": {
+            "Project": "name",
+            "Technology": "name"
+          },
+          "settings": {
+            "nodePositions": {},
+            "relationshipColors": {}
+          }
+        }
+      ]
+    },
+    {
+      "title": "Documents & Sources",
+      "id": "page-documents",
+      "reports": [
+        {
+          "id": "r-ds-select-project",
+          "title": "Project name",
+          "query": "RETURN 'Project name' AS input",
+          "width": 6,
+          "height": 2,
+          "x": 0,
+          "y": 0,
+          "type": "select",
+          "selection": {
+            "entityType": "project_name"
+          },
+          "settings": {
+            "type": "Free Text",
+            "parameterName": "neodash_project_name"
+          }
+        },
+        {
+          "id": "r-ds-project-ref",
+          "title": "Reference: project names (type one into the field on the left)",
+          "query": "MATCH (p:Project) RETURN p.name AS project ORDER BY project",
+          "width": 6,
+          "height": 2,
+          "x": 6,
+          "y": 0,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-ds-docs-per-project",
+          "title": "Documents per project (top 15)",
+          "query": "MATCH (pr:Project)<-[:BELONGS_TO]-(doc:Document)\nRETURN pr.name AS project, count(doc) AS documents\nORDER BY documents DESC LIMIT 15",
+          "width": 12,
+          "height": 5,
+          "x": 0,
+          "y": 2,
+          "type": "bar",
+          "selection": {
+            "index": "project",
+            "value": "documents",
+            "key": "project"
+          },
+          "settings": {}
+        },
+        {
+          "id": "r-ds-docs-sources",
+          "title": "Documents & sources for selected project ($neodash_project_name)",
+          "query": "MATCH (pr:Project {name: $neodash_project_name})<-[:BELONGS_TO]-(doc:Document)-[:HAS_SOURCE]->(s:Source)\nRETURN doc.name AS document, s.uri AS source_uri, s.trust AS trust, s.policy AS policy\nORDER BY document",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 7,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-ds-graph",
+          "title": "Documents, sources and storage device for selected project ($neodash_project_name)",
+          "query": "MATCH (pr:Project {name: $neodash_project_name})\nOPTIONAL MATCH (pr)<-[r1:BELONGS_TO]-(doc:Document)\nOPTIONAL MATCH (doc)-[r2:HAS_SOURCE]->(s:Source)\nOPTIONAL MATCH (s)-[r3:STORED_ON]->(dev:Device)\nRETURN pr, r1, doc, r2, s, r3, dev",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 13,
+          "type": "graph",
+          "selection": {
+            "Project": "name",
+            "Document": "name",
+            "Source": "name",
+            "Device": "name"
+          },
+          "settings": {
+            "nodePositions": {},
+            "relationshipColors": {}
+          }
+        },
+        {
+          "id": "r-ds-links",
+          "title": "Document link graph for selected project ($neodash_project_name, LINKS_TO)",
+          "query": "MATCH (pr:Project {name: $neodash_project_name})<-[:BELONGS_TO]-(doc:Document)\nOPTIONAL MATCH (doc)-[:LINKS_TO]->(linked:Document)\nRETURN doc.name AS document, collect(linked.name) AS links_to\nORDER BY document",
+          "width": 12,
+          "height": 5,
+          "x": 0,
+          "y": 19,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "title": "Tasks & Requirements",
+      "id": "page-tasks",
+      "reports": [
+        {
+          "id": "r-tr-note",
+          "title": "",
+          "query": "# Tasks & Requirements\n\nMEASURED on this pilot graph: 0 'Experiment' nodes and 0 'Dataset' nodes exist (both are defined in the\nontology but nothing extracted so far has produced one). This page therefore shows 'Task' and 'Requirement',\nthe two artifact types that do have data. A project is attributed to a Task/Requirement via its source\nepisode's MENTIONS edges (not a direct project_id property, which is mostly null in the current\nextraction — documented, not silently assumed).",
+          "width": 12,
+          "height": 3,
+          "x": 0,
+          "y": 0,
+          "type": "text",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-tr-task-status",
+          "title": "Task status",
+          "query": "MATCH (t:Task) RETURN coalesce(t.status, '(unset)') AS status, count(*) AS tasks ORDER BY tasks DESC",
+          "width": 6,
+          "height": 4,
+          "x": 0,
+          "y": 3,
+          "type": "bar",
+          "selection": {
+            "index": "status",
+            "value": "tasks",
+            "key": "status"
+          },
+          "settings": {}
+        },
+        {
+          "id": "r-tr-req-status",
+          "title": "Requirement status",
+          "query": "MATCH (r:Requirement) RETURN coalesce(r.status, '(unset)') AS status, count(*) AS requirements ORDER BY requirements DESC",
+          "width": 6,
+          "height": 4,
+          "x": 6,
+          "y": 3,
+          "type": "bar",
+          "selection": {
+            "index": "status",
+            "value": "requirements",
+            "key": "status"
+          },
+          "settings": {}
+        },
+        {
+          "id": "r-tr-tasks-table",
+          "title": "Tasks and the projects their source episode mentions",
+          "query": "MATCH (t:Task)\nOPTIONAL MATCH (t)-[:DERIVED_FROM]->(:Episode)-[:MENTIONS]->(pr:Project)\nRETURN t.name AS task, t.status AS status, collect(DISTINCT pr.name) AS related_projects\nORDER BY task",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 7,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-tr-reqs-table",
+          "title": "Requirements and the projects their source episode mentions",
+          "query": "MATCH (r:Requirement)\nOPTIONAL MATCH (r)-[:DERIVED_FROM]->(:Episode)-[:MENTIONS]->(pr:Project)\nRETURN r.name AS requirement, r.status AS status, collect(DISTINCT pr.name) AS related_projects\nORDER BY requirement",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 13,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "title": "Provenance Drill-down",
+      "id": "page-provenance",
+      "reports": [
+        {
+          "id": "r-prov-select",
+          "title": "Artifact id",
+          "query": "RETURN 'Artifact id' AS input",
+          "width": 6,
+          "height": 2,
+          "x": 0,
+          "y": 0,
+          "type": "select",
+          "selection": {
+            "entityType": "node_id"
+          },
+          "settings": {
+            "type": "Free Text",
+            "parameterName": "neodash_node_id"
+          }
+        },
+        {
+          "id": "r-prov-ref",
+          "title": "Reference: decisions / requirements / tasks / findings and their ids (copy an id into the field on the left)",
+          "query": "MATCH (n) WHERE n:Decision OR n:Requirement OR n:Task OR n:ResearchFinding\nRETURN n.id AS id, n.name AS artifact, labels(n)[0] AS type, n.status AS status\nORDER BY type, artifact",
+          "width": 6,
+          "height": 2,
+          "x": 6,
+          "y": 0,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-prov-record",
+          "title": "Provenance record for selected artifact ($neodash_node_id)",
+          "query": "MATCH (n) WHERE n.id = $neodash_node_id AND (n:Decision OR n:Requirement OR n:Task OR n:ResearchFinding)\nOPTIONAL MATCH (n)-[:DERIVED_FROM]->(e:Episode)\nOPTIONAL MATCH (n)-[:DECIDED_IN]->(e2:Episode)\nOPTIONAL MATCH (e)-[:HAS_SOURCE]->(s:Source)\nOPTIONAL MATCH (e2)-[:HAS_SOURCE]->(s2:Source)\nRETURN n.name AS artifact, n.type AS type, n.status AS status, n.engine AS engine, n.confidence AS confidence,\n       coalesce(e.name, e2.name) AS episode, coalesce(e.observed_at, e2.observed_at) AS observed_at,\n       coalesce(s.name, s2.name) AS source_path, coalesce(s.uri, s2.uri) AS source_uri,\n       coalesce(s.trust, s2.trust) AS source_trust",
+          "width": 12,
+          "height": 4,
+          "x": 0,
+          "y": 2,
+          "type": "table",
+          "selection": {},
+          "settings": {}
+        },
+        {
+          "id": "r-prov-graph",
+          "title": "Provenance chain for selected artifact ($neodash_node_id): artifact -> episode -> source -> device",
+          "query": "MATCH (n) WHERE n.id = $neodash_node_id AND (n:Decision OR n:Requirement OR n:Task OR n:ResearchFinding)\nOPTIONAL MATCH (n)-[r1:DERIVED_FROM]->(e:Episode)\nOPTIONAL MATCH (n)-[r1b:DECIDED_IN]->(e2:Episode)\nOPTIONAL MATCH (e)-[r2:HAS_SOURCE]->(s:Source)\nOPTIONAL MATCH (e2)-[r2b:HAS_SOURCE]->(s2:Source)\nOPTIONAL MATCH (s)-[r3:STORED_ON]->(dev:Device)\nOPTIONAL MATCH (s2)-[r3b:STORED_ON]->(dev2:Device)\nRETURN n, r1, e, r1b, e2, r2, s, r2b, s2, r3, dev, r3b, dev2",
+          "width": 12,
+          "height": 6,
+          "x": 0,
+          "y": 6,
+          "type": "graph",
+          "selection": {
+            "Decision": "name",
+            "Requirement": "name",
+            "Task": "name",
+            "ResearchFinding": "name",
+            "Episode": "name",
+            "Source": "name",
+            "Device": "name"
+          },
+          "settings": {
+            "nodePositions": {},
+            "relationshipColors": {}
+          }
+        }
+      ]
+    }
+  ]
+}

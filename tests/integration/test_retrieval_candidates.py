@@ -26,6 +26,7 @@ from aimemory.domain.retrieval import RetrievalConfig, SearchQuery
 from aimemory.retrieval.candidates import keyword_candidates, semantic_candidates, vector_literal
 from aimemory.retrieval.filters import ScopeFilters
 from aimemory.retrieval.pipeline import HybridRetriever
+from aimemory.retrieval.relevance import analyse_query, lexical_coverage
 from sqlalchemy.orm import Session
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("postgres_available")]
@@ -643,7 +644,9 @@ def test_hybrid_pipeline_fuses_both_retrievers_and_ranks_deterministically(
     top = first.hits[0]
     assert top.object_id == corpus.chunks["near"]
     assert "project_match" in top.boosts
-    assert top.score == pytest.approx(top.rrf_score + sum(top.boosts.values()))
+    assert top.score == pytest.approx(sum(top.boosts.values()))
+    assert top.score == pytest.approx(top.relevance * (1 + sum(top.boost_fractions.values())))
+    assert 0.0 <= top.relevance <= 1.0, "the base score is calibrated, not an RRF magnitude"
 
 
 def test_a_low_trust_clipping_is_penalised_relative_to_an_identical_high_trust_hit(
@@ -658,13 +661,22 @@ def test_a_low_trust_clipping_is_penalised_relative_to_an_identical_high_trust_h
     clipping = next(h for h in outcome.hits if h.object_id == corpus.chunks["clipping"])
     high_trust = next(h for h in outcome.hits if h.object_id == corpus.chunks["near"])
 
-    assert clipping.boosts["low_trust"] == pytest.approx(CONFIG.low_trust_penalty)
-    assert "low_trust" not in high_trust.boosts
-    # Same project, same observation time: the only difference between the two boost totals is the
-    # AC-6 clipping penalty, and it is reported under its own key rather than folded into the score.
-    assert sum(clipping.boosts.values()) == pytest.approx(
-        sum(high_trust.boosts.values()) + CONFIG.low_trust_penalty
+    assert clipping.boost_fractions["low_trust"] == pytest.approx(CONFIG.low_trust_penalty)
+    assert "low_trust" not in high_trust.boost_fractions
+    # AC-6 is a *relative* demotion since the P14 fix: the penalty is 15 % of the clipping's own
+    # relevance, reported under its own key, and it can no longer drive a score negative or push a
+    # strong match below an unrelated one.
+    assert clipping.boosts["low_trust"] == pytest.approx(
+        CONFIG.low_trust_penalty * clipping.relevance
     )
+    assert clipping.score == pytest.approx(
+        clipping.relevance * (1 + sum(clipping.boost_fractions.values()))
+    )
+    assert clipping.score > 0.0
+    penalty_free = clipping.relevance * (
+        1 + sum(v for k, v in clipping.boost_fractions.items() if k != "low_trust")
+    )
+    assert clipping.score < penalty_free, "the clipping must still rank lower than it otherwise would"
 
 
 def test_the_pipeline_degrades_to_keyword_only_when_the_embedder_fails(
@@ -686,6 +698,94 @@ def test_the_pipeline_degrades_to_keyword_only_when_the_embedder_fails(
 
 
 # ------------------------------------------------------ smoke test against whatever is ingested
+
+
+def test_query_lexemes_and_idf_come_from_the_same_english_configuration_as_the_index(
+    pg_session: Session, corpus: Corpus
+) -> None:
+    """The lexical channel must stem the query exactly like ``chunks.tsv`` was stemmed, or coverage
+    silently measures nothing. Only a real Postgres with the ``english`` dictionary can show that."""
+    lexicon = analyse_query(pg_session, "Which ADR binds published ports to loopback?")
+
+    assert "adr" in lexicon.lexemes
+    assert "loopback" in lexicon.lexemes
+    assert "which" not in lexicon.lexemes, "stop words carry no IDF mass"
+    # A rarer term must weigh more than a common one; both are positive (Robertson form).
+    assert lexicon.idf["loopback"] > 0.0
+    assert lexicon.corpus_size > 0
+
+
+def test_lexical_coverage_is_term_coverage_not_term_frequency(
+    pg_session: Session, corpus: Corpus
+) -> None:
+    """A12's finding 1: a long, vocabulary-heavy chunk must not beat the specific one by repetition.
+
+    ``chunk:adr`` is the only chunk that contains ``ADR-0007`` and ``loopback``; the others share
+    the query's common words only.
+    """
+    lexicon = analyse_query(pg_session, "ADR-0007 loopback published ports")
+    keys = [
+        (ObjectType.CHUNK, corpus.chunks["adr"]),
+        (ObjectType.CHUNK, corpus.chunks["near"]),
+        (ObjectType.CHUNK, corpus.chunks["far"]),
+    ]
+
+    coverage = lexical_coverage(pg_session, lexicon, keys)
+
+    assert coverage[keys[0]] > coverage[keys[1]]
+    assert coverage[keys[0]] > coverage[keys[2]]
+    assert all(0.0 <= value <= 1.0 for value in coverage.values())
+    # Candidates that match nothing are reported as 0.0, never omitted: "covers nothing" and "was
+    # not scored" must not look the same to the ranking stage.
+    assert set(coverage) == set(keys)
+
+
+def test_a_question_the_corpus_cannot_answer_scores_lower_than_one_it_can(
+    pg_session: Session, corpus: Corpus
+) -> None:
+    """A12's finding 2, at the level where it is decided: the lexical channel is what makes an
+    absent topic look absent. The corpus contains nothing about Mars colonies."""
+    answerable = analyse_query(pg_session, "ADR-0007 loopback published ports")
+    absent = analyse_query(pg_session, "Mars colony logistics manifest")
+    keys = [(ObjectType.CHUNK, corpus.chunks["adr"])]
+
+    covered = lexical_coverage(pg_session, answerable, keys)[keys[0]]
+    uncovered = lexical_coverage(pg_session, absent, keys)[keys[0]]
+
+    assert covered > uncovered
+    assert uncovered < 0.5, "no chunk can cover the IDF mass of terms the corpus has never seen"
+
+
+def test_an_empty_lexicon_skips_the_coverage_statement_instead_of_dividing_by_zero(
+    pg_session: Session, corpus: Corpus
+) -> None:
+    lexicon = analyse_query(pg_session, "the and of a")
+    keys = [(ObjectType.CHUNK, corpus.chunks["adr"])]
+
+    assert not lexicon
+    assert lexical_coverage(pg_session, lexicon, keys) == {keys[0]: 0.0}
+
+
+def test_the_ranking_reflects_relevance_rather_than_boost_groups(
+    pg_session: Session, corpus: Corpus
+) -> None:
+    """The P14 regression test: the pipeline's top hit is the best match, not the best-boosted one.
+
+    ``chunk:clipping`` carries the AC-6 ``low_trust`` penalty; before the fix that -0.15 (50x the
+    RRF range) pushed an exactly-matching clipping to the bottom of the list with a negative score.
+    """
+    outcome = HybridRetriever(_StaticEmbedder(_unit_vector(0)), config=CONFIG).retrieve(
+        pg_session,
+        SearchQuery(query="retrieval pipeline pgvector HNSW tsvector", project_ids=[corpus.project_id]),
+        now=NOW,
+    )
+
+    assert outcome.hits[0].object_id == corpus.chunks["near"]
+    assert all(hit.score >= 0.0 for hit in outcome.hits), "no boost may drive a score negative"
+    clipping = next(hit for hit in outcome.hits if hit.object_id == corpus.chunks["clipping"])
+    assert clipping.score >= 0.0
+    assert all(0.0 <= hit.relevance <= 1.0 for hit in outcome.hits)
+    assert "lexical" in outcome.hits[0].boosts, "the lexical channel ran against the real index"
 
 
 def test_smoke_query_against_the_ingested_corpus_if_there_is_one(

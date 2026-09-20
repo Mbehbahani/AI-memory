@@ -114,15 +114,23 @@ class ScoredCandidate(DomainModel):
 class RankedCandidate(DomainModel):
     """Output of stage 6 (boosts + final ranking): an ordered, explainable hit without provenance.
 
-    ``score = rrf_score + sum(boosts.values())`` and every contribution is kept separately, so a
-    ranking change is explainable without re-running the query (``retrieval.md`` §6).
+    ``score = relevance * (1 + sum(boost_fractions.values())) == sum(boosts.values())``: ``boosts``
+    holds every contribution in *points* (the base ``semantic``/``lexical`` components included) and
+    ``boost_fractions`` the same adjustments as the configured percentages, so a ranking change is
+    explainable without re-running the query (``retrieval.md`` §6, revised after P14).
     """
 
     object_type: ObjectType
     object_id: UUID
     rrf_score: float = 0.0
+    relevance: float = Field(
+        default=0.0, description="Calibrated [0,1] base score (aimemory.retrieval.relevance)"
+    )
     score: float = 0.0
     boosts: dict[str, float] = Field(default_factory=dict)
+    boost_fractions: dict[str, float] = Field(
+        default_factory=dict, description="The configured boosts as fractions, before scaling"
+    )
     retrievers: list[RetrieverKind] = Field(default_factory=list)
     ranks: dict[str, int] = Field(default_factory=dict)
     rank: int = Field(default=0, ge=0)

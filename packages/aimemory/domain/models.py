@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import PurePosixPath
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
@@ -735,15 +736,24 @@ class ServiceStat(DomainModel):
     ``docker stats`` is not reachable from inside a container, so this records the worker's own
     process RSS and Ollama's ``/api/ps`` model-loaded state. Host-level RAM is reported by
     ``scripts/doctor`` instead and is labelled as such on the Ops page. Consumers: A04, A07a, A16.
+
+    It is also the channel for anything a service can measure but the web app cannot. The freshness
+    check (``aimemory.sources.freshness``) is the first of those: only the ingestion container has the
+    source folders mounted, so it compares disk against database and leaves the answer here for the
+    Ops page to read.
     """
 
     id: UUID
     at: datetime = Field(default_factory=utc_now)
-    service: str = Field(description="ingestion | memory-api | ollama | embedding-service")
+    service: str = Field(description="ingestion | freshness | memory-api | ollama | embedding-service")
     process_rss_bytes: int | None = Field(default=None, ge=0, description="MEASURED, self-reported")
     model_loaded: bool | None = Field(default=None, description="Ollama /api/ps")
     model_name: str | None = None
-    details: dict[str, str] = Field(default_factory=dict)
+    #: Free-form measurements for this service. ``Any`` rather than ``str``: the column is ``jsonb``
+    #: and the first structured writer (freshness) records counts and a list of example paths.
+    #: Stringifying those to satisfy a narrower type would mean every reader parsing numbers back out
+    #: of text, which is how "3" and "3 files" end up in the same field.
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class SourceFrontmatter(OpenModel):

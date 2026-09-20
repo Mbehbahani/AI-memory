@@ -131,6 +131,36 @@ Constraints/indexes: `uq_sources_uri (uri)`, `ix_sources_root_path (root_id, rel
 `ix_sources_policy (policy) WHERE status = 'active'`,
 `ix_sources_secret (secret_suspected) WHERE secret_suspected`.
 
+#### How `project_id` is decided
+
+`IngestionPipeline._project_for` picks the strongest available claim and stops:
+
+| # | Evidence | Example |
+|---|---|---|
+| 1 | `project:` in the note's YAML front matter | `project: Oploy Website` |
+| 2 | a registry alias matching a folder on the path, nearest first | `01 Projects/Oploy Website/x.md` |
+| 3 | `area:` in the front matter | `area: Oploy` |
+| 4 | `source_roots.default_project_id` | the `joblab-de` root |
+
+Front matter outranks the folder because it is a statement rather than a coincidence: a note in
+`00 Inbox/` can now declare its project, which was impossible while the path was the only signal.
+The folder still outranks `area:` — in PARA an Area is an ongoing responsibility, not a project, and
+a note filed *inside* a project folder has already answered the question.
+
+Two rules hold at every level:
+
+* **Only registry ids are returned.** `project_id` is a foreign key, and projects come from
+  `AIOS/Maps/project-graph.md` alone. A note may *claim* a project; only the map file may *create*
+  one. An unrecognised name is ignored, and the source stays unlabelled.
+* **`tags:` is never consulted.** Tags are topical — a note tagged `databricks` is *about* that
+  subject, not owned by a project of the same name. Honouring them would sweep every passing mention
+  into a project. A wrong label is worse than none: it removes a note from one project's answers and
+  inserts it into another's, with nothing on screen to say so.
+
+Front matter is read only for `.md`/`.markdown`, only from bytes already in memory for the secret
+scan, and only within the first 8 KB. Every failure — malformed YAML, a streamed large file, no
+block — degrades to "no hint" and falls through. Tests: `tests/unit/test_project_attachment.py`.
+
 ### `source_versions`
 | Column | Type | Notes |
 |---|---|---|
@@ -292,8 +322,15 @@ Constraints:
 * `ck_facts_window CHECK (valid_to IS NULL OR valid_to >= valid_from)`
 * `uq_facts_functional_current` — **partial unique index** enforcing ADR-0005 rule 1 at the database
   level: `UNIQUE (subject_entity_id, predicate) WHERE valid_to IS NULL AND predicate IN
-  ('HAS_STATUS','HAS_OWNER','USES_ARCHITECTURE','DEPLOYED_ON','HAS_STAGE','SELECTED_OPTION')`.
-  The predicate list is generated from `schemas/ontology.yaml: functional_predicates`.
+  ('HAS_STATUS','HAS_STAGE','SELECTED_OPTION')`.
+  The predicate list must equal `schemas/ontology.yaml: functional_predicates`;
+  `tests/integration/test_contracts_functional_index.py` asserts it against the live index.
+  ADR-0015 narrowed it from six predicates to three — `HAS_OWNER`, `USES_ARCHITECTURE` and
+  `DEPLOYED_ON` are multi-valued and must be free to have several open facts per subject. Narrowing
+  a partial unique index cannot fail on existing rows, because the new predicate set is a subset of
+  the old one. **Pending migration (A04):** revision `0001_initial` still creates the six-predicate
+  form; until the narrowing revision is applied, a second concurrent `USES_ARCHITECTURE` fact for one
+  subject raises `IntegrityError` at insert.
 
 Indexes: `ix_facts_subject (subject_entity_id)`, `ix_facts_object (object_entity_id)`,
 `ix_facts_predicate (predicate)`, `ix_facts_current (status) WHERE valid_to IS NULL`,

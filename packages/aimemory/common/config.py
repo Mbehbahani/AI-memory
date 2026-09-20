@@ -119,6 +119,20 @@ class Neo4jSettings(BaseSettings):
     heap_max: str = Field(default="512M", validation_alias="NEO4J_HEAP_MAX")
     pagecache: str = Field(default="256M", validation_alias="NEO4J_PAGECACHE")
 
+    #: Project edges whose endpoint types break the ADR-0015 contract, instead of dropping them.
+    #:
+    #: They are **marked, not laundered**: every such edge carries ``ontology_violation`` naming the
+    #: rule it breaks, so a reader can exclude them with one predicate and the graph never claims
+    #: `Person -[HAS_OWNER]-> Project` is a well-formed statement of ownership.
+    #:
+    #: MEASURED 2026-09-19: dropping cost 676 of ~2,633 semantic edges - 26 % of everything the
+    #: extraction had produced, invisible in Neo4j and impossible to review there. Keeping them
+    #: visible is what makes repairing them possible; the alternative is a graph that is clean
+    #: because a quarter of it was thrown away at the door.
+    allow_ontology_violations: bool = Field(
+        default=False, validation_alias="GRAPH_ALLOW_ONTOLOGY_VIOLATIONS"
+    )
+
 
 class LLMSettings(BaseSettings):
     """Extraction model (plan section M; ADR-0012 built both providers, ADR-0014 chose the default).
@@ -138,7 +152,10 @@ class LLMSettings(BaseSettings):
 
     model_config = _BASE
 
-    provider: Literal["ollama", "bedrock"] = Field(
+    #: ``relay`` is Claude Haiku 4.5 answered by a Claude Code subagent rather than by Bedrock - the
+    #: same model, a different route and a different bill. Prompts and answers pass through files
+    #: (see ``providers.llm.relay_provider``), so extraction runs in two passes rather than one.
+    provider: Literal["ollama", "bedrock", "relay"] = Field(
         default="bedrock", validation_alias="LLM_PROVIDER"
     )
     model: str = Field(default="qwen3:4b", validation_alias="LLM_MODEL")
@@ -149,6 +166,30 @@ class LLMSettings(BaseSettings):
     timeout_seconds: int = Field(default=300, ge=1, validation_alias="LLM_TIMEOUT_SECONDS")
     max_retries: int = Field(default=2, ge=0, le=5, validation_alias="LLM_MAX_RETRIES")
     keep_alive: str = Field(default="5m", validation_alias="OLLAMA_KEEP_ALIVE")
+
+    #: Characters of an episode handed to the model. ``None`` derives it from the provider, which is
+    #: almost always what you want - the right value is a property of the model's context window, not
+    #: of the corpus.
+    #:
+    #: This was a hardcoded 8000, sized for ``qwen3:4b``'s 8192-token ``num_ctx``, and it stayed 8000
+    #: after Bedrock became the default. MEASURED 2026-09-19: 74 of 210 episodes (35 %) exceeded it
+    #: and the largest was 73,213 characters, so its last 88 % never reached the model - silently, and
+    #: on the longest documents, which are the ones most worth extracting.
+    max_body_chars: int | None = Field(default=None, validation_alias="LLM_MAX_BODY_CHARS")
+
+    def resolved_max_body_chars(self) -> int:
+        """Episode characters to send, explicit setting first, else the provider's own budget.
+
+        ``ollama`` is bounded by ``num_ctx`` (8192 tokens by default), so it gets ~3 chars/token with
+        room left for the system prompt, the entity list and the reply. Claude Haiku 4.5 has a 200k
+        context; 120,000 characters is ~30k tokens, which clears every document in this corpus by a
+        wide margin while staying far below the limit.
+        """
+        if self.max_body_chars is not None:
+            return self.max_body_chars
+        if self.provider == "ollama":
+            return max(2000, self.num_ctx * 3 - 4000)
+        return 120_000
 
     # --- Bedrock (ADR-0012). Unused when provider == "ollama". -------------------------------
     # Credentials are never held here: boto3's standard chain resolves them (mounted ~/.aws, or

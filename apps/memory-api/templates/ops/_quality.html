@@ -1,0 +1,68 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'quality',
+     'Quality',
+     help='Is extraction getting better or worse over time? Each small chart is one measurement taken
+           after a run, oldest on the left. You are looking for the shape, not the exact values: a
+           line that drifts the wrong way means the model started producing worse output, and that is
+           the signal to change model or prompt (ADR-0010).',
+     label=('latest snapshot ' ~ quality.latest_at.strftime('%Y-%m-%d %H:%M UTC')) if quality.has_snapshots else 'no snapshots yet — run a scan to populate this section') %}
+
+  <div class="stat-row">
+    <div class="stat">
+      <b>{{ quality.acceptance_rate | fmt_pct }}</b>
+      acceptance rate
+      {{ ui.helptag('Of the extracted items you personally reviewed in the Review queue below, the
+                     share you marked "accept". ' ~ quality.review_accept ~ ' accept / ' ~
+                     quality.review_wrong ~ ' wrong / ' ~ quality.review_partial ~ ' partial, out of ' ~
+                     quality.review_total ~ ' reviewed. With a small n this number moves a lot.') }}
+    </div>
+  </div>
+
+  {% if quality.upgrade_notice %}
+  <div class="attention-item warning">
+    <h3>Model-upgrade rule triggered (ADR-0010)</h3>
+    <p>{{ quality.upgrade_notice }}</p>
+  </div>
+  {% endif %}
+
+  <div class="quality-grid">
+    <div>
+      <h3 class="chart-title">Schema validity rate
+        {{ ui.helptag('How often the model returned output in the exact shape asked for. Low means it
+                       is failing to follow the format, and retries cost money.') }}</h3>
+      {{ charts.validity | safe }}
+    </div>
+    <div>
+      <h3 class="chart-title">Failed-episode share
+        {{ ui.helptag('The share of documents that ended in an error. Should trend toward zero.') }}</h3>
+      {{ charts.failed_share | safe }}
+    </div>
+    <div>
+      <h3 class="chart-title">Median seconds/episode
+        {{ ui.helptag('The typical time one document takes end to end. Drives the ETA in Coverage.') }}</h3>
+      {{ charts.seconds | safe }}
+    </div>
+    <div>
+      <h3 class="chart-title">Duplicate-entity rate
+        {{ ui.helptag('How often the same real thing was stored twice under slightly different names.
+                       Rising means entity matching is losing track.') }}</h3>
+      {{ charts.duplicate_rate | safe }}
+    </div>
+    <div>
+      <h3 class="chart-title">Unconfirmed-fact share
+        {{ ui.helptag('Facts seen only once and not yet corroborated anywhere else. Some is normal;
+                       a lot means the model is inventing detail from thin sources.') }}</h3>
+      {{ charts.unconfirmed_share | safe }}
+    </div>
+  </div>
+
+  <h3 class="chart-title">Benchmark reports (reports/benchmark-*.md)</h3>
+  {% if quality.benchmark_reports %}
+  <ul class="tight-list">
+    {% for name in quality.benchmark_reports %}<li>{{ name }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="chart-empty">none yet — "Run benchmark" in the Runs section enqueues a request; A12's scripts/eval writes the report file</p>
+  {% endif %}
+{% endcall %}

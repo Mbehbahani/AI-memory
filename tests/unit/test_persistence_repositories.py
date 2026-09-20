@@ -424,6 +424,14 @@ def test_audit_and_metrics_round_trip(session: Session) -> None:
     )
     assert review.verdict.value == "accept"
 
+    # Drain whatever is already queued before asserting on our own request. `claim_next_run_request`
+    # is a FIFO over a *shared* table, so this used to pass only while nothing else had ever used the
+    # Ops page: on 2026-09-20 six real `ops-page` requests were waiting and the test claimed one of
+    # those instead. What it means to check is "the request I enqueued can be claimed", not "this
+    # database has no other work in it".
+    while metrics.claim_next_run_request() is not None:
+        pass
+
     rr = metrics.enqueue_run_request(RunRequest(id=uuid4(), options={"root": "vault"}))
     claimed = metrics.claim_next_run_request()
     assert claimed is not None and claimed.id == rr.id

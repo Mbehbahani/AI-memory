@@ -1,0 +1,92 @@
+{% extends "ops/base.html" %}
+{% block body %}
+<header class="ops-header">
+  <h1>AI Memory — Ops</h1>
+  <span class="meta">loopback only · no auth in V0.1 · ADR-0011</span>
+  <nav>
+    <a href="#health">Health</a>
+    <a href="#runs">Runs</a>
+    <a href="#coverage">Coverage</a>
+    <a href="#quality">Quality</a>
+    <a href="#usage">Model usage</a>
+    <a href="#review">Review queue</a>
+    <a href="#notes">Saved notes</a>
+    <a href="#attention">Attention</a>
+    <a href="{{ neodash_url }}" target="_blank" rel="noopener">NeoDash ↗</a>
+    <button type="button" id="refresh-now" class="ghost-btn" title="Fetch every section once, now">Refresh now</button>
+    <button type="button" id="pause-toggle" class="ghost-btn" aria-pressed="false"
+            title="Stop the timed background refresh. Your place on the page and anything you have typed stays put.">Auto-refresh: on</button>
+    <button type="button" id="theme-toggle" class="ghost-btn" aria-label="Toggle dark/light theme">Dark mode</button>
+  </nav>
+</header>
+
+{# Shown only when the server starts answering with a different build id than this page was served
+   with - i.e. the page was rebuilt underneath an open tab. Hidden markup costs nothing; a stale tab
+   silently contradicting every fix costs half an hour. #}
+<div id="stale-banner" class="stale-banner" hidden>
+  <b>This tab is showing an older version of the dashboard.</b>
+  The server has been rebuilt since this page was loaded, so what you see here may not match what is
+  actually running. <a href="/ops">Reload the page</a> to catch up.
+</div>
+
+<main>
+  {# Each polling wrapper carries `data-ops-poll` (so "Refresh now" can find it), the `[opsLive()]`
+     filter (so the pause button works without cancelling timers) and `ops:refresh` (the manual
+     trigger). Intervals are set by how fast the underlying number can actually change: run progress
+     moves second by second, a quality snapshot is written once per run. Polling faster than the data
+     changes only costs queries and makes the page flicker. #}
+
+  <div id="health" data-ops-poll hx-get="/ops/parts/health"
+       hx-trigger="every 20s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_health.html" %}
+  </div>
+
+  {# Runs is the one section split in two. The forms below hold <select> elements the operator is in
+     the middle of using; a poll that replaced them would reset the choice mid-click, which is exactly
+     what it used to do at `every 4s`. The forms are now rendered once and never swapped - only the
+     counters and the request table refresh. #}
+  <div id="runs">
+    {% include "ops/_runs.html" %}
+  </div>
+
+  <div id="coverage" data-ops-poll hx-get="/ops/parts/coverage"
+       hx-trigger="every 30s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_coverage.html" %}
+  </div>
+
+  <div id="quality" data-ops-poll hx-get="/ops/parts/quality"
+       hx-trigger="every 60s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_quality.html" %}
+  </div>
+
+  <div id="usage" data-ops-poll hx-get="/ops/parts/usage"
+       hx-trigger="every 60s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_usage.html" %}
+  </div>
+
+  {# Review never polls: every card carries a form with a radio choice and a typed note in it. #}
+  <div id="review">
+    {% include "ops/_review.html" %}
+  </div>
+
+  <div id="notes" data-ops-poll hx-get="/ops/parts/notes"
+       hx-trigger="every 60s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_notes.html" %}
+  </div>
+
+  <div id="attention" data-ops-poll hx-get="/ops/parts/attention"
+       hx-trigger="every 30s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_attention.html" %}
+  </div>
+</main>
+<footer class="ops-footer">
+  <p>Server-rendered, HTMX for partial refresh, no CDN, no JavaScript build. Vendored:
+     htmx.org 1.9.12 (apps/memory-api/static/htmx.min.js). Section open/closed state, theme and the
+     auto-refresh setting are remembered in this browser only.</p>
+  <p>Background refresh pauses by itself while you are using the page — whenever a help note or an
+     expanded error is open, a dropdown or text box has focus, or this tab is in the background.
+     Nothing reloads under your hands; it resumes as soon as you are done.</p>
+  <p>Page build <code>{{ ops_build | default('dev') }}</code>. If this tab ever stops matching the
+     server, a banner appears at the top — reload to catch up.</p>
+</footer>
+{% endblock %}

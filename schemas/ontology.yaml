@@ -1,27 +1,27 @@
 # AI Memory V0.1 ontology — the contract shared by extraction, entity resolution, Neo4j projection,
 # the Memory Gateway, and MCP. Owned by A02 (Architecture & Contracts). Changes require an ADR.
-version: 0.1.0
+version: 0.2.0
 
 node_types:
-  Project:            {description: "A top-level initiative with an output and a goal", functional: [HAS_STATUS, HAS_OWNER]}
-  SubProject:         {description: "A Project with a parent Project (same label + parent_id)", functional: [HAS_STATUS], stored_as: Project}
+  Project:            {description: "A top-level initiative with an output and a goal", functional: [HAS_STATUS, HAS_STAGE, SELECTED_OPTION]}
+  SubProject:         {description: "A Project with a parent Project (same label + parent_id)", functional: [HAS_STATUS, HAS_STAGE, SELECTED_OPTION], stored_as: Project}
   Person:             {description: "A human (the owner or a collaborator)"}
   Organization:       {description: "Company, university, community"}
   Technology:         {description: "Library, framework, platform, language, service", aliases_seed: config/technology-aliases.yaml}
-  Concept:            {description: "Method, pattern, idea (e.g. medallion architecture, RRF)"}
-  Document:           {description: "An INDEX_CONTENT source rendered as a node"}
-  Repository:         {description: "A git repository root"}
-  Source:             {description: "Any registered source (file/dir/repo) — mirrors Postgres sources"}
+  Concept:            {description: "Method, pattern, idea (e.g. medallion architecture, RRF)", functional: [HAS_STAGE]}
+  Document:           {description: "An INDEX_CONTENT source rendered as a node", functional: [HAS_STATUS]}
+  Repository:         {description: "A git repository root", functional: [HAS_STATUS]}
+  Source:             {description: "Any registered source (file/dir/repo) — mirrors Postgres sources", functional: [HAS_STATUS]}
   Device:             {description: "Logical machine holding sources"}
-  Decision:           {description: "A choice made, with status and validity", functional: [HAS_STATUS]}
-  Requirement:        {description: "Something the project must satisfy", functional: [HAS_STATUS]}
-  Task:               {description: "A unit of work with a status", functional: [HAS_STATUS]}
-  Experiment:         {description: "A trial with a hypothesis and an outcome"}
-  Dataset:            {description: "Data collection used or produced"}
-  ResearchFinding:    {description: "An evidence-backed result"}
+  Decision:           {description: "A choice made, with status and validity", functional: [HAS_STATUS, SELECTED_OPTION]}
+  Requirement:        {description: "Something the project must satisfy", functional: [HAS_STATUS, SELECTED_OPTION]}
+  Task:               {description: "A unit of work with a status", functional: [HAS_STATUS, HAS_STAGE, SELECTED_OPTION]}
+  Experiment:         {description: "A trial with a hypothesis and an outcome", functional: [HAS_STATUS, HAS_STAGE, SELECTED_OPTION]}
+  Dataset:            {description: "Data collection used or produced", functional: [HAS_STATUS, HAS_STAGE]}
+  ResearchFinding:    {description: "An evidence-backed result", functional: [HAS_STATUS]}
   Episode:            {description: "A unit of memory change (document version, change, manual note)"}
-  Application:        {description: "A deployed/deployable software product"}
-  InfrastructureComponent: {description: "Server, cloud resource, container, network piece"}
+  Application:        {description: "A deployed/deployable software product", functional: [HAS_STATUS, HAS_STAGE]}
+  InfrastructureComponent: {description: "Server, cloud resource, container, network piece", functional: [HAS_STATUS]}
 
 # Properties every projected node carries (plan section H). `required` must be non-null on write;
 # the rest may be null when unknown. The loader validates a node payload against this list.
@@ -49,17 +49,49 @@ relationship_types:
     REQUIRES:      {from: [Project, Task, Requirement, Decision], to: [Technology, Requirement, Task]}
     CREATED_BY:    {from: ["*"], to: [Person, Organization]}
     GENERATED_BY:  {from: [Document, Dataset, ResearchFinding], to: [Experiment, Task, Application]}
+    # Multi-valued by nature (ADR-0015): a project has several owners, architectures and
+    # deployment targets at once, so these accumulate like every other semantic edge. They were
+    # functional predicates until ADR-0015; the `from`/`to` lists below are what now fixes their
+    # direction, which nothing enforced while they were attribute-like.
+    HAS_OWNER:     {from: ["*"], to: [Person, Organization]}
+    USES_ARCHITECTURE: {from: [Project, SubProject, Application, Repository, InfrastructureComponent, Technology, Dataset, Experiment], to: [Technology, Concept, InfrastructureComponent]}
+    DEPLOYED_ON:   {from: [Application, Repository, Project, SubProject, InfrastructureComponent, Technology, Dataset], to: [InfrastructureComponent, Technology, Organization, Device]}
   temporal:
     SUPERSEDES:    {from: [Decision, Requirement, Task, ResearchFinding], to: [Decision, Requirement, Task, ResearchFinding]}
     DECIDED_IN:    {from: [Decision], to: [Episode]}
 
-# Predicates whose (subject, predicate) admits a single current object. A new fact closes the old one.
-functional_predicates: [HAS_STATUS, HAS_OWNER, USES_ARCHITECTURE, DEPLOYED_ON, HAS_STAGE, SELECTED_OPTION]
+# Predicates whose (subject, predicate) admits a single current object, so a new value closes the old
+# one (ADR-0005 rule 1). Membership test (ADR-0015): a predicate belongs here only when *two
+# concurrent values would be a contradiction*, not merely unusual. "A project uses two databases" is
+# ordinary; "a task has two current statuses" is not.
+#
+# These are attribute-like, not edge types, so they carry no `from` list: the subjects are exactly
+# the node types that declare the predicate in their `node_types.<T>.functional` list, and the loader
+# enforces that (`Ontology.functional_subjects`). `to` declares what the object may be:
+# `literal` = a value in `facts.object_value`, a label = a resolved entity, `"*"` = any entity.
+functional_predicates:
+  HAS_STATUS:
+    to: [literal]
+    reason: "A thing has exactly one current status; a second concurrent status is a contradiction.
+             The object is a status word, never an entity - `Mohammad HAS_STATUS Picnic` is a
+             mis-typed relationship, not a status."
+  HAS_STAGE:
+    to: [literal, Concept]
+    reason: "A pipeline, task or dataset sits at one stage at a time; moving to the next stage is
+             exactly the supersession ADR-0005 rule 1 describes."
+  SELECTED_OPTION:
+    to: ["*", literal]
+    reason: "A decision (or the thing the decision is about) has one option selected at a time.
+             Choosing a different option supersedes the previous choice - this is the predicate that
+             carries a genuine architecture migration, e.g. Architecture A -> Architecture B."
 
 # Properties every projected relationship carries (plan section H).
 relationship_properties:
   required: [fact_id, valid_from, observed_at, engine]
-  optional: [valid_to, confidence, episode_id, source_id]
+  # `predicate` carries the real name when a functional fact is projected as RELATED_TO.
+  # `ontology_violation` marks an edge kept under GRAPH_ALLOW_ONTOLOGY_VIOLATIONS: the edge
+  # is in the graph but names the endpoint rule it breaks, so readers can exclude it.
+  optional: [valid_to, confidence, episode_id, source_id, predicate, ontology_violation]
 
 artifact_types: [decision, requirement, task, finding, hypothesis, experiment, summary]
 artifact_status: [current, superseded, historical, unconfirmed, proposed, done, abandoned]

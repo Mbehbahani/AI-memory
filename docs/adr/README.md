@@ -20,3 +20,6 @@ the memory system applies to itself). Index maintained by A01 (Build Observer).
 | [0012](ADR-0012-dual-llm-provider-evaluation.md) | Two extraction providers (local qwen3:4b and Bedrock Haiku 4.5) are built and compared; neither privileged. Amends B16/§T/AC-8 | accepted | 2026-09-14 |
 | [0013](ADR-0013-neo4j-community-no-readonly-user.md) | Neo4j Community cannot enforce a read-only user; access constrained in the client instead. Amends §T/§Q/§S | accepted | 2026-09-14 |
 | [0014](ADR-0014-extraction-provider-and-model-consistency.md) | Claude Haiku 4.5 is the default extraction provider; one model per corpus. Amends ADR-0012 §2, B16, AC-8 | accepted | 2026-09-15 |
+| [0015](ADR-0015-predicate-cardinality-and-direction.md) | Predicate cardinality and direction are part of the ontology contract. Refines ADR-0005 | accepted | 2026-09-17 |
+| [0016](ADR-0016-relay-provider-haiku-without-bedrock.md) | A third extraction route: `LLM_PROVIDER=relay` runs Claude Haiku 4.5 via a Claude Code subagent instead of Bedrock. Extends ADR-0012/0014 | accepted | 2026-09-19 |
+| [0017](ADR-0017-keep-marked-knowledge-over-clean-loss.md) | Equivalent model routes are one model; ontology-violating edges are projected with `ontology_violation` rather than dropped. Amends ADR-0014 §2 and the ADR-0015 projection | accepted | 2026-09-19 |

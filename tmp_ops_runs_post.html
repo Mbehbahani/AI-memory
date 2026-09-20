@@ -1,0 +1,78 @@
+<section class="ops-section" id="runs-section">
+  <h2>Runs
+    <span class="label">50 episode(s) pending extraction · 1 request(s) queued/running</span>
+  </h2>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="scan">
+    <label>Run scan — root
+      <select name="root_id">
+        <option value="">(all enabled roots)</option>
+        
+        <option value="joblab-de">joblab-de (joblab-de)</option>
+        
+        <option value="vault">my-vault (vault)</option>
+        
+      </select>
+    </label>
+    <label>tier
+      <select name="tier">
+        
+        <option value="0" >0 — Registry</option>
+        
+        <option value="1" >1 — Embed</option>
+        
+        <option value="2" selected>2 — Knowledge</option>
+        
+      </select>
+    </label>
+    <button type="submit">Run scan</button>
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="retry_failed">
+    <input type="hidden" name="tier" value="2">
+    <label>Retry failed — root
+      <select name="root_id">
+        <option value="">(all roots)</option>
+        
+        <option value="joblab-de">joblab-de (joblab-de)</option>
+        
+        <option value="vault">my-vault (vault)</option>
+        
+      </select>
+    </label>
+    <button type="submit">Retry failed</button>
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="eval">
+    <input type="hidden" name="tier" value="2">
+    <button type="submit">Run gold-set eval</button>
+    <span class="label">worker records this as unsupported until A12's scripts/eval lands (ADR-0010) — the request is still created and visible below</span>
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="benchmark">
+    <input type="hidden" name="tier" value="2">
+    <button type="submit">Run benchmark</button>
+    <span class="label">same as gold-set eval — request created, worker reports it unsupported</span>
+  </form>
+
+  <table class="ops-table">
+    <thead><tr><th>Requested</th><th>Action</th><th>Root</th><th>Tier</th><th>Status</th><th>Progress</th><th>Message / error</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>2026-09-17 18:18:08</td>
+        <td>retry_failed</td>
+        <td>joblab-de</td>
+        <td>2</td>
+        <td><span class="badge queued">queued</span></td>
+        <td>0%</td>
+        <td>—</td>
+      </tr>
+      
+    </tbody>
+  </table>
+</section>

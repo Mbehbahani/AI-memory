@@ -49,6 +49,7 @@ __all__ = [
     "DETERMINISTIC_MODEL_ID",
     "StructuralIndex",
     "document_node_id",
+    "rebuild_graph",
     "structural_plan",
 ]
 
@@ -122,7 +123,7 @@ def _projects(
                      ON e.project_id = p.id
                     AND e.type IN ('Project', 'SubProject')
                     AND e.merged_into_id IS NULL
-             WHERE (:pid IS NULL OR p.id = :pid OR p.parent_id = :pid)
+             WHERE (CAST(:pid AS text) IS NULL OR p.id = :pid OR p.parent_id = :pid)
              ORDER BY p.id
             """
         ),
@@ -204,7 +205,7 @@ def _sources_and_documents(
               FROM sources s
               JOIN source_roots r ON r.root_id = s.root_id
               LEFT JOIN source_versions v ON v.id = s.current_version_id
-             WHERE (:pid IS NULL OR s.project_id = :pid)
+             WHERE (CAST(:pid AS text) IS NULL OR s.project_id = :pid)
              ORDER BY s.uri
             """
         ),
@@ -377,7 +378,7 @@ def _episodes(
             """
             SELECT id, type, title, project_id, source_id, observed_at, status, engine
               FROM episodes
-             WHERE (:pid IS NULL OR project_id = :pid)
+             WHERE (CAST(:pid AS text) IS NULL OR project_id = :pid)
              ORDER BY observed_at
             """
         ),
@@ -451,3 +452,16 @@ def _mentions(
 
 def structural_counts(plan: ProjectionPlan) -> Mapping[str, Any]:
     return plan.counts
+
+
+def rebuild_graph(**kwargs: Any) -> dict[str, Any]:
+    """``aimemory-ingest rebuild-graph``'s entry point. See :func:`aimemory.knowledge.rebuild.rebuild_graph`.
+
+    The implementation lives in :mod:`aimemory.knowledge.rebuild` because it drives *both* layers -
+    this deterministic one and the engine-produced one in :mod:`aimemory.knowledge.semantic` - and a
+    driver importing ``structural`` while ``structural`` imports the driver is a cycle. The CLI has
+    imported ``knowledge.structural.rebuild_graph`` since P6, so the name stays here, resolved lazily.
+    """
+    from .rebuild import rebuild_graph as _impl  # noqa: PLC0415 - deliberate: breaks the import cycle
+
+    return _impl(**kwargs)

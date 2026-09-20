@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 from aimemory.common.config import get_settings
+from aimemory.ontology import load_ontology
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import make_url
@@ -197,6 +198,14 @@ def test_provenance_view_exists_with_expected_columns(engine: sa.Engine) -> None
 
 
 def test_uq_facts_functional_current_partial_index_exists(engine: sa.Engine) -> None:
+    """The index exists after a full migration cycle and covers exactly the functional predicates.
+
+    The predicate list is read from `schemas/ontology.yaml` rather than hard-coded: it used to name
+    the six pre-ADR-0015 predicates, and revision `0003_narrow_functional_index` narrowed it to
+    three. Deriving it means the next cardinality change breaks the migration or the ontology - the
+    two places that should break - instead of this assertion.
+    """
+    functional = {p.value for p in load_ontology().functional_predicates}
     with engine.connect() as conn:
         row = conn.execute(
             sa.text(
@@ -206,8 +215,10 @@ def test_uq_facts_functional_current_partial_index_exists(engine: sa.Engine) -> 
         ).first()
         assert row is not None
         assert "valid_to IS NULL" in row.indexdef
-        for predicate in ("HAS_STATUS", "HAS_OWNER", "USES_ARCHITECTURE", "DEPLOYED_ON", "HAS_STAGE", "SELECTED_OPTION"):
+        for predicate in sorted(functional):
             assert predicate in row.indexdef
+        for demoted in ("HAS_OWNER", "USES_ARCHITECTURE", "DEPLOYED_ON"):
+            assert demoted not in row.indexdef, f"ADR-0015 demoted {demoted}; 0003 must not cover it"
 
 
 def test_trigram_index_exists_on_entities_normalized_name(engine: sa.Engine) -> None:

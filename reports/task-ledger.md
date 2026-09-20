@@ -63,3 +63,43 @@ ones, ADR-0005 re-confirmation (`FactRepo.touch`) does not restamp `extraction_m
 model for a corpus two models have actually run over. The per-`(run, model)` `metrics_snapshots` rows
 are the record that does show both models. This is recorded in `tests/memory/test_change_detection.py`
 (`test_allow_model_mix_is_the_only_way_past_the_guard`) as a documented limitation, not papered over.
+
+---
+
+## Reconciliation note (A01, 2026-09-17 — nine commits since the last pass)
+
+HEAD at the last reconciliation was `2c87f86`. HEAD is now `c462170`. This pass covers **nine**
+commits, not the eight the orchestrator listed when dispatching this task: `git log 2c87f86..HEAD`
+also contains `755b06f` ("Bedrock credentials in containers; reconcile build reports after power
+loss"), which is a child of `2c87f86` and an ancestor of `3b80de9`. `755b06f` is itself the prior A01
+reconciliation commit — it wrote the reports this file continues from — but its own A03 code change
+(wiring AWS/Bedrock credentials into the containers) was never given its own ledger row. That gap is
+closed below. Unlike the previous reconciliation pass, most of the rows below come from **detailed,
+accurate commit messages** (per-commit MEASURED sections), not just `git --stat`; they are still
+marked reconstructed-from-git because A01 did not observe the work live and has not independently
+re-run the tests, except where stated. Full per-field detail is in `reports/agent-runs.jsonl`.
+
+| Task | Phase | Agent | Status | Files | Tests | Handoff | Commit |
+|---|---|---|---|---|---|---|---|
+| P3-T01 (Bedrock credentials fix) | P3 | A03 | done (reconstructed-from-git) | `.env.example`, `apps/ingestion/Dockerfile`, `docker-compose.{yml,override.yml}`, `docs/operations/{README,bedrock-extraction}.md`, `docs/security/README.md`, `infra/docker/{README.md,requirements.lock,tools.Dockerfile}`, `infra/docker/aws-empty/.gitkeep` | not independently re-verified by A01; commit message: credentials resolve inside both images (account 780822965578); AWS-config-stripped fallback fails cleanly with `ProfileNotFound` | A01 (this reconciliation) | `755b06f` |
+| P3-T01 (image build-context fix) | P3 | A03 | done (reconstructed-from-git) | `apps/ingestion/Dockerfile` (COPY `infra/postgres/alembic`, `infra/neo4j/schema`) | not independently re-verified by A01; commit message: migrate exits 0, 29 tables, 18 Neo4j constraints, second run is a clean no-op | A04/A08 → migrate now runs | `3b80de9` |
+| P9-T01 | P9 | A09 | done (reconstructed-from-git) | 7 created + 1 modified under `packages/aimemory/retrieval/`; 8 test files created under `tests/{unit,integration}/` | not independently re-verified by A01; commit message: 518 passed, 2 skipped (+90); mypy clean; e2e `retrieve()` median 16.8–17.2 ms | A02 (doc drift found, fixed in `ff19689`) | `ef30037` |
+| P9-T01 (doc correction) | P9 | A02 | done | `docs/architecture/retrieval.md` (73 insertions / 23 deletions) | n/a — doc correction, not code | — | `ff19689` |
+| P10-T01 | P10 | A09 | done (reconstructed-from-git) | `packages/aimemory/{gateway,retrieval}/*` (9 created, 5 modified — shared commit with P10-T02) | not independently re-verified by A01; commit message: 107 passed in retrieval/gateway subset; mypy clean | A11 (Neo4j still 0 nodes — nothing to expand yet) | `43d8a2b` |
+| P10-T02 | P10 | A09 | done (reconstructed-from-git) | `apps/memory-api/*` (11 created, 1 modified), `schemas/api/openapi.json` — shared commit with P10-T01 | not independently re-verified by A01; commit message: 107 passed (shared run); OpenAPI 14 paths, `--check` enforced | A10 (MCP server, P11-T01) | `43d8a2b` |
+| P7-T01 | P7 | A07a | done — **MEASURED against `D:\My-Vault`** | `sources/{pipeline,registry}.py`, `persistence/ingest_repo.py`, `cli/ingest.py`, `tests/memory/{test_change_detection,test_registry_and_backfill}.py` — shared commit with P7-T02 | 27 projects = 7 (me.md) + 21 (project-graph.md) − 1 merged on slug — acceptance met exactly; restart proved (0/29 pre-kill versions changed chunk count on resume) | A08 (P7-T03 still has no live run) | `37b90da` |
+| P7-T02 | P7 | A07a | **done, 98.6% (143/145) — not 100%, deliberately not rounded up** | same files as P7-T01 (shared commit) | MEASURED: 176 sources, 2,838 chunks, 2,779 embeddings, 27 projects, ~2m33s, reproducible × 3 runs, 0 LLM/cloud calls. Both shortfalls are settled outcomes (1 frontmatter-only 0-chunk file; 1 byte-identical duplicate embedded under its twin) | A09 (real corpus now exists); A07b (two chunker defects found here, fixed in `78561f3`) | `37b90da` |
+| P2-T04 (corpus-safety fix) | P2 | A12 | done | `tests/integration/test_migrations.py`, `tests/unit/test_persistence_repositories.py` | MEASURED (commit message): full suite 627 passed, 1 skipped; corpus counts identical before/after (176/2,838/2,779/27/144) | — | `670f516` |
+| P6-T02 (chunker fix) | P6 | A07b | done | `packages/aimemory/chunking/{code,markdown}.py`, `tests/unit/test_chunking_oversized.py` | MEASURED (commit message): one-line JSON shape 1→27 chunks (max 200 tok/680 chars); exact-offset invariant asserted for every new shape | A02 (open design question: should rule 1 yield to the 8,000-char embed limit for standalone oversized fences?) | `78561f3` |
+| P8-T02 (wiring fix) | P8 | A08 | done | `packages/aimemory/knowledge/__init__.py`, `sources/tier2.py`, `tests/memory/test_change_detection.py` | MEASURED (commit message): 627 passed, 1 skipped, corpus unchanged | A07a/A08 → enabled the P8-T04 pilot run below | `c462170` |
+| P8-T04 | P8 | orchestrator (run), A07a/A08 (code) | **partial — 15 of 144 episodes** | — (operational run, no files changed) | MEASURED by the orchestrator: 0 failed, 199.6s total, ~13.3 s/episode; 129 entities, 147 facts, 81 artifacts, 145 mentions, 0 facts with incomplete provenance; predicates USES 35, RELATED_TO 31, PART_OF 22, USES_ARCHITECTURE 17, HAS_OWNER 14, DEPLOYED_ON 14. Pilot deliberately scoped to 15 non-sensitive technical documents (see `reports/build-timeline.md` for the excluded paths); 129 episodes remain `pending` | A07a/A08 (continue background run) | `c462170` (code); run itself not a commit |
+
+**Still open, not done — carried forward:**
+- **P7-T03** (structural graph projection): code exists (`knowledge/structural.py`, `providers/graph/{projection,writer}.py`) but **Neo4j holds 0 nodes** (MEASURED) and `aimemory-ingest rebuild-graph` fails outright — the CLI imports `knowledge.structural.rebuild_graph`, which does not exist; `structural.py` exports `StructuralIndex`, `structural_plan`, `document_node_id` but no driver function. No live run has ever been evidenced.
+- **P8-T04**: 15/144 episodes only (see row above). 129 episodes still `pending`. Not to be marked done.
+
+**Known gaps recorded during this pass (not tied to a single task, kept here so they are not lost):**
+- 0 of 81 P8-T04-pilot artifacts carry an evidence quote.
+- `embeddings` has `UNIQUE(text_hash, model_id)` while the semantic retrieval SQL joins `chunks c ON c.id = e.object_id` — a chunk whose text duplicates another is invisible to *semantic* retrieval (keyword search still finds it). Raised by A09; needs an explicit accept-or-fix decision.
+- The `extraction_models_in_use` under-reporting limitation (recorded in the previous reconciliation note above) is still open — ADR decision owed by A04/A08.
+- P13 (`joblab-de` pilot ingest), P11, P12, P14–P17: not started.

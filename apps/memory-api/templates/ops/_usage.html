@@ -1,0 +1,126 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'usage',
+     'Model usage',
+     help='What the AI is costing you and how fast it is. One row per call to the model, not per
+           document - a single document makes two or three calls (facts, then relationships, plus a
+           retry when the output came back malformed). Anything without a price in
+           config/model-rates.yaml is counted as "unpriced" and never quietly treated as free.',
+     label='llm_calls · one row per LLM call') %}
+
+  {% if not usage.has_calls %}
+  <p class="chart-empty">No calls recorded yet — the recording hook is wired (migration 0004) but no
+    extraction has run since. This section shows an honest zero rather than a guess; the numbers fill
+    in as soon as a scan runs.</p>
+  {% endif %}
+
+  <h3 class="chart-title">Cost and volume</h3>
+  <div class="stat-row">
+    <div class="stat"><b>{{ usage.total_calls | fmt_int }}</b> total calls</div>
+    <div class="stat"><b>{{ usage.total_prompt_tokens | fmt_int }}</b> input tokens
+      {{ ui.helptag('Tokens are how the model bills. Roughly, one token is three quarters of an English
+                     word. Input is what was sent to the model; output is what it wrote back, and
+                     output is several times more expensive per token.') }}</div>
+    <div class="stat"><b>{{ usage.total_completion_tokens | fmt_int }}</b> output tokens</div>
+    <div class="stat"><b>{{ usage.total_cost_usd | fmt_usd }}</b> total cost
+      {{ ui.helptag('Priced calls only, using the rate that was in force at the moment each call ran -
+                     the rate is copied onto the row, so editing the rate file never rewrites history.
+                     Your AWS bill is still the final word; this misses anything outside this system.') }}</div>
+    <div class="stat"><b>{{ usage.unpriced_calls | fmt_int }}</b> unpriced call(s)
+      {{ ui.helptag('No rate for that model in config/model-rates.yaml. The tokens are recorded
+                     accurately; only the money is unknown. Fix by adding the model there.') }}</div>
+    <div class="stat"><b>{{ usage.cost_per_document | fmt_usd }}</b> cost per document
+      {{ ui.helptag('Over the ' ~ (usage.documents_priced | fmt_int) ~ ' document(s) that have a recorded
+                     call - not the whole corpus, most of which was extracted before this table
+                     existed. Multiply by your remaining queue to forecast a run.') }}</div>
+    <div class="stat"><b>{{ usage.cost_per_fact | fmt_usd }}</b> cost per extracted fact
+      {{ ui.helptag('Same episodes, divided by the ' ~ (usage.facts_priced | fmt_int) ~ ' fact(s) they
+                     produced. A document that yields nothing still costs money, so this number is
+                     always worse than cost per document suggests.') }}</div>
+  </div>
+
+  <h3 class="chart-title">By model</h3>
+  <div class="table-scroll">
+  <table class="ops-table">
+    <thead><tr><th>Model</th><th>Provider</th><th>Calls</th><th>Input tokens</th><th>Output tokens</th><th>Cost</th><th>Unpriced</th></tr></thead>
+    <tbody>
+      {% for row in usage.by_model %}
+      <tr>
+        <td class="msg-cell">{{ ui.longtext(row.model_id, limit=46, label='full model id') }}</td>
+        <td>{{ row.provider }}</td>
+        <td>{{ row.calls | fmt_int }}</td>
+        <td>{{ row.prompt_tokens | fmt_int }}</td>
+        <td>{{ row.completion_tokens | fmt_int }}</td>
+        <td class="nowrap">{{ row.cost_usd | fmt_usd }}</td>
+        <td>{{ row.unpriced_calls | fmt_int }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No calls recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <h3 class="chart-title">Speed, by purpose
+    {{ ui.helptag('Median is the typical call. p90 and p95 are the slow tail - 1 call in 10, and 1 in
+                   20, took at least that long. Tails matter more than averages when you are waiting
+                   on a queue of hundreds of documents.') }}</h3>
+  <div class="table-scroll">
+  <table class="ops-table">
+    <thead><tr><th>Purpose</th><th>n</th><th>Median</th><th>p90</th><th>p95</th><th>Output throughput</th></tr></thead>
+    <tbody>
+      {% for row in usage.by_purpose %}
+      <tr>
+        <td>{{ row.purpose }}</td>
+        <td>{{ row.count | fmt_int }}</td>
+        <td class="nowrap">{{ row.median_ms | fmt_ms }}</td>
+        <td class="nowrap">{{ row.p90_ms | fmt_ms }}</td>
+        <td class="nowrap">{{ row.p95_ms | fmt_ms }}</td>
+        <td class="nowrap">{{ (row.tokens_per_second ~ ' tok/s') if row.tokens_per_second is not none else 'unknown' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">No timed calls recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <details class="note">
+    <summary>Why there is no time-to-first-token here</summary>
+    <p>{{ usage.ttft_note }}</p>
+  </details>
+
+  <h3 class="chart-title">Reliability</h3>
+  <div class="stat-row">
+    <div class="stat"><b>{{ usage.error_rate_pct | fmt_pct }}</b> error rate
+      {{ ui.helptag('Calls that ended in a failure. These are usually still billed, which is why they
+                     belong on a cost page.') }}</div>
+    <div class="stat"><b>{{ usage.retry_rate_pct | fmt_pct }}</b> retry rate
+      {{ ui.helptag('Calls where the model had to be asked again because its first answer was not in
+                     the required format. Every retry is paid for twice. A high rate here is a prompt
+                     problem, not a model problem.') }}</div>
+  </div>
+
+  <h3 class="chart-title">Recent calls</h3>
+  <div class="table-scroll">
+  <table class="ops-table">
+    <thead><tr><th>At</th><th>Model</th><th>Purpose</th><th>Input</th><th>Output</th><th>Duration</th><th>Cost</th><th>OK</th><th>Attempts</th></tr></thead>
+    <tbody>
+      {% for r in usage.recent %}
+      <tr>
+        <td class="nowrap">{{ r.at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td class="msg-cell">{{ ui.longtext(r.model_id, limit=28, label='full model id') }}</td>
+        <td>{{ r.purpose }}</td>
+        <td>{{ r.prompt_tokens | fmt_int }}</td>
+        <td>{{ r.completion_tokens | fmt_int }}</td>
+        <td class="nowrap">{{ r.duration_ms | fmt_ms }}</td>
+        <td class="nowrap">{{ r.cost_usd | fmt_usd }}</td>
+        <td><span class="badge {{ 'ok' if r.ok else 'notice' }}">{{ 'ok' if r.ok else 'error' }}</span></td>
+        <td>{{ r.attempts }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No calls recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endcall %}

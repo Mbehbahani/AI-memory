@@ -1,0 +1,37 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'review',
+     'Review queue',
+     help='Spot-check what the AI extracted. Each card shows one fact or artifact, the sentence it
+           came from, and where that sentence lives. Mark it accept, wrong or partial. Your verdicts
+           feed the acceptance rate in the Quality section - which is the only honest signal you have
+           about whether the model is doing a good job on your documents.',
+     label=(review.sample | length) ~ ' item(s) without a verdict yet · ' ~ review.already_reviewed_today ~ ' reviewed today · batch ' ~ review.sample_batch) %}
+
+  <p class="chart-caption">Never raw file contents — evidence quote / statement plus citation only (plan section T).</p>
+
+  {% for c in review.sample %}
+  <div class="review-card">
+    <div><b>[{{ c.object_type }}]</b> {{ ui.longtext(c.headline, limit=180, label='full statement') }}
+      <span class="chart-caption">{{ c.project_id or '(no project)' }}{% if c.observed_at %} · observed {{ c.observed_at.strftime('%Y-%m-%d') }}{% endif %}{% if c.model_id %} · {{ c.model_id }}{% endif %}</span>
+    </div>
+    {% if c.evidence %}<div class="evidence">&ldquo;{{ ui.longtext(c.evidence, limit=280, label='full quote') }}&rdquo;</div>{% endif %}
+    <div class="citation">{{ c.citation }}</div>
+
+    <form class="ops-form" hx-post="/ops/review" hx-target="#review" hx-swap="innerHTML">
+      <input type="hidden" name="object_type" value="{{ c.object_type }}">
+      <input type="hidden" name="object_id" value="{{ c.object_id }}">
+      <input type="hidden" name="sample_batch" value="{{ review.sample_batch }}">
+      <input type="hidden" name="episode_id" value="{{ c.episode_id or '' }}">
+      <input type="hidden" name="model_id" value="{{ c.model_id or '' }}">
+      {% for v in verdicts %}
+      <label><input type="radio" name="verdict" value="{{ v }}" {{ 'checked' if v == 'accept' else '' }} required> {{ v }}</label>
+      {% endfor %}
+      <input type="text" name="note" placeholder="optional note" maxlength="500">
+      <button type="submit">Save verdict</button>
+    </form>
+  </div>
+  {% else %}
+  <p class="chart-empty">Nothing left to review right now — every recent artifact/fact already has a verdict.</p>
+  {% endfor %}
+{% endcall %}

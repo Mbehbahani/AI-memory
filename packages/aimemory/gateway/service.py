@@ -24,9 +24,10 @@ are one consistent read.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -60,6 +61,7 @@ from ..retrieval.expansion import GraphExpansion, expand
 from ..retrieval.logs import write_retrieval_log
 from ..retrieval.pipeline import HybridRetriever, RetrievalOutcome
 from ..retrieval.provenance import attach_provenance
+from ..retrieval.staleness import staleness_warnings
 from ..retrieval.temporal import TEMPORAL_DROP_WARNING, facts_for_entities, filter_hits
 from ..retrieval.types import HitKey, RankedCandidate
 from . import queries
@@ -76,6 +78,7 @@ from .models import (
     WriteReceipt,
 )
 from .writes import add_episode as _add_episode
+from .writes import record_mcp_audit as _record_mcp_audit
 from .writes import record_decision as _record_decision
 
 __all__ = ["Gateway", "SessionScope"]
@@ -154,6 +157,12 @@ class Gateway:
             warnings = [*outcome.warnings, *expansion.warnings, *provenance_warnings]
             if dropped:
                 warnings.append(TEMPORAL_DROP_WARNING)
+            # Age, not correctness: these hits are real, but they may describe a file as it was
+            # rather than as it is. Only the sources actually returned are examined, so a disabled
+            # root that contributed nothing to this answer is not mentioned.
+            warnings.extend(
+                staleness_warnings(session, [h.provenance.source_id for h in hits if h.provenance])
+            )
 
             context, context_warnings = self._assemble(
                 session, query, hits, expansion, flags, moment
@@ -561,6 +570,16 @@ class Gateway:
         return self._timed("embedding", probe)
 
     # ---------------------------------------------------------------------------------- writes
+
+    def record_mcp_audit(self, payload: Mapping[str, Any]) -> UUID:
+        """``POST /v1/mcp/audit`` - persist one ADR-0008 audit record for the MCP server.
+
+        Not gated by ``GATEWAY_WRITE_ENABLED``: a *refusal* can only occur while writes are off, so
+        gating this would drop precisely the records the policy exists to keep. See
+        :func:`aimemory.gateway.writes.record_mcp_audit`.
+        """
+        with self._session() as session:
+            return _record_mcp_audit(session, payload)
 
     def add_episode(
         self,

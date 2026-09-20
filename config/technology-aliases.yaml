@@ -32,21 +32,26 @@ technologies:
   Graphiti: [graphiti, graphiti-core]
   LangChain: [langchain]
 projects:
-  joblab-lakehouse: [JobLab Lakehouse, JobLab DE, JobLab Lakehouse (DE), DE]
+  joblab-lakehouse-de: [JobLab Lakehouse, JobLab DE, JobLab Lakehouse (DE), DE]
   joblab-data-pipeline: [JobLab Data Pipeline, JobLabScraperAPI, joblab-data-pipeline]
   joblab-agent-backend: [JobLab Agent Backend, lambda_backend]
   joblab-analytics-frontend: [JobLab Analytics Frontend, job-analytics-frontend2]
   jobpilot: [JobPilot, Nova]
   oploy-website: [Oploy Website, oploy.eu, Wagtail site]
   content-center: [Content Center]
-  senior-ai-engineering: [Senior AI ENG, Senior AI Engineering, SAE]
-  order-to-plan: [Order-to-Plan, Order to Plan]
-  stateful-rem-databricks: [Stateful REM on Databricks, PHD-DS, Stateful HMM-REM]
-  hmm-rem-r-pipeline: [HMM-REM R pipeline, HMM-REM, REM_HMM]
+  senior-ai-eng: [Senior AI ENG, Senior AI Engineering, SAE]
+  # order-to-plan: [Order-to-Plan, Order to Plan]
+  #   Disabled 2026-09-17: no project with this id exists in the registry seeded from
+  #   AIOS/me.md + AIOS/Maps/project-graph.md, and no registry id is an unambiguous match.
+  #   entities.project_id is a foreign key to projects(id), so an alias pointing at a
+  #   non-existent project makes every entity that matches it unwritable. Re-enable with the
+  #   real id if this project is added to the registry.
+  stateful-rem-on-databricks: [Stateful REM on Databricks, PHD-DS, Stateful HMM-REM]
+  hmm-rem-r-pipeline-phd-vault: [HMM-REM R pipeline, HMM-REM, REM_HMM]
   azure-databricks-lab: [Azure Databricks lab, adb-dp750, DP-750]
-  optimization-portfolio: [Optimization, OR portfolio, Operations Research portfolio]
+  optimization-or-portfolio: [Optimization, OR portfolio, Operations Research portfolio]
   personal-harness: [Personal Harness, Harness]
   home-infrastructure: [Home Infrastructure, Huawei Ubuntu]
   account-center: [Account Center]
-  career-evidence: [Career Evidence, Apply, Career Evidence + Apply]
+  career-evidence-apply: [Career Evidence, Apply, Career Evidence + Apply]
   interview-prep: [Interview prep]

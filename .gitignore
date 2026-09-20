@@ -40,3 +40,4 @@ desktop.ini
 
 # local scratch inside reports
 reports/tmp/
+.relay/

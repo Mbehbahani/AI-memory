@@ -1,7 +1,23 @@
 # Retrieval evaluation gold set — V0.1
 # AUTHORSHIP: seeded by the orchestrator from the owner's questions; A12 extends it in P14-T03 from
 # my-vault content and marks every added item `author: agent`. The owner may correct any item.
-version: 0.1.0
+#
+# P14-T03 note (A12, 2026-09-17): Q01-Q07 below are the owner's original seed questions and are left
+# byte-for-byte unchanged, including Q04 (points at a JobLab DE `localfs://` architecture-decision
+# document) and Q06 (uses the `mini-vault` fixture) even though the corpus now ingested is vault-only
+# (177 vault:// sources; the JobLab DE repo has not been ingested into this corpus, and `run_eval.py`
+# does not yet stand up an ephemeral fixture corpus for `fixture:`-marked rows - see its own docstring
+# and the P14-T03 report). Both are therefore EXPECTED to score honestly poorly / be skipped rather
+# than silently "fixed" to pass - that is the point of an honest gold set, not a bug in this file.
+#
+# Q08 onward (author: agent) were written by A12 by inspecting the real, live corpus (177 sources,
+# 614 entities, 1244 facts, 729 artifacts as of 2026-09-17) directly in Postgres - project registry,
+# `knowledge_artifacts`, `facts` (including real `supersedes_fact_id` chains), and chunk text - then
+# writing a question that does NOT reuse the chunk's exact wording, with the expected answer recorded
+# as an object id (`vault://...` source_uri) or entity/type name so scoring is objective. Three
+# (Q23-Q25) are deliberately unanswerable - nothing in the corpus supports them - to measure whether
+# the system stays honest under a question it cannot answer (`expect_absent: true`; see scorer.py).
+version: 0.2.0
 questions:
   - id: Q01
     question: "What is JobPilot?"
@@ -36,3 +52,131 @@ questions:
     author: owner
     expected_sources_any: ["vault://my-vault/AIOS/Maps/project-graph.md"]
     provenance_required: true
+
+  - id: Q08
+    question: "In what order has JobLab DE Lakehouse's analytics/data platform evolved?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/02 Areas/JobLab Product/JobLab Overview.md"]
+    expected_entities: ["Databricks Delta", "Snowflake", "Tableau"]
+    expected_timeline_order: ["Databricks Delta", "Snowflake", "Tableau"]
+    # Real supersession chain in `facts` (subject "JobLab DE Lakehouse", predicate USES_ARCHITECTURE):
+    # Databricks Delta -> Snowflake -> Tableau (current). Flagged as a likely-fail in the P14-T03
+    # report: all three facts share one `valid_from` (extraction time, not a stated date), so temporal
+    # ordering cannot be recovered from `valid_from` alone - a real, measured limitation, not invented.
+
+  - id: Q09
+    question: "Why is the Personal Harness project currently parked rather than active?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/AIOS/me.md"]
+    expected_types: ["decision"]
+    expected_facts_contain: ["parked"]
+    provenance_required: true
+
+  - id: Q10
+    question: "What does the JobLab Analytics Frontend depend on?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md"
+    expected_entities: ["JobLab Data Pipeline"]
+
+  - id: Q11
+    question: "What is the Optimization / OR portfolio project about?"
+    author: agent
+    expected_entities: ["Optimization / OR portfolio"]
+
+  - id: Q12
+    question: "What is Stateful REM on Databricks?"
+    author: agent
+    expected_entities: ["Stateful REM on Databricks", "Databricks"]
+
+  - id: Q13
+    question: "According to the Apache Tika documentation clipping, what Apache project was Tika formerly a subproject of?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/Clippings/Apache Tika Documentation  Apache Tika Documentation.md"
+    expected_entities: ["Apache Lucene"]
+    # Deliberately from a `trust=low, origin=external` Clippings/ source (AC-6): checks that low-trust
+    # content is still findable and cited, just ranked lower - not silently excluded.
+
+  - id: Q14
+    question: "What career decision proposes productionizing JobLab in Azure Databricks?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/06 Outputs/Career Docs/Next step.md"]
+    expected_types: ["decision"]
+    expected_facts_contain: ["Azure Databricks"]
+
+  - id: Q15
+    question: "What architecture did Django replace in descriptions of Oploy's tech stack?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/01 Projects/Oploy Website/Oploy Landing Page.md"
+      - "vault://my-vault/06 Outputs/Career Docs/2026-07-23 - The Analysts - Collaboration Portfolio.md"
+    expected_entities: ["Decision Intelligence", "Django"]
+    # Real `facts.supersedes_fact_id` chain: Oploy USES_ARCHITECTURE "Decision Intelligence"
+    # (historical) superseded by Oploy USES_ARCHITECTURE "Django" (current).
+
+  - id: Q16
+    question: "What positioning decisions have been recorded for the Oploy Website?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/01 Projects/Oploy Website/Oploy Landing Page.md"]
+    expected_types: ["decision"]
+
+  - id: Q17
+    question: "What is the current stage of the JobLab product?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/02 Areas/JobLab Product/JobLab Overview.md"]
+    expected_facts_contain: ["Active MVP"]
+
+  - id: Q18
+    question: "What technologies and projects are connected to Personal Harness in the knowledge graph?"
+    author: agent
+    expected_entities: ["LangChain", "Oploy", "GraphRAG", "RAG"]
+    # Exercises graph expansion specifically (plan section P step 4) rather than text search alone -
+    # these names come from real Personal Harness USES/CREATED_BY/SUPPORTS facts, one hop out.
+
+  - id: Q19
+    question: "What finding was recorded about production RAG and CRAG experience in the Levy GraphRAG interview prep?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/06 Outputs/Career Docs/2026-07-29 - Levy - Data Scientist GraphRAG Interview Talking Points.md"
+    expected_types: ["finding"]
+
+  - id: Q20
+    question: "What experience does the Data Scientist – Operations Research job posting require?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/00 Inbox/job-positions/Data Scientist - Operations Research _ Action.md"
+    expected_types: ["requirement"]
+
+  - id: Q21
+    question: "Where did the claim that the Enterprise plan includes custom MSAs and SLAs come from?"
+    author: agent
+    expected_sources_any: ["vault://my-vault/Clippings/Supercharge your security. Start free.md"]
+    provenance_required: true
+
+  - id: Q22
+    question: "What security-relevant finding was recorded about Portainer on the home infrastructure server?"
+    author: agent
+    expected_sources_any:
+      - "vault://my-vault/02 Areas/Home Infrastructure/Ubuntu Server - Admin Dashboards.md"
+    expected_types: ["finding"]
+    expected_facts_contain: ["root"]
+
+  - id: Q23
+    question: "Did JobPilot's frontend move from SvelteKit to Angular?"
+    author: agent
+    expect_absent: true
+    # "Angular" has zero matches anywhere in the ingested corpus (MEASURED via `chunks.text ILIKE`);
+    # JobPilot's real frontend is SvelteKit. A confident, cited "yes" here would be a false positive.
+
+  - id: Q24
+    question: "Does the vault contain notes about Mohammad learning the Rust programming language?"
+    author: agent
+    expect_absent: true
+    # Zero matches for "Rust programming" in the corpus.
+
+  - id: Q25
+    question: "Is there a documented plan for a Mars colony logistics project?"
+    author: agent
+    expect_absent: true
+    # Zero matches for "Mars colony"; nothing in the vault resembles this.

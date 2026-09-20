@@ -21,6 +21,7 @@ degraded answer the caller cannot see is worse than no answer.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from datetime import datetime
 
 from pydantic import Field
@@ -37,6 +38,15 @@ from .candidates import DEFAULT_EF_SEARCH, keyword_candidates, semantic_candidat
 from .config import load_retrieval_config
 from .filters import ScopeFilters
 from .fusion import merge_metadata, reciprocal_rank_fusion
+from .relevance import (
+    LEXICAL_DEGRADED_WARNING,
+    LexicalUnavailable,
+    RelevanceScore,
+    analyse_query,
+    lexical_coverage,
+    score_relevance,
+    semantic_scores_from,
+)
 from .types import HitKey, HitMetadata, RankedCandidate, RetrieverOutput, ScoredCandidate
 
 __all__ = [
@@ -65,6 +75,10 @@ class RetrievalOutcome(DomainModel):
     hits: list[RankedCandidate] = Field(default_factory=list)
     fused: list[ScoredCandidate] = Field(default_factory=list)
     metadata: dict[str, HitMetadata] = Field(default_factory=dict)
+    relevance: dict[str, RelevanceScore] = Field(
+        default_factory=dict,
+        description="Calibrated base score per 'type:id' key; reused by rerank() without new SQL",
+    )
     candidate_counts: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     latency_ms: int = Field(default=0, ge=0)
@@ -149,10 +163,12 @@ class HybridRetriever:
             limit=self._config.fused_top_k,
         )
         metadata = merge_metadata(outputs)
+        relevance = self._relevance(session, query, semantic, fused, warnings)
         hits = rank_candidates(
             fused,
             metadata,
             config=self._config,
+            relevance=relevance,
             project_ids=query.project_ids,
             entity_linked_keys=entity_linked_keys or set(),
             limit=min(query.limit, self._config.final_k) if query.limit else self._config.final_k,
@@ -177,6 +193,7 @@ class HybridRetriever:
             hits=hits,
             fused=fused,
             metadata=metadata,
+            relevance={f"{key[0].value}:{key[1]}": value for key, value in relevance.items()},
             candidate_counts=counts,
             warnings=warnings,
             latency_ms=latency_ms,
@@ -203,10 +220,18 @@ class HybridRetriever:
         """
         if not entity_linked_keys:
             return outcome
+        relevance = {
+            (candidate.object_type, candidate.object_id): outcome.relevance[
+                f"{candidate.object_type.value}:{candidate.object_id}"
+            ]
+            for candidate in outcome.fused
+            if f"{candidate.object_type.value}:{candidate.object_id}" in outcome.relevance
+        }
         hits = rank_candidates(
             outcome.fused,
             outcome.metadata,
             config=self._config,
+            relevance=relevance,
             project_ids=query.project_ids,
             entity_linked_keys=entity_linked_keys,
             limit=min(query.limit, self._config.final_k) if query.limit else self._config.final_k,
@@ -215,6 +240,44 @@ class HybridRetriever:
         counts = dict(outcome.candidate_counts)
         counts["returned"] = len(hits)
         return outcome.model_copy(update={"hits": hits, "candidate_counts": counts})
+
+    # --------------------------------------------------------------------------------- relevance
+
+    def _relevance(
+        self,
+        session: Session,
+        query: SearchQuery,
+        semantic: RetrieverOutput | None,
+        fused: Sequence[ScoredCandidate],
+        warnings: list[str],
+    ) -> dict[HitKey, RelevanceScore]:
+        """Stage 5b: the calibrated base score for every fused candidate.
+
+        Two statements at most (query lexemes + document frequencies, then one coverage statement
+        over the fused pool). MEASURED 2026-09-18 on the live corpus: 2-20 ms per query for the
+        lexical channel at 4,757 chunks. A failure of either statement is a *degradation*, not an
+        error: the semantic component alone still ranks, and the caller is told so.
+        """
+        keys: list[HitKey] = [(item.object_type, item.object_id) for item in fused]
+        if not keys:
+            return {}
+        semantic_scores = semantic_scores_from(semantic.candidates) if semantic else {}
+        rrf_scores = {key: item.rrf_score for key, item in zip(keys, fused, strict=True)}
+
+        lexical: dict[HitKey, float] | None = None
+        lexicon = analyse_query(session, query.query)
+        if lexicon:
+            try:
+                lexical = lexical_coverage(session, lexicon, keys)
+            except LexicalUnavailable:
+                warnings.append(LEXICAL_DEGRADED_WARNING)
+                lexical = None
+        return score_relevance(
+            keys,
+            semantic_scores=semantic_scores,
+            lexical_scores=lexical,
+            rrf_scores=rrf_scores,
+        )
 
     # ------------------------------------------------------------------------------- degradation
 

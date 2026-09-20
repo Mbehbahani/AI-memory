@@ -85,8 +85,14 @@ RELATION_SYSTEM_PROMPT = (
     + "- subject and object must both be taken verbatim from the provided entity list." + NEWLINE
     + "- Only state a relationship the document actually supports. Never invent one." + NEWLINE
     + "- predicate must be one of the allowed relationship types." + NEWLINE
-    + "- Use HAS_STATUS, HAS_OWNER, USES_ARCHITECTURE, DEPLOYED_ON, HAS_STAGE or SELECTED_OPTION "
-    "when the document states a single current value for that property of the subject." + NEWLINE
+    + "- Use HAS_STATUS, HAS_STAGE or SELECTED_OPTION only when the document states a single "
+    "current value for that property of the subject, and give the value as plain text, not as "
+    "an entity. A subject can hold only one of these at a time (ADR-0015)." + NEWLINE
+    + "- HAS_OWNER, USES_ARCHITECTURE and DEPLOYED_ON are ordinary relationships: a subject "
+    "may have several at once. Do not drop one because you are stating another." + NEWLINE
+    + "- Direction matters and is not symmetric. Write the subject that *owns* the property "
+    "first: a project HAS_OWNER a person (never a person HAS_OWNER a project); a project "
+    "USES_ARCHITECTURE a technology; an application is DEPLOYED_ON infrastructure." + NEWLINE
     + "- statement: one sentence, grounded in the document." + NEWLINE
     + "- Set valid_from_if_stated only when the document gives a date for the relationship." + NEWLINE
     + "- At most 25 facts. Output JSON only."

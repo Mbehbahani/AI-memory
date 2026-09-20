@@ -36,10 +36,10 @@ def test_default_path_points_at_the_repository_contract() -> None:
 
 def test_ontology_loads_and_validates() -> None:
     onto = load_ontology(ONTOLOGY_FILE)
-    assert onto.version == "0.1.0"
+    assert onto.version == "0.2.0", "ADR-0015 changed predicate cardinality and direction"
     assert len(onto.node_types) == 19, "19 node types (SubProject is stored as Project)"
     assert len(onto.stored_labels) == 18, "plan section H: 18 distinct Neo4j labels"
-    assert len(onto.relationship_types) == 19, "plan section H: 19 relationship types"
+    assert len(onto.relationship_types) == 22, "19 from plan section H + the 3 ADR-0015 moved"
 
 
 def test_labels_match_entity_type_enum() -> None:
@@ -67,12 +67,80 @@ def test_functional_predicates_drive_adr_0005_rule_1() -> None:
     assert not onto.is_functional(Predicate.RELATED_TO)
     assert [p.value for p in onto.functional_predicates] == [
         "HAS_STATUS",
-        "HAS_OWNER",
-        "USES_ARCHITECTURE",
-        "DEPLOYED_ON",
         "HAS_STAGE",
         "SELECTED_OPTION",
     ]
+
+
+def test_multi_valued_predicates_are_not_functional() -> None:
+    """ADR-0015: the defect these three caused was silent and data-destroying.
+
+    MEASURED on the 2026-09-17 vault corpus: `JobLab USES_ARCHITECTURE` had 5 current and 13
+    historical objects because every newly extracted technology closed the previous one, so
+    `Python` and `PostgreSQL` - concurrently true - were answered as history.
+    """
+    onto = load_ontology(ONTOLOGY_FILE)
+    for predicate in (Predicate.USES_ARCHITECTURE, Predicate.HAS_OWNER, Predicate.DEPLOYED_ON):
+        assert not onto.is_functional(predicate), f"{predicate} is multi-valued"
+        assert onto.relationship(predicate) is not None, f"{predicate} must be a declared edge type"
+        assert onto.group_of(predicate) is RelationshipGroup.SEMANTIC
+
+
+def test_every_functional_predicate_records_why_it_is_single_valued() -> None:
+    """The membership test is the point of ADR-0015, so it has to be written down per predicate."""
+    onto = load_ontology(ONTOLOGY_FILE)
+    for name, spec in onto.functional_specs.items():
+        assert spec.reason, f"{name} must state why two concurrent values are a contradiction"
+        assert spec.subjects, f"{name} has no node type declaring it in `functional:`"
+        assert spec.to_labels, f"{name} must declare what its object may be"
+
+
+def test_functional_subjects_come_from_the_node_types() -> None:
+    onto = load_ontology(ONTOLOGY_FILE)
+    assert "Project" in onto.functional_subjects("HAS_STATUS")
+    assert "Person" not in onto.functional_subjects("HAS_STATUS"), (
+        "a Person has no status in this ontology; `Mohammad HAS_STATUS Picnic` was a mis-typing "
+        "of an application, and it was written 7/7 times before ADR-0015"
+    )
+    assert onto.functional_subjects("SELECTED_OPTION") == [
+        "Project",
+        "SubProject",
+        "Decision",
+        "Requirement",
+        "Task",
+        "Experiment",
+    ]
+
+
+def test_has_status_object_must_be_a_literal() -> None:
+    onto = load_ontology(ONTOLOGY_FILE)
+    onto.validate_relationship(Predicate.HAS_STATUS, "Project", None)  # literal object: ok
+    with pytest.raises(OntologyError):
+        onto.validate_relationship(Predicate.HAS_STATUS, "Project", "Technology")
+    with pytest.raises(OntologyError):
+        onto.validate_relationship(Predicate.HAS_STATUS, "Person", None)
+    with pytest.raises(OntologyError, match="functional"):
+        onto.validate_relationship(Predicate.USES, "Project", None)
+
+
+def test_orient_flips_a_reversed_triple_only_when_it_is_unambiguous() -> None:
+    """ADR-0015 direction repair. MEASURED: 32 of 58 `HAS_OWNER` facts were written backwards."""
+    onto = load_ontology(ONTOLOGY_FILE)
+
+    kept = onto.orient(Predicate.HAS_OWNER, "Repository", "Person")
+    assert (kept.from_label, kept.to_label, kept.flipped) == ("Repository", "Person", False)
+
+    flipped = onto.orient(Predicate.HAS_OWNER, "Person", "Project")
+    assert (flipped.from_label, flipped.to_label, flipped.flipped) == ("Project", "Person", True)
+    assert flipped.reason
+
+    # Legal both ways -> the ontology cannot tell, so it changes nothing.
+    ambiguous = onto.orient(Predicate.HAS_OWNER, "Person", "Person")
+    assert ambiguous.flipped is False
+
+    # Illegal both ways -> raise, never guess.
+    with pytest.raises(OntologyError):
+        onto.orient(Predicate.STORED_ON, "Project", "Technology")
 
 
 def test_subproject_is_stored_as_project() -> None:
@@ -94,7 +162,10 @@ def test_relationship_endpoints_are_validated() -> None:
     onto = load_ontology(ONTOLOGY_FILE)
     onto.validate_relationship(Predicate.USES, "Project", "Technology")
     onto.validate_relationship(Predicate.MENTIONS, "Document", "Person")  # wildcard target
-    onto.validate_relationship(Predicate.HAS_STATUS, "Project", "Project")  # functional: no limit
+    onto.validate_relationship(Predicate.HAS_STAGE, "Project", None)  # functional, literal object
+    with pytest.raises(OntologyError):
+        # Before ADR-0015 a functional predicate accepted any endpoints at all.
+        onto.validate_relationship(Predicate.HAS_STATUS, "Project", "Project")
     with pytest.raises(OntologyError):
         onto.validate_relationship(Predicate.STORED_ON, "Project", "Technology")
     with pytest.raises(OntologyError):
@@ -139,10 +210,31 @@ def test_loader_rejects_an_inconsistent_ontology(tmp_path: Path) -> None:
 
 def test_loader_rejects_an_unknown_predicate(tmp_path: Path) -> None:
     raw = yaml.safe_load(ONTOLOGY_FILE.read_text(encoding="utf-8"))
-    raw["functional_predicates"].append("HAS_VIBE")
+    raw["functional_predicates"]["HAS_VIBE"] = {"to": ["literal"], "reason": "not a predicate"}
     broken = tmp_path / "ontology.yaml"
     broken.write_text(yaml.safe_dump(raw), encoding="utf-8")
     with pytest.raises(OntologyError):
+        _load_file(broken)
+
+
+def test_loader_rejects_a_functional_predicate_no_node_type_claims(tmp_path: Path) -> None:
+    """A functional predicate with no subject would reject every fact that used it, silently."""
+    raw = yaml.safe_load(ONTOLOGY_FILE.read_text(encoding="utf-8"))
+    for node in raw["node_types"].values():
+        node["functional"] = [p for p in node.get("functional", []) if p != "HAS_STAGE"]
+    broken = tmp_path / "ontology.yaml"
+    broken.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with pytest.raises(OntologyError, match="Ontology"):
+        _load_file(broken)
+
+
+def test_loader_rejects_a_node_type_claiming_a_non_functional_predicate(tmp_path: Path) -> None:
+    """The pre-ADR-0015 file said `Project: functional: [HAS_STATUS, HAS_OWNER]`; that must fail."""
+    raw = yaml.safe_load(ONTOLOGY_FILE.read_text(encoding="utf-8"))
+    raw["node_types"]["Project"]["functional"].append("HAS_OWNER")
+    broken = tmp_path / "ontology.yaml"
+    broken.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with pytest.raises(OntologyError, match="Ontology"):
         _load_file(broken)
 
 

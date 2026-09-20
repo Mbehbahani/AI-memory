@@ -10,14 +10,18 @@ Typical use::
 
     onto = load_ontology()                 # parsed, validated against the domain enums, cached
     onto.stored_label("SubProject")        # -> "Project"
-    is_functional("HAS_STATUS")            # -> True   (ADR-0005 rule 1)
+    is_functional("HAS_STATUS")            # -> True   (ADR-0005 rule 1, narrowed by ADR-0015)
     onto.validate_relationship("USES", "Project", "Technology")
+    onto.orient("HAS_OWNER", "Person", "Project")   # -> Project -[HAS_OWNER]-> Person, flipped=True
 """
 
 from .loader import (
+    LITERAL,
     WILDCARD,
+    FunctionalPredicateSpec,
     NodeTypeSpec,
     Ontology,
+    Orientation,
     PropertyContract,
     RelationshipTypeSpec,
     is_functional,
@@ -26,9 +30,12 @@ from .loader import (
 )
 
 __all__ = [
+    "LITERAL",
     "WILDCARD",
+    "FunctionalPredicateSpec",
     "NodeTypeSpec",
     "Ontology",
+    "Orientation",
     "PropertyContract",
     "RelationshipTypeSpec",
     "is_functional",

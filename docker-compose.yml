@@ -72,8 +72,17 @@ services:
     stop_grace_period: 30s
     logging: *default-logging
 
+  # Opt-in since 2026-09-18. ADR-0014 makes Claude Haiku 4.5 on Bedrock the default extraction
+  # provider, so the local model is the *fallback* path, not part of the default stack. Running it
+  # unconditionally cost 2.4 GiB of RAM on a 15.5 GiB machine (MEASURED) to serve no request.
+  # Nothing is removed: the service, its pinned image, the `ollama_models` volume and the qwen3:4b
+  # pull all still exist, and the local, no-cloud path remains available with
+  #     docker compose --profile local-llm up -d      (plus LLM_PROVIDER=ollama in .env)
+  # That combination is also the documented way to eliminate cloud egress entirely - see
+  # docs/security/threat-model.md - so this profile must never be deleted, only left unstarted.
   ollama:
     image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.34.0}
+    profiles: ["local-llm"]
     restart: unless-stopped
     environment:
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
@@ -96,6 +105,7 @@ services:
 
   ollama-init:
     image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.34.0}
+    profiles: ["local-llm"]
     restart: "no"
     depends_on:
       ollama:
@@ -145,6 +155,7 @@ services:
       <<: *common-env
       DATABASE_URL: ${DATABASE_URL}
       NEO4J_URI: ${NEO4J_URI}
+      GRAPH_ALLOW_ONTOLOGY_VIOLATIONS: ${GRAPH_ALLOW_ONTOLOGY_VIOLATIONS:-false}
       NEO4J_USER: ${NEO4J_USER}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       NEO4J_READONLY_USER: ${NEO4J_READONLY_USER}
@@ -166,16 +177,20 @@ services:
         condition: service_completed_successfully
       embedding-service:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
+      # No dependency on `ollama`: it is opt-in behind the `local-llm` profile (ADR-0014 makes
+      # Bedrock the default extraction provider, so the local model is a fallback, not a
+      # prerequisite). A hard `service_healthy` here meant a stack that never intends to run a local
+      # model still could not start. When LLM_PROVIDER=ollama the provider surfaces an unreachable
+      # endpoint as a normal, legible extraction error instead.
     environment:
       <<: *common-env
       DATABASE_URL: ${DATABASE_URL}
       NEO4J_URI: ${NEO4J_URI}
+      GRAPH_ALLOW_ONTOLOGY_VIOLATIONS: ${GRAPH_ALLOW_ONTOLOGY_VIOLATIONS:-false}
       NEO4J_USER: ${NEO4J_USER}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       OLLAMA_URL: ${OLLAMA_URL}
-      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_PROVIDER: ${LLM_PROVIDER:-bedrock}
       LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
       LLM_NUM_CTX: ${LLM_NUM_CTX:-8192}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
@@ -196,8 +211,16 @@ services:
       # Read-only source roots. Container paths are stable; host paths come from .env.
       - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
       - ${HOST_PILOT_ROOT:?set HOST_PILOT_ROOT in .env}:/sources/joblab-de:ro
+      # Optional roots use a default rather than `:?` so an unset variable cannot stop the stack
+      # from starting. An unmounted root is reported by `scripts/doctor` and skipped by the scan.
+      - ${HOST_WAGTAIL_ROOT:-./infra/docker/empty-root}:/sources/wagtail:ro
+      - ${HOST_AIMEMORY_ROOT:-./infra/docker/empty-root}:/sources/ai-memory:ro
       - ./config:/app/config:ro
       - ./.memoryignore:/app/.memoryignore:ro
+      # LLM_PROVIDER=relay writes prompts here and reads answers back. A bind mount, not a named
+      # volume, because the operator answers them from the host - one `docker compose exec` per file
+      # would be unusable at a few hundred prompts. Read-write by design; holds no secrets.
+      - ./.relay:/relay
       - ingestion_state:/state
       # Read-only AWS credentials for the Bedrock provider, mounted at the `app` user's HOME/.aws
       # (apps/ingestion/Dockerfile creates uid 1000 with --create-home => /home/app). OPTIONAL:
@@ -224,6 +247,7 @@ services:
       <<: *common-env
       DATABASE_URL: ${DATABASE_URL}
       NEO4J_URI: ${NEO4J_URI}
+      GRAPH_ALLOW_ONTOLOGY_VIOLATIONS: ${GRAPH_ALLOW_ONTOLOGY_VIOLATIONS:-false}
       NEO4J_USER: ${NEO4J_READONLY_USER}
       NEO4J_PASSWORD: ${NEO4J_READONLY_PASSWORD}
       EMBED_URL: ${EMBED_URL}

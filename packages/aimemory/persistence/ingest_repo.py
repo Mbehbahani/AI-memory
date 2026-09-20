@@ -53,6 +53,7 @@ __all__ = [
     "fail_run_request",
     "failed_episode_ids",
     "finish_run_request",
+    "equivalent_model_ids",
     "flag_other_model_facts",
     "get_job",
     "get_source_text",
@@ -996,7 +997,21 @@ def extraction_models_in_use(
         params["rid"] = root_id
     sql.append("GROUP BY 1")
     rows = session.execute(text(" ".join(sql)), params).all()
-    return {str(row[0]): int(row[1]) for row in rows}
+    counts = {str(row[0]): int(row[1]) for row in rows}
+
+    # Collapse ids that name the same model by a different route, or "more than one entry means the
+    # corpus is mixed" would fire on a corpus extracted entirely by Claude Haiku 4.5 that happens to
+    # have reached it down two paths. The reported id is the one with the most facts, so the label
+    # stays truthful about where the bulk came from.
+    for group in EQUIVALENT_MODEL_GROUPS:
+        present = {mid: n for mid, n in counts.items() if mid in group}
+        if len(present) > 1:
+            primary = max(present, key=lambda mid: present[mid])
+            for mid in present:
+                if mid != primary:
+                    counts.pop(mid)
+            counts[primary] = sum(present.values())
+    return counts
 
 
 def facts_by_extraction_model(session: Session) -> dict[str, int]:
@@ -1043,6 +1058,32 @@ def requeue_episodes_for_reextraction(
     return int(session.execute(text(" ".join(sql)), params).rowcount)
 
 
+#: Extraction model ids that name the *same underlying model* by a different route, and therefore do
+#: not make a corpus "mixed" under ADR-0014 rule 2.
+#:
+#: That rule exists because ``qwen3:4b`` and Claude Haiku 4.5 disagree systematically about entity
+#: types, so a corpus extracted by both is internally inconsistent. Two routes to Haiku 4.5 -
+#: Bedrock and the ADR-0016 Claude Code relay - are the same weights answering the same prompt at
+#: temperature 0. Flagging 1,245 facts ``unconfirmed`` to swap between them would impose the cost of
+#: a real model change with none of the cause.
+EQUIVALENT_MODEL_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset(
+        {
+            "bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0",
+            "claude-code:haiku-4-5",
+        }
+    ),
+)
+
+
+def equivalent_model_ids(model_id: str) -> list[str]:
+    """``model_id`` plus any id naming the same model by another route. Always includes itself."""
+    for group in EQUIVALENT_MODEL_GROUPS:
+        if model_id in group:
+            return sorted(group)
+    return [model_id]
+
+
 def flag_other_model_facts(
     session: Session, model_id: str, *, project_id: str | None = None, root_id: str | None = None
 ) -> int:
@@ -1058,10 +1099,12 @@ def flag_other_model_facts(
         "UPDATE facts SET status = 'unconfirmed'",
         "WHERE status = 'current' AND valid_to IS NULL",
         "AND extraction_model_id IS NOT NULL",
-        "AND extraction_model_id <> :model",
+        # Every id naming the same model, not just the one being written: see
+        # EQUIVALENT_MODEL_GROUPS. Swapping route must not cost a re-confirmation of the corpus.
+        "AND extraction_model_id <> ALL(CAST(:models AS text[]))",
         "AND extraction_model_id NOT LIKE 'deterministic:%'",
     ]
-    params: dict[str, Any] = {"model": model_id}
+    params: dict[str, Any] = {"models": equivalent_model_ids(model_id)}
     if project_id:
         sql.append("AND project_id = :pid")
         params["pid"] = project_id

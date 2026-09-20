@@ -215,6 +215,41 @@ def test_score_question_end_to_end() -> None:
     assert score.provenance_completeness == 1.0
 
 
+def test_expect_absent_question_makes_a_checkable_claim() -> None:
+    question = GoldQuestion(id="Q_ABSENT", question="Does the vault mention a Mars colony budget?", expect_absent=True)
+    assert not question.makes_no_checkable_claim
+
+
+def test_score_question_records_hit_count_and_top_score() -> None:
+    question = GoldQuestion(id="Q_ABSENT", question="?", expect_absent=True)
+    empty = score_question(question, _result([]))
+    assert empty.hit_count == 0
+    assert empty.top_score is None
+    assert empty.expect_absent is True
+
+    non_empty = score_question(
+        GoldQuestion(id="Q_ANSWERABLE", question="?", expected_entities=("JobPilot",)),
+        _result([_hit(text="JobPilot", )]),
+    )
+    assert non_empty.hit_count == 1
+    assert non_empty.top_score == pytest.approx(1.0)
+    assert non_empty.expect_absent is False
+
+
+def test_aggregate_scores_splits_answerable_and_absent() -> None:
+    answerable = score_question(
+        GoldQuestion(id="Q1", question="?", expected_entities=("X",)),
+        _result([_hit(text="X")]),
+    )
+    absent = score_question(GoldQuestion(id="Q2", question="?", expect_absent=True), _result([]))
+    summary = aggregate_scores([answerable, absent])
+    assert summary["answerable_n"] == 1
+    assert summary["absent_n"] == 1
+    assert summary["answerable_hit_count_mean"] == pytest.approx(1.0)
+    assert summary["absent_hit_count_mean"] == pytest.approx(0.0)
+    assert summary["absent_top_score_mean"] is None
+
+
 def test_aggregate_scores_computes_means_and_ignores_none() -> None:
     q1 = score_question(
         GoldQuestion(id="Q1", question="?", expected_sources_any=("vault://a",)),

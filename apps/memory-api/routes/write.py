@@ -13,7 +13,7 @@ be able to exceed what the first one allows.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from aimemory.common.config import get_settings
@@ -83,3 +83,49 @@ def record_decision(payload: DecisionCreate, gateway: GatewayDep) -> WriteReceip
         client=payload.client,
         decided_at=payload.decided_at,
     )
+
+
+class McpAuditRecord(DomainModel):
+    """``POST /v1/mcp/audit`` body - one ``mcp_audit_log`` row, as the MCP server emits it.
+
+    Field names match the table columns exactly, so the record the MCP server logs locally when this
+    sink is unreachable and the row stored here are the same shape.
+    """
+
+    id: UUID | None = None
+    at: datetime | None = None
+    tool: str = Field(min_length=1, max_length=200)
+    kind: str = Field(default="read", max_length=20)
+    client_id: str | None = Field(default=None, max_length=200)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    confirmed: bool = False
+    allowed: bool = True
+    denied_reason: str | None = Field(default=None, max_length=500)
+    result_ref: str | None = Field(default=None, max_length=500)
+    latency_ms: int | None = None
+
+
+class McpAuditReceipt(DomainModel):
+    """What the MCP server needs back: the id actually stored, so a retry is traceable."""
+
+    stored: bool
+    id: UUID
+
+
+@router.post(
+    "/mcp/audit",
+    response_model=McpAuditReceipt,
+    status_code=201,
+    summary="Persist one MCP audit record (ADR-0008; intentionally not behind GATEWAY_WRITE_ENABLED)",
+)
+def record_mcp_audit(payload: McpAuditRecord, gateway: GatewayDep) -> McpAuditReceipt:
+    """The sink for ``mcp_audit_log``.
+
+    The MCP server holds no database credentials (the ADR-0008 boundary), so it posts its audit
+    records here. This route is deliberately **not** gated on ``GATEWAY_WRITE_ENABLED``: the records
+    that matter most are refusals, and a refusal only ever happens while writes are disabled - gating
+    it would guarantee that exactly those records were never stored. It appends to an append-only
+    observability table and cannot touch an entity, fact or artifact.
+    """
+    stored_id = gateway.record_mcp_audit(payload.model_dump(mode="json"))
+    return McpAuditReceipt(stored=True, id=stored_id)

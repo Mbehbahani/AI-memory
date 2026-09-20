@@ -77,9 +77,48 @@ WHERE e.object_type = 'chunk'
   AND s.policy = ANY(:allowed_policies)          -- INDEX_CONTENT/MIRROR; CATALOG_ONLY has no text
   AND s.secret_suspected = false                 -- flagged content is never returned
   AND (:since IS NULL OR sv.observed_at >= :since)
+  AND sv.observed_at <= :as_of                   -- one version per source, and only one:
+  AND NOT EXISTS (                               -- the newest observed at or before :as_of
+        SELECT 1 FROM source_versions sv2
+         WHERE sv2.source_id = sv.source_id
+           AND sv2.observed_at <= :as_of
+           AND (sv2.observed_at, sv2.id) > (sv.observed_at, sv.id))
 ORDER BY e.vector <=> CAST(:query_vector AS vector)
 LIMIT :semantic_top_k;
 ```
+
+### One version per source
+
+The last two predicates are not cosmetic. Without them every version of a file that had ever been
+indexed stayed retrievable, each with its own embeddings, forever. MEASURED on the pilot corpus
+before the fix: an edited vault document had 4 chunks from its 04:45 version and 4 from its 18:20
+version, all 8 embedded and all 8 searchable, nothing marking either as superseded — so a search
+could quote text that no longer existed on disk and cite it as current.
+
+Note the direction of the failure: **re-scanning did not repair it, re-scanning caused it.** Every
+edit added another retrievable copy, so being diligent about scanning made it worse. There was no
+usage pattern that would have surfaced it, nothing failed, nothing was logged, and the answers stayed
+plausible.
+
+The data was never wrong — `source_versions.is_current` agreed with `sources.current_version_id` on
+all 241 sources. Retrieval simply never asked.
+
+`AND sv.is_current` would fix the default case and break the other one: `as_of` asks *what did I know
+at time T*, and answering that with today's file contents is its own kind of wrong. Selecting the
+newest version at or before `as_of` collapses to `is_current` when `as_of` is now (every ordinary
+search) and returns the text really in the file otherwise — matching how facts and artifacts already
+honour `valid_from`/`valid_to`. Migration `0005_source_version_lookup` indexes
+`(source_id, observed_at DESC, id DESC)` for it; the tie-break on `id` guarantees exactly one winner
+even for identical timestamps.
+
+Chunks are treated more strictly than artifacts here, deliberately. A fact that stopped being
+mentioned becomes `unconfirmed` and stays visible (ADR-0005: knowledge is flagged, never erased),
+because deleting a sentence does not make the knowledge false. A chunk is not knowledge — it is a
+literal quotation of a file. When the file changes, the old quotation is no longer that file, and
+presenting it as a citation is a provenance error.
+
+Superseded chunks are **filtered, not deleted**, consistent with ADR-0005 rule 4: a past answer stays
+explainable. Pinned by `tests/integration/test_retrieval_version_currency.py`.
 
 `since` is evaluated on the **observation** axis — `source_versions.observed_at`, reached through the
 `chunks.version_id` foreign key — and never on `chunks.created_at`. `created_at` is ingestion time
@@ -327,3 +366,39 @@ Access boundaries: memory-api connects to Neo4j as `NEO4J_READONLY_USER`; writes
 `data-model.md` (the indexes these queries rely on) · `ontology.md` §3 (expansion edge types) ·
 `temporal.md` (the `as_of` predicate and `unconfirmed`) · `config/retrieval.yaml` ·
 ADR-0005, ADR-0006, ADR-0007, ADR-0008, ADR-0010.
+
+## Staleness warnings
+
+Every hit carries `provenance.observed_at`, so "this was read on the 18th" was always technically
+present. It sat in metadata beside confident prose, and callers read the prose. Two cases are now
+said out loud in `SearchResult.warnings` (`aimemory.retrieval.staleness`):
+
+**A disabled root.** `source_roots.enabled = false` stops scans, and `check_freshness` skips disabled
+roots too, so the "files changed" indicator also goes quiet. Retrieval has no such check — the chunks
+stay in `chunks` and rank normally. That combination is the worst in the system: content frozen at a
+past moment, served confidently, with the one indicator that would have caught it looking away.
+
+> `1 result(s) come from source root 'joblab-de', which is disabled — nothing re-reads it, so this
+> content is frozen as of 2026-09-18T03:41:58Z. Open the file before relying on it.`
+
+Only roots that contributed to *this* answer are named. A warning about something the caller cannot
+see is noise, and noise is how warnings stop being read.
+
+**A corpus known to have moved.** If the last freshness check found changed files, some answer is out
+of date; which one is not knowable here. The warning reports the count and names no file — a warning
+that names the wrong file sends the reader to check something that was never the problem.
+
+**Warn, never filter.** A frozen snapshot is still the best available answer to "what did this look
+like?", and silently returning fewer results is exactly the invisible degradation `warnings` exists
+to prevent. The check also never raises: a search must not fail because the thing annotating it did.
+
+### The drift this depended on
+
+`sync_source_roots` used to run only inside a scan and from `aimemory-ingest roots --sync`, so
+*disabling* a root could never record itself — the edit stops the scans that would have written it.
+The scanner reads the YAML and behaved correctly; every reader of the table did not. MEASURED
+2026-09-19: `joblab-de` was disabled in config on the 18th and `source_roots.enabled` still read
+`true` a day later. `IngestionWorker._sync_root_config` now writes the config into the table on
+startup, which is the only moment it can have changed.
+
+Tests: `tests/integration/test_retrieval_staleness_warnings.py`.

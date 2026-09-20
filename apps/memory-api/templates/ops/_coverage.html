@@ -1,0 +1,65 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'coverage',
+     'Coverage',
+     help='How much of each project has actually been processed, and how much is still waiting.
+           Tier 1 turns files into searchable text. Tier 2 sends documents to the language model to
+           pull out facts. A project can be fully searchable (Tier 1 at 100%) while no facts have been
+           extracted from it yet. ETA is the queue multiplied by the median time one document has
+           really taken - a measurement, not a promise.',
+     label='per project · median seconds/episode: ' ~ (coverage.median_seconds_per_episode | fmt_seconds) ~ ' (' ~ coverage.median_seconds_source ~ ')') %}
+
+  <div class="table-scroll">
+  <table class="ops-table">
+    <thead>
+      <tr>
+        <th rowspan="2">Project</th>
+        <th colspan="3">Tier 1 — embed</th>
+        <th colspan="5">Tier 2 — knowledge extraction</th>
+      </tr>
+      <tr>
+        <th>indexable</th><th>embedded</th><th>%</th>
+        <th>total</th><th>extracted</th><th>failed</th><th>pending (queue)</th><th>ETA</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in coverage.rows %}
+      <tr>
+        <td>{{ row.project_id }}</td>
+        <td>{{ row.sources_indexable }}</td>
+        <td>{{ row.sources_embedded }}</td>
+        <td>{{ row.embed_coverage_pct | fmt_pct }}</td>
+        <td>{{ row.episodes_total }}</td>
+        <td>{{ row.episodes_extracted }}</td>
+        <td>{{ row.episodes_failed }}</td>
+        <td>{{ row.episodes_pending }}</td>
+        <td class="nowrap">{{ row.eta_seconds(coverage.median_seconds_per_episode) | fmt_seconds }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9">No projects registered yet.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td><b>{{ coverage.totals.project_id }}</b></td>
+        <td>{{ coverage.totals.sources_indexable }}</td>
+        <td>{{ coverage.totals.sources_embedded }}</td>
+        <td>{{ coverage.totals.embed_coverage_pct | fmt_pct }}</td>
+        <td>{{ coverage.totals.episodes_total }}</td>
+        <td>{{ coverage.totals.episodes_extracted }}</td>
+        <td>{{ coverage.totals.episodes_failed }}</td>
+        <td>{{ coverage.totals.episodes_pending }}</td>
+        <td class="nowrap">{{ coverage.totals.eta_seconds(coverage.median_seconds_per_episode) | fmt_seconds }}</td>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
+
+  <details class="note">
+    <summary>How these columns are counted</summary>
+    <p>"indexable" = INDEX_CONTENT/MIRROR sources that are not deleted. "embedded" requires
+       <em>every</em> chunk of a source to have a vector — a source whose embed stage half-failed is
+       not counted, on purpose. A shortfall is a settled outcome and not necessarily a failure; the
+       Attention section below names the specific sources.</p>
+  </details>
+{% endcall %}

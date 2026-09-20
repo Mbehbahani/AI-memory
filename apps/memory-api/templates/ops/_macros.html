@@ -1,0 +1,66 @@
+{# Shared building blocks for every ops partial. Three problems these solve, all reported from real
+   use of the page:
+
+   1. `longtext` - a database error arrives as one unbroken 2,000-character line. Rendered raw it
+      pushed the Runs table off the screen and buried the six columns that matter. It now shows the
+      beginning and hides the rest behind a disclosure, opened only when actually debugging.
+   2. `helptag` - several sections carried a paragraph of explanation in the heading, permanently, to
+      be read once. It moves into a collapsed note: the prose stays available and stops competing
+      with the data.
+   3. `panel` - makes a whole section collapsible while remembering its open/closed state across the
+      HTMX refreshes that replace its contents (see `data-remember` handling in base.html).
+
+   Macros rather than copy-paste, so the truncation limit and the disclosure wording are decided in
+   exactly one place. #}
+
+
+{% macro longtext(value, limit=120, label='') %}
+  {#- One possibly-enormous string. Short ones render as plain text with no widget at all - a
+      disclosure triangle on a 12-character message is noise. -#}
+  {%- set s = (value if value is not none else '') | string | trim -%}
+  {%- if not s -%}
+    <span class="muted">&mdash;</span>
+  {%- elif s | length <= limit -%}
+    {{ s }}
+  {%- else -%}
+    <details class="longtext">
+      {#- The summary keeps the first `limit` characters, so the common case - recognising *which*
+          error this is - needs no click at all. -#}
+      <summary><span class="longtext-head">{{ s[:limit] }}&hellip;</span><span
+        class="more">show all {{ '{:,}'.format(s | length) }} characters{% if label %} &middot; {{ label }}{% endif %}</span></summary>
+      <pre class="longtext-full">{{ s }}</pre>
+    </details>
+  {%- endif -%}
+{% endmacro %}
+
+
+{% macro helptag(text) %}
+  {#- A collapsed "what is this?" note. Plain English on purpose: this page is read by the person who
+      owns the system, not by the person who wrote the query behind it. -#}
+  <span class="helptag-wrap"><details class="helptag"><summary
+    title="What is this section?" aria-label="What is this section?">?</summary><p>{{ text }}</p></details></span>
+{% endmacro %}
+
+
+{% macro panel(id, title, help='', label='', badge_text='', badge_class='', open=True) %}
+  {#- A collapsible section. `data-remember` is what survives the HTMX swap: base.html saves the
+      open/closed state under this id and re-applies it after every refresh. Without it, a section the
+      operator collapsed would spring open again on the next poll.
+
+      The `<summary>` is the whole heading row, so clicking anywhere on it toggles - except inside the
+      help note, which stops its own clicks (base.html) so opening "?" does not also collapse the
+      section it explains. -#}
+  <section class="ops-section" id="{{ id }}-section">
+    <details class="panel" data-remember="ops-panel-{{ id }}"{{ ' open' if open else '' }}>
+      <summary class="panel-summary">
+        <h2>{{ title }}</h2>
+        {% if badge_text %}<span class="badge {{ badge_class }}">{{ badge_text }}</span>{% endif %}
+        {% if help %}{{ helptag(help) }}{% endif %}
+        {% if label %}<span class="label">{{ label }}</span>{% endif %}
+      </summary>
+      <div class="panel-body">
+        {{ caller() }}
+      </div>
+    </details>
+  </section>
+{% endmacro %}

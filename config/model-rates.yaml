@@ -1,0 +1,44 @@
+# Price per 1,000,000 tokens, in US dollars, per provider and model.
+#
+# WHY THIS FILE IS EDITABLE AND NOT BAKED INTO THE CODE
+# -----------------------------------------------------
+# These are *your* prices, not ours. Claude on Amazon Bedrock is operated and priced by AWS, not by
+# Anthropic, and AWS changes its prices without asking this repository. A number hardcoded in Python
+# would quietly go stale and start producing confidently wrong cost reports.
+#
+# The rate that was in force when a call ran is copied onto that call's row in `llm_calls`, so
+# editing this file changes what *future* calls cost and never rewrites history. Past reports stay
+# reproducible.
+#
+# IF A MODEL IS MISSING FROM THIS FILE
+# ------------------------------------
+# Its calls are still recorded - tokens, latency, model id, everything - but `cost_usd` stays empty
+# for them. The system abstains rather than guessing. The ops page shows how many calls were
+# unpriced so a missing rate is visible instead of silently reading as "free".
+#
+# HOW TO CHECK YOUR REAL NUMBERS
+# ------------------------------
+#   Bedrock pricing   https://aws.amazon.com/bedrock/pricing/
+#   What you actually paid: AWS Cost Explorer, filtered to the Bedrock service. That beats any
+#   estimate in this file, because it includes anything this system does not see.
+
+version: 1
+
+providers:
+  bedrock:
+    # Set from the AWS Bedrock pricing page for your region. The values below are placeholders
+    # matching Anthropic's own list price for this model; AWS may differ. Verify before trusting
+    # any cost number the ops page shows.
+    us.anthropic.claude-haiku-4-5-20251001-v1:0:
+      input_per_mtok: 1.00
+      output_per_mtok: 5.00
+      note: "Placeholder - confirm against the AWS Bedrock pricing page for your region."
+
+  ollama:
+    # The local model runs on your own hardware. There is no per-token charge, so the honest
+    # recorded cost is zero. That is not the same as free: it costs you roughly 174 seconds per
+    # document of a machine you cannot use for anything else (MEASURED, reports/local-ai-validation.md).
+    qwen3:4b:
+      input_per_mtok: 0.0
+      output_per_mtok: 0.0
+      note: "Runs locally. No token charge; the cost is wall-clock time and electricity."

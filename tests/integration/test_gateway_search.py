@@ -503,7 +503,10 @@ def test_ranks_are_dense_and_scores_are_explainable(
 
     assert [hit.rank for hit in result.hits] == list(range(1, len(result.hits) + 1))
     for hit in result.hits:
-        assert hit.score == pytest.approx(hit.rrf_score + sum(hit.boosts.values()))
+        # ``boosts`` is a complete additive decomposition of the score (base components included),
+        # so a stored retrieval_logs row explains the ranking without re-running the query.
+        assert hit.score == pytest.approx(sum(hit.boosts.values()))
+        assert 0.0 <= hit.score <= 2.0, "scores are calibrated relevance, not RRF magnitudes"
     assert any("project_match" in hit.boosts for hit in result.hits)
 
 
@@ -797,6 +800,16 @@ def test_current_state_reports_status_facts_tasks_decisions_and_coverage(
 
 
 def test_writes_are_refused_by_default(pg_session: Session, corpus: Corpus) -> None:
+    """A disabled write raises *and* leaves no trace.
+
+    The "no trace" half is measured as a delta, not an absolute. It used to assert that the database
+    held no ``manual``/``mcp`` episodes at all, which was only ever true because writes had never
+    been enabled; the first real MCP write (2026-09-20) made this test fail for a reason that had
+    nothing to do with what it is checking.
+    """
+    count_sql = sa.text("SELECT count(*) FROM episodes WHERE type IN ('manual','mcp')")
+    before = pg_session.execute(count_sql).scalar_one()
+
     gateway = _gateway(pg_session, writes=False)
 
     with pytest.raises(WriteDisabledError):
@@ -804,9 +817,9 @@ def test_writes_are_refused_by_default(pg_session: Session, corpus: Corpus) -> N
     with pytest.raises(WriteDisabledError):
         gateway.record_decision(title="A decision", body="Because.")
 
-    assert pg_session.execute(
-        sa.text("SELECT count(*) FROM episodes WHERE type IN ('manual','mcp')")
-    ).scalar_one() == 0, "a refused write leaves nothing behind"
+    assert pg_session.execute(count_sql).scalar_one() == before, (
+        "a refused write leaves nothing behind"
+    )
 
 
 def test_an_enabled_write_appends_an_episode_tagged_with_its_client(

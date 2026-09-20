@@ -28,6 +28,7 @@ from typing import Any
 from uuid import UUID
 
 import httpx
+from sqlalchemy import text
 
 from ..common.config import Settings, get_settings
 from ..common.ids import new_id
@@ -37,10 +38,21 @@ from ..domain.enums import JobStage, RunAction, RunTrigger, Tier
 from ..domain.models import MetricsSnapshot, ServiceStat, SourceRoot
 from ..persistence import ingest_repo
 from ..persistence.repositories import MetricsRepo
+from .freshness import write_freshness_stat
 from .pipeline import IngestionPipeline, SessionScope
 from .roots import RootContext, build_root_context, load_source_roots
 
-__all__ = ["IngestionWorker", "process_request", "write_metrics_snapshot", "write_service_stat"]
+#: How often the idle worker re-compares the source folders against the database. Two minutes is
+#: chosen against how fast the underlying fact can change: it changes when a person saves a file.
+FRESHNESS_INTERVAL_SECONDS = 120.0
+
+__all__ = [
+    "FRESHNESS_INTERVAL_SECONDS",
+    "IngestionWorker",
+    "process_request",
+    "write_metrics_snapshot",
+    "write_service_stat",
+]
 
 logger = get_logger(__name__)
 
@@ -91,6 +103,41 @@ def write_service_stat(scope: SessionScope, settings: Settings | None = None) ->
         )
 
 
+def _snapshot_model_id(scope: SessionScope, settings: Settings) -> str | None:
+    """The ``extraction_models.id`` to stamp this snapshot with, or ``None`` when there isn't one.
+
+    ``metrics_snapshots.model_id`` is a foreign key onto ``extraction_models``. It must therefore be
+    an id that table actually holds - not a raw provider model name. This function used to be
+    ``settings.llm.model`` inline, which is the name a person writes in ``.env`` (``qwen3:4b``,
+    ``us.anthropic.claude-haiku-...``) and never the registered id (``qwen3-4b``, ``bedrock:us.an...``).
+    MEASURED: every scan after the Bedrock switch ended
+    ``ForeignKeyViolation ... Key (model_id)=(qwen3:4b) is not present in table "extraction_models"``,
+    reported on the Ops page as a failed run even though the scan itself had already completed.
+
+    Resolution goes through :func:`aimemory.sources.tier2.resolve_extraction_model_id`, the same
+    function the extraction path uses, so the snapshot names the model that actually did the work and
+    follows a provider change automatically. The id is then *verified to exist* rather than assumed:
+    a Tier-1-only scan never calls the LLM, so nothing has registered the identity yet, and stamping
+    an unregistered id would fail the FK again. ``None`` is the honest answer there - the column is
+    nullable precisely for "this scope did not attribute to a model".
+    """
+    from .tier2 import resolve_extraction_model_id  # noqa: PLC0415 - avoids an import cycle
+
+    try:
+        model_id = resolve_extraction_model_id(settings)
+    except Exception as exc:  # noqa: BLE001 - an unreachable provider must not fail a finished scan
+        logger.warning("worker.snapshot_model_unresolved", error=f"{type(exc).__name__}: {exc}"[:200])
+        return None
+    with scope.session() as session:
+        known = session.execute(
+            text("SELECT 1 FROM extraction_models WHERE id = :id"), {"id": model_id}
+        ).first()
+    if known is None:
+        logger.info("worker.snapshot_model_unregistered", model_id=model_id)
+        return None
+    return model_id
+
+
 def write_metrics_snapshot(
     scope: SessionScope, *, run_id: UUID | None = None, settings: Settings | None = None
 ) -> MetricsSnapshot | None:
@@ -112,7 +159,7 @@ def write_metrics_snapshot(
         at=utc_now(),
         scope="ingestion_run",
         run_id=run_id,
-        model_id=settings.llm.model,
+        model_id=_snapshot_model_id(scope, settings),
         failed_episode_share=failed_share,
         median_seconds_per_episode=(
             statistics.median(durations) / 1000.0 if durations else None
@@ -180,7 +227,18 @@ def process_request(
                 counters[key] = counters.get(key, 0) + value
             result.setdefault("runs", []).append(str(report.run_id))
         result["counters"] = counters
-        write_metrics_snapshot(scope, settings=settings)
+        # The scan is finished and committed by this point. A metrics row is bookkeeping *about*
+        # that work, so a failure here is reported, not raised - otherwise the request is marked
+        # `failed` on the Ops page for a scan that actually succeeded, which is exactly what the
+        # `model_id` foreign-key violation did. Same rule as `knowledge/telemetry.record_call`:
+        # telemetry never breaks the thing it measures.
+        try:
+            write_metrics_snapshot(scope, settings=settings)
+        except Exception as exc:  # noqa: BLE001 - see above
+            logger.warning(
+                "worker.metrics_snapshot_failed", error=f"{type(exc).__name__}: {exc}"[:300]
+            )
+            result["metrics_snapshot"] = f"not written: {type(exc).__name__}"
         return result
 
     if action is RunAction.RETRY_FAILED:
@@ -211,6 +269,10 @@ class IngestionWorker:
         self._settings = settings or get_settings()
         self._poll = poll_seconds or self._settings.ingest.worker_poll_seconds
         self._stopping = False
+        #: Monotonic timestamp of the last freshness check. `-inf` forces one on the first idle loop
+        #: rather than after the first interval, so a freshly started worker shows a real number on
+        #: the Ops page immediately instead of "never checked".
+        self._last_freshness = float("-inf")
 
     def request_stop(self, *_args: object) -> None:
         self._stopping = True
@@ -226,11 +288,59 @@ class IngestionWorker:
         logger.info("worker.stopping")
         self._stopping = True
 
+    def _maybe_check_freshness(self, *, force: bool = False) -> None:
+        """Compare the source folders against the database, at most every ``FRESHNESS_INTERVAL``.
+
+        Throttled because this is the only part of the worker that touches the filesystem when there
+        is no work to do. At the poll interval it would stat every file several times a minute for a
+        number that changes when a human saves a file - minutes apart at best. The check itself is
+        cheap (stat first, hash only the few candidates), but cheap times constant is not free.
+
+        Deliberately runs on the **idle** path, never before a request: a scan is about to make the
+        answer obsolete anyway, and the check should not delay the work the operator asked for.
+        """
+        now = time.monotonic()
+        if not force and (now - self._last_freshness) < FRESHNESS_INTERVAL_SECONDS:
+            return
+        self._last_freshness = now
+        write_freshness_stat(self._scope, self._settings)
+
+    def _sync_root_config(self) -> None:
+        """Write ``config/source-roots.yaml`` into ``source_roots`` on startup. Never raises.
+
+        Closes a drift that is invisible until it matters. ``sync_source_roots`` otherwise runs only
+        inside a scan and from ``aimemory-ingest roots --sync``, so **disabling** a root never reached
+        the table: the edit stops the scans that would have recorded it. The scanner reads the YAML
+        and behaved correctly; every reader of the table - including
+        :func:`aimemory.retrieval.staleness.staleness_warnings`, which exists precisely to flag a
+        frozen root - went on seeing ``enabled = true``.
+
+        MEASURED 2026-09-19: ``joblab-de`` was disabled in config on the 18th and the table still
+        read ``enabled`` a day later, so search could not warn about the one root nothing was
+        watching.
+
+        Startup is the right moment: config can only change while the process is down.
+        """
+        try:
+            # include_disabled=True is the whole point: a *disable* is the change that could not
+            # record itself before, and the default filter would drop exactly those rows.
+            roots = load_source_roots(settings=self._settings, include_disabled=True)
+        except Exception as exc:  # noqa: BLE001 - a bad config must not stop the queue
+            logger.warning("worker.root_config_unreadable", error=f"{type(exc).__name__}: {exc}"[:200])
+            return
+        try:
+            with self._scope.session() as session:
+                written = ingest_repo.sync_source_roots(session, roots)
+            logger.info("worker.root_config_synced", roots=written)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("worker.root_config_sync_failed", error=f"{type(exc).__name__}: {exc}"[:200])
+
     def run_once(self) -> bool:
         """Claim and execute at most one request. Returns ``True`` when one was executed."""
         with self._scope.session() as session:
             request = MetricsRepo(session).claim_next_run_request()
         if request is None:
+            self._maybe_check_freshness()
             return False
         logger.info("worker.request_started", action=request.action, root=request.root_id)
         try:
@@ -240,6 +350,9 @@ class IngestionWorker:
                     session, request.id, message=_short(result), run_id=_first_run(result)
                 )
             logger.info("worker.request_done", action=request.action)
+            # A completed scan is exactly when the answer changes - usually to zero. Re-check now so
+            # the page stops saying "3 files changed" the moment those 3 files have been picked up.
+            self._maybe_check_freshness(force=True)
         except Exception as exc:  # noqa: BLE001 - a bad request must not kill the worker
             message = f"{type(exc).__name__}: {exc}"
             with self._scope.session() as session:
@@ -253,6 +366,7 @@ class IngestionWorker:
         self.install_signal_handlers()
         started = time.monotonic()
         handled = 0
+        self._sync_root_config()
         write_service_stat(self._scope, self._settings)
         logger.info("worker.started", poll_seconds=self._poll, pid=os.getpid())
         while not self._stopping:

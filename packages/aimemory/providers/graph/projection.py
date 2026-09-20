@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from ...common.config import get_settings
 from ...common.errors import OntologyError
 from ...common.time import ensure_utc
 from ...domain.enums import ArtifactType, EngineKind, EntityType, Predicate
@@ -61,11 +62,14 @@ ARTIFACT_LABELS: dict[ArtifactType, EntityType] = {
 }
 
 #: Literal-valued functional facts become this node property (``ontology.md`` §4).
+#: ADR-0015 trimmed this to the three predicates that remain functional. ``HAS_OWNER``,
+#: ``USES_ARCHITECTURE`` and ``DEPLOYED_ON`` were demoted to ordinary multi-valued edges and now
+#: project as ``:HAS_OWNER`` / ``:USES_ARCHITECTURE`` / ``:DEPLOYED_ON`` instead of collapsing into a
+#: single node property. Keeping them here would have re-imposed, in the graph, exactly the
+#: one-value-per-subject assumption the ADR removed from the relational store - MEASURED: 24 true
+#: ``USES_ARCHITECTURE`` facts had been rewritten as historical under the old rule.
 FUNCTIONAL_NODE_PROPERTY: dict[str, str] = {
     Predicate.HAS_STATUS.value: "status",
-    Predicate.HAS_OWNER.value: "has_owner",
-    Predicate.USES_ARCHITECTURE.value: "uses_architecture",
-    Predicate.DEPLOYED_ON.value: "deployed_on",
     Predicate.HAS_STAGE.value: "has_stage",
     Predicate.SELECTED_OPTION.value: "selected_option",
 }
@@ -108,6 +112,17 @@ class ProjectionPlan:
             "property_updates": len(self.property_updates),
             "dropped": len(self.dropped),
         }
+
+
+def _drop_reason(exc: OntologyError) -> str:
+    """Why an edge was refused, in a form that can be grouped in a report.
+
+    :meth:`AiMemoryError.__str__` deliberately hides ``detail`` (it can carry paths and secrets), but
+    an ontology violation's detail is only label names - ``Technology -[PART_OF]-> Project`` - and
+    without it every rejection reads identically and the rebuild report can say nothing useful about
+    *what* the extractor produced that the ontology does not allow.
+    """
+    return f"{exc}" if not exc.detail else f"{exc} ({exc.detail})"
 
 
 def _clean(properties: Mapping[str, Any]) -> dict[str, Any]:
@@ -229,6 +244,11 @@ def _relationship_properties(fact: Fact, *, extra: Mapping[str, Any] | None = No
             else None,
             "source_id": str(fact.provenance.source_id) if fact.provenance.source_id else None,
             "status": fact.status.value,
+            # ADR-0005 rule 1: a functional fact that closed an older one links to it. The ontology
+            # declares SUPERSEDES between artifact labels only, so at fact level the chain has to be
+            # a property - without it the graph shows a closed window with nothing saying what closed
+            # it, and `explain()` would be the only way to find out.
+            "supersedes_fact_id": str(fact.supersedes_fact_id) if fact.supersedes_fact_id else None,
             **(extra or {}),
         }
     )
@@ -239,13 +259,22 @@ def fact_edges(
     *,
     labels: Mapping[str, EntityType],
     ontology: Ontology | None = None,
+    allow_ontology_violations: bool | None = None,
 ) -> ProjectionPlan:
     """Turn stored facts into edges and node-property updates.
 
     ``labels`` maps entity id -> its ontology type; endpoints missing from it cannot be validated and
     are dropped with a reason rather than guessed.
+
+    ``allow_ontology_violations`` (default: ``NEO4J__allow_ontology_violations``) keeps an edge whose
+    endpoint types break the ADR-0015 contract instead of dropping it. The edge is **marked, not
+    laundered**: it carries ``ontology_violation`` naming the rule it breaks, so a reader can exclude
+    those with one predicate and the graph never asserts that a backwards edge is well formed.
+    Endpoints that are missing entirely are still dropped either way - there is nothing to write.
     """
     onto = ontology or load_ontology()
+    if allow_ontology_violations is None:
+        allow_ontology_violations = get_settings().neo4j.allow_ontology_violations
     plan = ProjectionPlan()
 
     for fact in facts:
@@ -279,16 +308,22 @@ def fact_edges(
                 onto.validate_relationship(
                     Predicate.RELATED_TO.value, subject_label.value, object_label.value
                 )
+                violation = None
             except OntologyError as exc:
-                plan.dropped.append((str(fact.id), str(exc)))
-                continue
+                violation = _drop_reason(exc)
+                if not allow_ontology_violations:
+                    plan.dropped.append((str(fact.id), violation))
+                    continue
+            extra: dict[str, Any] = {"predicate": predicate}
+            if violation:
+                extra["ontology_violation"] = violation
             plan.relationships.append(
                 GraphRelationship(
                     fact_id=str(fact.id),
                     predicate=Predicate.RELATED_TO,
                     from_id=subject_id,
                     to_id=object_id,
-                    properties=_relationship_properties(fact, extra={"predicate": predicate}),
+                    properties=_relationship_properties(fact, extra=extra),
                 )
             )
             continue
@@ -305,16 +340,21 @@ def fact_edges(
             continue
         try:
             onto.validate_relationship(predicate, subject_label.value, object_label.value)
+            violation = None
         except OntologyError as exc:
-            plan.dropped.append((str(fact.id), str(exc)))
-            continue
+            violation = _drop_reason(exc)
+            if not allow_ontology_violations:
+                plan.dropped.append((str(fact.id), violation))
+                continue
         plan.relationships.append(
             GraphRelationship(
                 fact_id=str(fact.id),
                 predicate=Predicate(predicate),
                 from_id=subject_id,
                 to_id=object_id,
-                properties=_relationship_properties(fact),
+                properties=_relationship_properties(
+                    fact, extra={"ontology_violation": violation} if violation else None
+                ),
             )
         )
 

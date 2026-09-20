@@ -31,6 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..common.ids import new_id, normalize_name
+from ..common.errors import OntologyError
 from ..common.logging import get_logger
 from ..common.time import ensure_utc, parse_timestamp, utc_now, valid_from_for
 from ..domain.enums import (
@@ -58,6 +59,13 @@ from ..providers.graph import (
 )
 from ..provenance import EpisodeProvenance, missing_provenance_columns
 from .entity_resolution import AliasIndex, EntityResolver, ResolvedEntity, SqlEntityStore
+from .mentions import (
+    DEFAULT_MAX_SITES,
+    AliasForms,
+    MentionLocator,
+    load_alias_forms,
+    load_chunk_refs,
+)
 from .temporal import (
     SqlArtifactStore,
     SqlFactStore,
@@ -106,6 +114,8 @@ class PersistReport:
     entities_created: int = 0
     types_overridden: int = 0
     mentions: int = 0
+    mentions_located: int = 0
+    mentions_unlocated: int = 0
     artifacts: int = 0
     artifacts_superseded: int = 0
     facts: int = 0
@@ -125,6 +135,8 @@ class PersistReport:
             "entities_created": self.entities_created,
             "types_overridden": self.types_overridden,
             "mentions": self.mentions,
+            "mentions_located": self.mentions_located,
+            "mentions_unlocated": self.mentions_unlocated,
             "artifacts": self.artifacts,
             "artifacts_superseded": self.artifacts_superseded,
             "facts": self.facts,
@@ -135,6 +147,36 @@ class PersistReport:
             "graph_relationships": self.graph_relationships,
             "provenance_incomplete": self.provenance_incomplete,
         }
+
+
+
+def _stated_timestamp(value: str | None, *, field: str, episode_id: object) -> datetime | None:
+    """``parse_timestamp`` that degrades to "no date stated" instead of losing the whole episode.
+
+    ``parse_timestamp`` raises on an unparseable date on purpose, so a model's invented date becomes
+    a validation failure rather than a silent wrong answer. That is right for the *claim* and wrong
+    as a blast radius: this call sits inside the persistence step, so one bad string (MEASURED on the
+    real vault: ``'Apr 2023'`` in a CV template, a month name rather than ISO) aborted the episode and
+    discarded every other fact and artifact extracted from that document.
+
+    An unparseable date is therefore treated exactly as an *absent* one - the caller falls back to the
+    episode's ``observed_at`` via :func:`valid_from_for`, which is the documented behaviour for a fact
+    with no stated date. The discarded string is logged rather than dropped silently, so a pattern of
+    them is visible instead of invisible. Reduced-precision ISO dates (``2022``, ``2022-03``) parse
+    normally - see :func:`aimemory.common.time.parse_timestamp`.
+    """
+    if not value:
+        return None
+    try:
+        return parse_timestamp(value)
+    except ValueError:
+        logger.warning(
+            "knowledge.unparseable_stated_date",
+            field=field,
+            value=str(value)[:60],
+            episode_id=str(episode_id),
+        )
+        return None
 
 
 class KnowledgeWriter:
@@ -150,14 +192,21 @@ class KnowledgeWriter:
         aliases: AliasIndex | None = None,
         engine: EngineKind = EngineKind.NATIVE,
         write_summary_artifact: bool = True,
+        mention_max_sites: int = DEFAULT_MAX_SITES,
+        alias_forms: AliasForms | None = None,
     ) -> None:
         self._s = session
         self._device_id = device_id
         self._ontology = ontology or load_ontology()
         self._graph = graph
         self._engine = engine
+        #: ADR-0015: how many facts this writer put back the right way round. Reported on
+        #: PersistReport so a systematic extraction bias is visible in the run, not only in logs.
+        self.orientation_flips = 0
         self._aliases = aliases
         self._write_summary = write_summary_artifact
+        self._mention_max_sites = mention_max_sites
+        self._alias_forms = alias_forms
         self._entity_store = SqlEntityStore(session)
         self._fact_store = SqlFactStore(session)
         self._artifact_store = SqlArtifactStore(session)
@@ -180,7 +229,7 @@ class KnowledgeWriter:
             project_id=provenance.project_id,
             engine=self._engine,
         )
-        resolved = self._resolve_entities(result, resolver, provenance, report)
+        resolved = self._resolve_entities(result, resolver, provenance, report, episode)
         report.resolution_methods = dict(resolver.stats)
 
         artifacts = self._write_artifacts(result, episode, provenance, resolved, report)
@@ -251,9 +300,11 @@ class KnowledgeWriter:
         resolver: EntityResolver,
         provenance: EpisodeProvenance,
         report: PersistReport,
+        episode: Episode,
     ) -> dict[str, ResolvedEntity]:
         resolved: dict[str, ResolvedEntity] = {}
         entity_repo = EntityRepo(self._s)
+        locator = self._locator(episode)
         for extracted in result.entities:
             hit = resolver.resolve(
                 extracted.name,
@@ -276,20 +327,88 @@ class KnowledgeWriter:
                 if key:
                     resolved.setdefault(key, hit)
 
-            mention_prov = provenance.mention(confidence=hit.entity.confidence)
+            self._write_mentions(
+                entity_repo, extracted, hit, provenance, report, locator=locator
+            )
+        return resolved
+
+    # ---- mentions ---------------------------------------------------------------------------
+
+    def _locator(self, episode: Episode) -> MentionLocator:
+        """One locator per episode: its chunks, plus the alias spellings of the two alias tables.
+
+        A locator is always returned - an episode with no chunks (``manual``/``mcp`` origin, or a
+        version that was never chunked) simply reports every mention as ``no_chunks`` rather than
+        forcing every call site to handle ``None``.
+        """
+        if self._alias_forms is None:
+            self._alias_forms = load_alias_forms(self._s)
+        chunks = load_chunk_refs(
+            self._s, episode.version_id, section_path=tuple(episode.section_path or ())
+        )
+        return MentionLocator(
+            chunks, alias_forms=self._alias_forms, max_sites=self._mention_max_sites
+        )
+
+    def _write_mentions(
+        self,
+        entity_repo: EntityRepo,
+        extracted: Any,
+        hit: ResolvedEntity,
+        provenance: EpisodeProvenance,
+        report: PersistReport,
+        *,
+        locator: MentionLocator,
+    ) -> None:
+        """One row per chunk that quotes the entity; one ``chunk_id IS NULL`` row when none does.
+
+        ``entity_mentions.chunk_id`` is the only path from a retrieved chunk to a graph seed
+        (``retrieval.md`` section 4 step 1), so a mention that is never attached to a chunk is a
+        mention retrieval can never use. It is still written - with a NULL chunk - because the
+        episode did assert the entity; see :mod:`aimemory.knowledge.mentions` for why an unlocatable
+        mention is never attached to a guessed chunk.
+        """
+        located = locator.locate(
+            extracted.name,
+            canonical_name=hit.entity.canonical_name,
+            aliases=[*extracted.aliases, *hit.entity.aliases],
+            project_id=hit.entity.project_id,
+        )
+        report.mentions_located += int(located.located)
+        report.mentions_unlocated += int(not located.located)
+        if not located.located:
+            logger.info(
+                "mention.not_located",
+                surface_form=extracted.name[:200],
+                entity_id=str(hit.entity.id),
+                episode_id=str(provenance.episode_id),
+                reason=located.reason,
+                chunks_searched=locator.chunk_count,
+            )
+
+        sites: Sequence[Any] = located.sites or (None,)
+        for site in sites:
+            mention_prov = provenance.mention(
+                confidence=hit.entity.confidence,
+                heading_path=list(site.heading_path) if site is not None else (),
+                char_start=site.char_start if site is not None else None,
+                char_end=site.char_end if site is not None else None,
+            )
             entity_repo.add_mention(
                 EntityMention(
                     id=new_id(),
                     entity_id=hit.entity.id,
                     episode_id=provenance.episode_id,  # type: ignore[arg-type]
+                    chunk_id=site.chunk_id if site is not None else None,
                     surface_form=extracted.name[:200],
+                    char_start=site.char_start if site is not None else None,
+                    char_end=site.char_end if site is not None else None,
                     confidence=hit.entity.confidence,
                     provenance=mention_prov,
                 )
             )
             report.mentions += 1
             report.provenance_incomplete += int(bool(missing_provenance_columns(mention_prov)))
-        return resolved
 
     # ---- artifacts --------------------------------------------------------------------------
 
@@ -344,7 +463,9 @@ class KnowledgeWriter:
     def _build_artifact(
         self, extracted: ExtractedArtifact, provenance: EpisodeProvenance
     ) -> KnowledgeArtifact:
-        stated = parse_timestamp(extracted.date_if_stated) if extracted.date_if_stated else None
+        stated = _stated_timestamp(
+            extracted.date_if_stated, field="date_if_stated", episode_id=provenance.episode_id
+        )
         valid_from = valid_from_for(stated, provenance.observed_at)
         status = (
             extracted.status.to_artifact_status()
@@ -432,16 +553,67 @@ class KnowledgeWriter:
             # ExtractedFact's contract: unresolvable triples are dropped, never guessed.
             return None
 
-        stated = (
-            parse_timestamp(extracted.valid_from_if_stated)
-            if extracted.valid_from_if_stated
-            else None
+        # ADR-0015. Two different checks, because the two shapes fail differently.
+        #
+        # Object is a resolved entity -> `orient` puts the triple the way the ontology declares it,
+        # flipping only when the extracted direction is illegal and the reverse is legal. MEASURED
+        # before this was wired: 38 of 58 HAS_OWNER facts were stored backwards (a Person as the
+        # subject of "has owner"), because validate_relationship used to return early for functional
+        # predicates and nothing else checked direction. `flipped` is recorded rather than applied
+        # silently - the system, not the document, chose that direction, and a systematic extraction
+        # bias should stay visible instead of being quietly corrected forever.
+        #
+        # Object is a literal -> there is no second endpoint to orient, so assert the predicate
+        # actually admits a literal object. This is what rejects `Mohammad HAS_STATUS "Picnic"`.
+        if obj is not None:
+            try:
+                orientation = self._ontology.orient(
+                    extracted.predicate, subject.entity.type, obj.entity.type
+                )
+            except OntologyError as exc:
+                logger.warning(
+                    "knowledge.fact_endpoints_rejected",
+                    predicate=str(extracted.predicate),
+                    subject_type=str(subject.entity.type),
+                    object_type=str(obj.entity.type),
+                    episode_id=str(provenance.episode_id),
+                    reason=str(exc),
+                )
+                return None
+            if orientation.flipped:
+                subject, obj = obj, subject
+                self.orientation_flips += 1
+                logger.info(
+                    "knowledge.fact_reoriented",
+                    predicate=str(extracted.predicate),
+                    episode_id=str(provenance.episode_id),
+                    reason=orientation.reason,
+                )
+        else:
+            try:
+                self._ontology.validate_relationship(
+                    extracted.predicate, subject.entity.type, None
+                )
+            except OntologyError as exc:
+                logger.warning(
+                    "knowledge.literal_object_rejected",
+                    predicate=str(extracted.predicate),
+                    subject_type=str(subject.entity.type),
+                    episode_id=str(provenance.episode_id),
+                    reason=str(exc),
+                )
+                return None
+
+        stated = _stated_timestamp(
+            extracted.valid_from_if_stated,
+            field="valid_from_if_stated",
+            episode_id=provenance.episode_id,
         )
         valid_from = valid_from_for(stated, provenance.observed_at)
-        valid_to = (
-            parse_timestamp(extracted.valid_to_if_stated)
-            if extracted.valid_to_if_stated
-            else None
+        valid_to = _stated_timestamp(
+            extracted.valid_to_if_stated,
+            field="valid_to_if_stated",
+            episode_id=provenance.episode_id,
         )
         confidence = extracted.confidence if extracted.confidence is not None else 0.8
         return Fact(

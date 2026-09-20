@@ -30,8 +30,17 @@ def get_provider(settings: LLMSettings | None = None, *, provider: str | None = 
         from .bedrock_provider import BedrockProvider  # noqa: PLC0415
 
         return BedrockProvider(settings)
+    if name == "relay":
+        # Claude Haiku 4.5 answered by a Claude Code subagent instead of Bedrock: the same model by a
+        # different route, for when the operator does not want the call billed to AWS. Prompts and
+        # answers pass through files; see `relay_provider`.
+        from .relay_provider import RelayProvider  # noqa: PLC0415
 
-    raise LLMProviderError(f"unknown LLM_PROVIDER {name!r}; expected 'ollama' or 'bedrock'")
+        return RelayProvider()
+
+    raise LLMProviderError(
+        f"unknown LLM_PROVIDER {name!r}; expected 'ollama', 'bedrock' or 'relay'"
+    )
 
 
 def both_providers(settings: LLMSettings | None = None) -> dict[str, Any]:

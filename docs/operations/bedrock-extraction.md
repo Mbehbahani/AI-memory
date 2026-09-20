@@ -77,3 +77,79 @@ today (only `boto3`).
   `bedrock` extra installed and the (optional) credential mount present.
 
 Raw output for all of the above is in the A03 task result for this fix.
+
+
+## Turning Bedrock off (the fully local path)
+
+`ollama` and `ollama-init` are **opt-in** as of 2026-09-18 — they carry the `local-llm` compose
+profile and do not start with a plain `docker compose up -d`. The default stack extracts via Bedrock
+(ADR-0014); running a local model unconditionally cost ~2.4 GiB of RAM (MEASURED, on a 15.5 GiB
+machine) to serve no request, because `LLM_PROVIDER=bedrock` never called it.
+
+Nothing was removed. The service, its pinned image, the `ollama_models` volume and the `qwen3:4b`
+pull are all still defined. To run with no cloud calls at all:
+
+```bash
+# .env
+LLM_PROVIDER=ollama
+# and leave HOST_AWS_DIR unset so no credentials are mounted
+
+docker compose --profile local-llm up -d
+```
+
+This is also the configuration the threat model names for eliminating cloud egress entirely. Note
+ADR-0014 rule 2: a corpus already extracted by one model may not be extended by another, so
+switching provider needs a separate corpus scope or a re-extraction — it is not a mid-corpus flag
+flip.
+
+`ingestion` no longer declares a hard `depends_on` on `ollama`. With `LLM_PROVIDER=ollama` and the
+profile not started, extraction fails with a plain unreachable-endpoint error rather than preventing
+the whole stack from starting.
+
+---
+
+## Running extraction without Bedrock — `LLM_PROVIDER=relay` (ADR-0016)
+
+The same Claude Haiku 4.5, answered by a Claude Code subagent instead of by AWS. Use it when
+extraction should not be billed to Bedrock in a given session. It is **not** a new default: MEASURED
+2026-09-19 it is roughly 100× slower than Bedrock and spends operator session budget instead of
+money.
+
+Prompts and answers pass through `./.relay` (a bind mount, git-ignored, holding full document text).
+
+### The cycle
+
+Extraction runs in passes. Each pass consumes every answer already on disk and writes down the
+prompts it could not answer.
+
+```powershell
+# 1. Point the corpus at the relay model (re-queues episodes; old facts are flagged, never deleted)
+docker compose --profile tools run --rm -e LLM_PROVIDER=relay tools `
+  aimemory-ingest reprocess --re-extract --root joblab-de --model claude-code:haiku-4-5
+
+# 2. Run a pass. Unanswered prompts land in .relay\requests\
+docker compose --profile tools run --rm -e LLM_PROVIDER=relay tools `
+  aimemory-ingest tier2 --limit 70 --root joblab-de
+
+# 3. Answer every file in .relay\requests\ that has no twin in .relay\responses\,
+#    writing {"parsed": {...}} to .relay\responses\<key>.json
+# 4. Repeat 1-3 until `tier2` reports failed=0
+```
+
+Two calls per episode (entities, then relationships), so expect **at least two rounds** — the second
+round's prompts cannot exist until the first round's answers do.
+
+### Reading a failure
+
+* `RelayPending: relay response missing for <key>` — normal. That prompt has not been answered yet.
+* `previous_answer_rejected` present in a request file — an answer was written but broke the schema.
+  The reason is in that field; fix exactly that. The relay validates on read, so a bad answer is
+  caught at the file rather than surfacing later as `entities.8.type -> enum` against an episode id.
+* `episode_extraction: ... -> enum` — the ontology's second validation layer. The closed lists are in
+  `schemas/extraction/`; `artifact_type` is lowercase and has only six values, and there is no
+  `Finding` entity type (it is `ResearchFinding`).
+
+### What it cost, measured
+
+joblab-de, 61 documents, 2026-09-19: **124 prompts, ≈1.1M subagent tokens, ≈25 minutes, $0.00 to
+AWS**. The same work through Bedrock is ≈3 minutes and ≈$0.37.

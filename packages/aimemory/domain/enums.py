@@ -289,10 +289,16 @@ class RelationshipGroup(StrEnum):
 class Predicate(StrEnum):
     """Every predicate a :class:`~aimemory.domain.models.Fact` may carry.
 
-    The union of ``schemas/ontology.yaml: relationship_types`` (19 edge types projected into Neo4j)
-    and ``functional_predicates`` (6 attribute-like predicates whose object is usually a literal and
+    The union of ``schemas/ontology.yaml: relationship_types`` (22 edge types projected into Neo4j)
+    and ``functional_predicates`` (3 attribute-like predicates whose object is usually a literal and
     which are *not* Neo4j edge types). ``schemas/extraction/relationship_extraction.schema.json``
-    enumerates the subset the LLM is allowed to emit."""
+    enumerates the subset the LLM is allowed to emit.
+
+    ADR-0015 moved ``HAS_OWNER``, ``USES_ARCHITECTURE`` and ``DEPLOYED_ON`` out of the functional
+    group and into ``semantic``: a project uses several technologies and is owned by several people
+    at once, so treating them as single-valued closed concurrently-true facts as ``historical``.
+    Membership of the functional group now requires that two concurrent values be a *contradiction*.
+    """
 
     # structural
     PART_OF = "PART_OF"
@@ -313,14 +319,14 @@ class Predicate(StrEnum):
     REQUIRES = "REQUIRES"
     CREATED_BY = "CREATED_BY"
     GENERATED_BY = "GENERATED_BY"
-    # temporal
-    SUPERSEDES = "SUPERSEDES"
-    DECIDED_IN = "DECIDED_IN"
-    # functional (attribute-like; single current object per subject)
-    HAS_STATUS = "HAS_STATUS"
     HAS_OWNER = "HAS_OWNER"
     USES_ARCHITECTURE = "USES_ARCHITECTURE"
     DEPLOYED_ON = "DEPLOYED_ON"
+    # temporal
+    SUPERSEDES = "SUPERSEDES"
+    DECIDED_IN = "DECIDED_IN"
+    # functional (attribute-like; single current object per subject - ADR-0005 rule 1, ADR-0015)
+    HAS_STATUS = "HAS_STATUS"
     HAS_STAGE = "HAS_STAGE"
     SELECTED_OPTION = "SELECTED_OPTION"
 

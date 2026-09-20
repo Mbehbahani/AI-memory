@@ -656,8 +656,10 @@ def test_conflicting_fact_is_flagged_not_silently_overwritten(tmp_source_root, p
 
     The two conflicting statements here are the fixture's own: ``architecture-decision-a.md`` says
     the fixture project uses Architecture A from 2026-09-01, ``architecture-decision-b.md`` says it
-    uses Architecture B from 2026-09-11. ``USES_ARCHITECTURE`` is a functional predicate, so both
-    cannot be open at once - and the resolution must be a temporal one, not an overwrite.
+    uses Architecture B from 2026-09-11. That is a change of *selected option*, and
+    ``SELECTED_OPTION`` is a functional predicate (ADR-0015: ``USES_ARCHITECTURE`` is not, because a
+    project uses several technologies at once), so both cannot be open at once - and the resolution
+    must be a temporal one, not an overwrite.
     """
     _ingest_and_extract(tmp_source_root.root, pg_session)
 
@@ -671,7 +673,7 @@ def test_conflicting_fact_is_flagged_not_silently_overwritten(tmp_source_root, p
         sa.text(
             "SELECT id, object_value, status, valid_from, valid_to, supersedes_fact_id, "
             "       source_id, source_version, object_entity_id "
-            "  FROM facts WHERE subject_entity_id = :s AND predicate = 'USES_ARCHITECTURE' "
+            "  FROM facts WHERE subject_entity_id = :s AND predicate = 'SELECTED_OPTION' "
             " ORDER BY valid_from"
         ),
         {"s": subject},
@@ -685,7 +687,7 @@ def test_conflicting_fact_is_flagged_not_silently_overwritten(tmp_source_root, p
 
     # Exactly one open fact for (subject, functional predicate) - the DB index would have raised
     # IntegrityError on a second one, so reaching this line at all is half the assertion.
-    open_fact = fact_repo.find_open_fact(subject, Predicate.USES_ARCHITECTURE)
+    open_fact = fact_repo.find_open_fact(subject, Predicate.SELECTED_OPTION)
     assert open_fact is not None
     assert open_fact.id == newer.id
     assert open_fact.provenance.is_complete

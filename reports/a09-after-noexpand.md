@@ -1,0 +1,139 @@
+# Gold-set evaluation — 2026-09-18 04:31:19 UTC
+
+All numbers below are MEASURED by querying the live Memory Gateway (`http://memory-api:8000`) with `tests/evaluation/gold.yaml` v0.2.0 and scoring the real responses with `tests/evaluation/scorer.py`. Nothing here is estimated.
+
+- Run duration: **1.0 s** MEASURED (`2026-09-18T04:31:19.931852+00:00` → `2026-09-18T04:31:20.959222+00:00`)
+- Query params: `k=5`, `expand=False`
+- Gateway `/health` at run start: postgres=ok, neo4j=ok, embedding=ok — DOCUMENTED (reported by the service, not independently verified by this script)
+- Questions in gold.yaml: **25** (owner-authored: 7, agent-authored: 18)
+- Scored: **24** · Skipped (fixture): **1** · Errored (HTTP failure): **0**
+
+## Aggregate metrics (MEASURED, n as shown)
+
+| Metric | Value | n |
+|---|---|---|
+| hit@5 on `expected_sources_any` | 66.7% | 15 |
+| expected-entity presence (mean fraction found) | 57.6% | 11 |
+| provenance completeness (mean fraction of hits fully traceable) | 100.0% | 24 |
+| provenance completeness == 100% on every scored question | yes | 24 |
+| temporal correctness (order matches `expected_timeline_order`) | 100.0% | 1 |
+
+## Answerable vs. deliberately-unanswerable questions (MEASURED, no invented threshold)
+
+Plan section Y / the P14-T03 brief: a system that always returns something confident is worse than one that returns nothing for a question the corpus cannot answer. No pass/fail cutoff is invented here (CLAUDE.md forbids fabricating a metric) — the raw hit-count and top-hit-score means for the two groups are reported side by side; the reader judges discriminative power.
+
+| Group | n | mean hit count | mean top-1 score |
+|---|---|---|---|
+| Answerable (`expect_absent: false`) | 21 | 5.00 | 0.677 |
+| Deliberately absent (`expect_absent: true`) | 3 | 5.00 | 0.497 |
+
+## Per-question results
+
+| ID | Author | Question | hit@k | entity | type | facts | temporal | prov. | hits | top score |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Q01 | owner | What is JobPilot? | no | 0.33 | — | — | — | 1.00 | 5 | 0.954 |
+| Q02 | owner | Which projects use Databricks? | — | 0.00 | — | — | — | 1.00 | 5 | 0.899 |
+| Q03 | owner | Which projects relate to optimization? | — | 0.00 | — | — | — | 1.00 | 5 | 0.793 |
+| Q04 | owner | What architecture decisions exist for JobLab? | no | — | 1.00 | — | — | 1.00 | 5 | 0.862 |
+| Q05 | owner | What is the current state of the Personal Harness project? | — | 1.00 | — | 0.00 | — | 1.00 | 5 | 0.731 |
+| Q07 | owner | Where did the information that Oploy moved off Railway come from? | no | — | — | — | — | 1.00 | 5 | 0.346 |
+| Q08 | agent | In what order has JobLab DE Lakehouse's analytics/data platform evolve… | no | 1.00 | — | — | yes | 1.00 | 5 | 0.520 |
+| Q09 | agent | Why is the Personal Harness project currently parked rather than activ… | no | — | 0.00 | 0.00 | — | 1.00 | 5 | 0.290 |
+| Q10 | agent | What does the JobLab Analytics Frontend depend on? | yes | 0.00 | — | — | — | 1.00 | 5 | 0.863 |
+| Q11 | agent | What is the Optimization / OR portfolio project about? | — | 1.00 | — | — | — | 1.00 | 5 | 0.801 |
+| Q12 | agent | What is Stateful REM on Databricks? | — | 1.00 | — | — | — | 1.00 | 5 | 0.881 |
+| Q13 | agent | According to the Apache Tika documentation clipping, what Apache proje… | yes | 1.00 | — | — | — | 1.00 | 5 | 0.580 |
+| Q14 | agent | What career decision proposes productionizing JobLab in Azure Databric… | yes | — | 1.00 | 1.00 | — | 1.00 | 5 | 0.657 |
+| Q15 | agent | What architecture did Django replace in descriptions of Oploy's tech s… | yes | 0.50 | — | — | — | 1.00 | 5 | 0.488 |
+| Q16 | agent | What positioning decisions have been recorded for the Oploy Website? | yes | — | 1.00 | — | — | 1.00 | 5 | 0.698 |
+| Q17 | agent | What is the current stage of the JobLab product? | yes | — | — | 1.00 | — | 1.00 | 5 | 0.841 |
+| Q18 | agent | What technologies and projects are connected to Personal Harness in th… | — | 0.50 | — | — | — | 1.00 | 5 | 0.708 |
+| Q19 | agent | What finding was recorded about production RAG and CRAG experience in … | yes | — | 0.00 | — | — | 1.00 | 5 | 0.610 |
+| Q20 | agent | What experience does the Data Scientist – Operations Research job post… | yes | — | 1.00 | — | — | 1.00 | 5 | 0.793 |
+| Q21 | agent | Where did the claim that the Enterprise plan includes custom MSAs and … | yes | — | — | — | — | 1.00 | 5 | 0.493 |
+| Q22 | agent | What security-relevant finding was recorded about Portainer on the hom… | yes | — | 0.00 | 1.00 | — | 1.00 | 5 | 0.406 |
+| Q23 | agent | Did JobPilot's frontend move from SvelteKit to Angular? | — | — | — | — | — | 1.00 | 5 | 0.536 |
+| Q24 | agent | Does the vault contain notes about Mohammad learning the Rust programm… | — | — | — | — | — | 1.00 | 5 | 0.417 |
+| Q25 | agent | Is there a documented plan for a Mars colony logistics project? | — | — | — | — | — | 1.00 | 5 | 0.538 |
+
+## Questions with a measured gap (examples, honest detail)
+
+### Q01 — What is JobPilot?
+
+- Expected sources: `['vault://my-vault/AIOS/me.md', 'vault://my-vault/AIOS/Maps/project-graph.md']`
+- Expected entities: `['JobPilot', 'SvelteKit', 'Convex']`
+- hit@5: no · entity presence: 0.33
+- Top-5 sources actually returned: `['vault://my-vault/07 Workflows/Context - JobLab Product.md', 'vault://my-vault/02 Areas/JobLab Product/JobLab Overview.md', 'vault://my-vault/02 Areas/JobLab Product/JobLab Overview.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Website - Blog Inventory.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Website - Blog Inventory.md']`
+
+### Q02 — Which projects use Databricks?
+
+- Expected sources: `n/a`
+- Expected entities: `['JobLab Lakehouse', 'Stateful REM on Databricks', 'Azure Databricks lab']`
+- hit@5: — · entity presence: 0.00
+- Top-5 sources actually returned: `['vault://my-vault/06 Outputs/Mohammad Skills/Tailored CV Reference Index.md', 'vault://my-vault/06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md', 'vault://my-vault/06 Outputs/interview/04 - Interview Story - PhD as Professional Data Scientist.md', 'vault://my-vault/06 Outputs/Mohammad Skills/Mohammad Skills - Career Evidence Base.md', 'vault://my-vault/06 Outputs/Career Docs/Next step.md']`
+
+### Q03 — Which projects relate to optimization?
+
+- Expected sources: `n/a`
+- Expected entities: `['Optimization / OR portfolio', 'Order-to-Plan']`
+- hit@5: — · entity presence: 0.00
+- Top-5 sources actually returned: `['vault://my-vault/06 Outputs/Mohammad Skills/Mohammad Skills - Career Evidence Base.md', 'vault://my-vault/06 Outputs/Mohammad Skills/Source Documents/Education/Education Evidence Index.md', 'vault://my-vault/03 Resources/GitHub/GitHub Big Picture Map.md', 'localfs://local-development-machine/joblab-de/src/joblab_de/spark/vocabulary.py', 'vault://my-vault/03 Resources/GitHub/Repository Standard.md']`
+
+### Q04 — What architecture decisions exist for JobLab?
+
+- Expected sources: `['localfs://local-development-machine/joblab-de/docs/06-platform-architecture-decision.md', 'localfs://local-development-machine/joblab-de/docs/04-source-automation-decision.md']`
+- Expected entities: `n/a`
+- hit@5: no · entity presence: —
+- Top-5 sources actually returned: `['localfs://local-development-machine/joblab-de/AGENTS.md', 'vault://my-vault/06 Outputs/Career Docs/Next step.md', 'vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md', 'vault://my-vault/02 Areas/Career Development/Career Target - AI Engineering.md', 'vault://my-vault/06 Outputs/Mohammad Skills/Tailored CV Reference Index.md']`
+
+### Q07 — Where did the information that Oploy moved off Railway come from?
+
+- Expected sources: `['vault://my-vault/AIOS/Maps/project-graph.md']`
+- Expected entities: `n/a`
+- hit@5: no · entity presence: —
+- Top-5 sources actually returned: `['vault://my-vault/02 Areas/Oploy Business/Oploy Overview.md', 'vault://my-vault/06 Outputs/Career Docs/2026-08-04 - Boehringer Ingelheim - Demand Planning Manager Motivation Portfolio.md', 'vault://my-vault/01 Projects/Oploy Website/Oploy Landing Page.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Overview.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Overview.md']`
+
+### Q08 — In what order has JobLab DE Lakehouse's analytics/data platform evolved?
+
+- Expected sources: `['vault://my-vault/02 Areas/JobLab Product/JobLab Overview.md']`
+- Expected entities: `['Databricks Delta', 'Snowflake', 'Tableau']`
+- hit@5: no · entity presence: 1.00
+- Top-5 sources actually returned: `['vault://my-vault/01 Projects/JobLab Product/JobLab DE Lakehouse.md', 'vault://my-vault/06 Outputs/Career Docs/Next step.md', 'localfs://local-development-machine/joblab-de/README.md', 'vault://my-vault/06 Outputs/Mohammad Skills/to-be-learn.md', 'vault://my-vault/07 Workflows/Context - JobLab Product.md']`
+
+### Q09 — Why is the Personal Harness project currently parked rather than active?
+
+- Expected sources: `['vault://my-vault/AIOS/me.md']`
+- Expected entities: `n/a`
+- hit@5: no · entity presence: —
+- Top-5 sources actually returned: `['vault://my-vault/06 Outputs/YouTube/YouTube Channel - Transcript Inventory.md', 'vault://my-vault/AIOS/Maps/vault-map.md', 'localfs://local-development-machine/joblab-de/docs/08-supabase-bootstrap-runbook.md', 'vault://my-vault/07 Workflows/Workflow - Inbox to Resource.md', 'vault://my-vault/00 Inbox/Daily Notes/Harness.md']`
+
+### Q10 — What does the JobLab Analytics Frontend depend on?
+
+- Expected sources: `['vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md']`
+- Expected entities: `['JobLab Data Pipeline']`
+- hit@5: yes · entity presence: 0.00
+- Top-5 sources actually returned: `['localfs://local-development-machine/joblab-de/AGENTS.md', 'vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md', 'vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md', 'localfs://local-development-machine/joblab-de/docs/07-cv-website-evidence-plan.md', 'vault://my-vault/06 Outputs/Blog Posts/2026-08-04 JobLab - AI Engineering, Data Pipelines, and AWS Deployment Tutorial.md']`
+
+### Q15 — What architecture did Django replace in descriptions of Oploy's tech stack?
+
+- Expected sources: `['vault://my-vault/01 Projects/Oploy Website/Oploy Landing Page.md', 'vault://my-vault/06 Outputs/Career Docs/2026-07-23 - The Analysts - Collaboration Portfolio.md']`
+- Expected entities: `['Decision Intelligence', 'Django']`
+- hit@5: yes · entity presence: 0.50
+- Top-5 sources actually returned: `['vault://my-vault/07 Workflows/Context - Oploy Website.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Website - System Map.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Website - System Map.md', 'vault://my-vault/02 Areas/Oploy Business/Oploy Overview.md', 'vault://my-vault/01 Projects/Oploy Website/Oploy Landing Page.md']`
+
+### Q18 — What technologies and projects are connected to Personal Harness in the knowledge graph?
+
+- Expected sources: `n/a`
+- Expected entities: `['LangChain', 'Oploy', 'GraphRAG', 'RAG']`
+- hit@5: — · entity presence: 0.50
+- Top-5 sources actually returned: `['vault://my-vault/06 Outputs/interview/additional info.md', 'vault://my-vault/06 Outputs/interview/additional info.md', 'vault://my-vault/06 Outputs/Career Docs/2026-09-11 - Career Update - Harness and Research MLOps.md', 'vault://my-vault/06 Outputs/interview/additional info.md', 'vault://my-vault/06 Outputs/Mohammad Skills/Mohammad Skills - Career Evidence Base.md']`
+
+## Skipped (fixture questions)
+
+- **Q06** ('What changed over time in the fixture project ingestion architecture?'): fixture='mini-vault' — no ephemeral-corpus harness in this script (see module docstring)
+
+## Limitations of this run (honest, not swept under the rug)
+
+- `expected_timeline_order` questions (e.g. Q08) can fail even when the underlying `facts.supersedes_fact_id` chain is correct, because several real facts share one `valid_from` timestamp (extraction time was used as a fallback, not a date stated in the text) — `score_temporal_order`'s stable sort then cannot recover the intended order. This is a real, measured property of the current corpus, not a scorer bug.
+- Q04 and Q06 (owner-authored, left unmodified) reference a JobLab DE `localfs://` source and the `mini-vault` fixture respectively; the corpus this run queried is vault-only (the JobLab DE repo has not been ingested) and this script does not stand up a fixture corpus (see module docstring), so Q04 is expected to score poorly and Q06 is skipped rather than silently passed.
+- `expected_types` matching is a best-effort substring check against hit text/title (see `scorer.score_expected_types`), not a guarantee the returned object is literally that artifact type — a look at the per-question table plus the raw response is the ground truth.

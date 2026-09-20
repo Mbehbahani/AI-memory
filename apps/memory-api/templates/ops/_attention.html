@@ -1,0 +1,31 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'attention',
+     'Attention',
+     help='Things the system noticed that a person should look at: sources that failed, gaps in
+           coverage, settings that do not match reality. An empty list here is genuinely good news.
+           Long lists are cut to the first 15 entries with the rest one click away.',
+     label=(attention.items | length) ~ ' item(s)') %}
+
+  {% for item in attention.items %}
+  <div class="attention-item {{ item.severity }}">
+    <h3>{{ item.title }}</h3>
+    <p>{{ ui.longtext(item.detail, limit=240, label='full detail') }}</p>
+    {% if item.items %}
+    <ul class="tight-list">
+      {% for line in item.items[:15] %}<li>{{ ui.longtext(line, limit=160) }}</li>{% endfor %}
+    </ul>
+    {% if item.items | length > 15 %}
+    <details class="note">
+      <summary>and {{ item.items | length - 15 }} more</summary>
+      <ul class="tight-list">
+        {% for line in item.items[15:] %}<li>{{ ui.longtext(line, limit=160) }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="chart-empty">Nothing needs attention right now.</p>
+  {% endfor %}
+{% endcall %}

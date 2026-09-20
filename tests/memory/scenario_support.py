@@ -114,9 +114,9 @@ SCRIPT: dict[str, _Scripted] = {
         facts=(
             ExtractedFact(
                 subject="Fixture Project",
-                predicate=Predicate.USES_ARCHITECTURE,
+                predicate=Predicate.SELECTED_OPTION,
                 object="Architecture A",
-                statement="The fixture project uses Architecture A.",
+                statement="The fixture project selected Architecture A.",
                 valid_from_if_stated="2026-09-01",
             ),
         ),
@@ -144,9 +144,9 @@ SCRIPT: dict[str, _Scripted] = {
         facts=(
             ExtractedFact(
                 subject="Fixture Project",
-                predicate=Predicate.USES_ARCHITECTURE,
+                predicate=Predicate.SELECTED_OPTION,
                 object="Architecture B",
-                statement="The fixture project uses Architecture B.",
+                statement="The fixture project selected Architecture B.",
                 valid_from_if_stated="2026-09-11",
             ),
         ),

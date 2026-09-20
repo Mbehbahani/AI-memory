@@ -1,0 +1,64 @@
+{% import "ops/_macros.html" as ui %}
+{% call ui.panel(
+     'health',
+     'Health',
+     badge_text=health.status, badge_class=health.status,
+     help='Is every part of the system answering right now? Each row is one service the API just
+           called, with how long it took. "down" means unreachable at this moment, not broken
+           forever. The four boxes underneath are resource facts - what is loaded, how much memory
+           the worker itself is using, how much disk is left, and when you last took a backup.',
+     label='generated ' ~ health.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC') ~ ' · writes_enabled=' ~ health.writes_enabled) %}
+
+  <table class="ops-table">
+    <thead><tr><th>Component</th><th>OK</th><th>Detail</th><th>Latency</th></tr></thead>
+    <tbody>
+      {% for check in health.checks %}
+      <tr>
+        <td>{{ check.name }}</td>
+        <td><span class="badge {{ 'ok' if check.ok else 'notice' }}">{{ 'ok' if check.ok else 'down' }}</span></td>
+        <td class="msg-cell">{{ ui.longtext(check.detail, limit=110, label='full detail') }}</td>
+        <td class="nowrap">{{ check.latency_ms }} ms</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="stat-row">
+    <div class="stat">
+      <b>{{ 'loaded: ' + health.worker.model_name if health.worker.model_loaded else 'not loaded' }}</b>
+      Ollama model {{ ui.helptag('Only meaningful when LLM_PROVIDER=ollama. On Bedrock the model runs
+                                  at AWS, nothing is loaded locally, and "not loaded" here is correct
+                                  rather than a fault. Taken from the worker\'s own /api/ps snapshot.') }}
+      {% if health.worker.seen %}
+        <div class="chart-caption">as of {{ health.worker.at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+          {% if health.worker.stale %}<span class="badge notice">stale &gt; {{ health.worker.stale_after_seconds }}s — worker may be down</span>{% endif %}
+        </div>
+      {% else %}
+        <div class="chart-caption">MEASURED: no service_stats row yet — the worker has not started or has not looped once</div>
+      {% endif %}
+    </div>
+    <div class="stat">
+      <b>{{ health.worker.process_rss_bytes | fmt_bytes }}</b>
+      ingestion worker memory {{ ui.helptag('The worker process measuring itself. It is not the memory
+                                             used by the whole stack: a container cannot read
+                                             `docker stats` (ADR-0011), so no page can honestly show
+                                             that number. Use scripts/doctor on the host for totals.') }}
+    </div>
+    <div class="stat">
+      <b>{{ health.disk.free_bytes | fmt_bytes }} free of {{ health.disk.total_bytes | fmt_bytes }}</b>
+      disk — <em>container filesystem view</em>
+      {{ ui.helptag('Measured from inside the container at ' ~ health.disk.path ~ ' - that is the
+                     Docker volume, not your Windows drive. The two numbers can differ a lot, and
+                     ADR-0011 forbids this page from presenting either one as the other.') }}
+    </div>
+    <div class="stat">
+      {% if health.backup.mounted and health.backup.newest_at %}
+        <b>{{ health.backup.age_seconds | fmt_seconds }} old</b>
+        last backup: {{ health.backup.newest_name }} ({{ health.backup.newest_at.strftime('%Y-%m-%d %H:%M') }})
+      {% else %}
+        <b>UNKNOWN</b>
+        last backup {{ ui.helptag(health.backup.note) }}
+      {% endif %}
+    </div>
+  </div>
+{% endcall %}

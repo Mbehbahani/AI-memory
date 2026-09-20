@@ -73,6 +73,28 @@ BUILTIN_DENY_DIRS: frozenset[str] = frozenset(
     }
 )
 
+#: Directory *shapes* that hold third-party code, matched by pattern because the exact names are
+#: never predictable. An exact list cannot work here: a virtualenv is whatever the person who made it
+#: called it.
+#:
+#: MEASURED 2026-09-20: indexing this project's own repository, `.venv-graphiti` contributed **6,518
+#: chunks from 100 files** - more than the entire vault and the JobLab repo combined - before anyone
+#: noticed, because `BUILTIN_DENY_DIRS` knew `.venv` and `venv` but not `.venv-graphiti`. Library
+#: code is the worst possible thing to embed: enormous, and about somebody else's project.
+_DEPENDENCY_DIR_PREFIXES = (".venv", "venv-", "virtualenv")
+_DEPENDENCY_DIR_SUFFIXES = (".egg-info", "-venv", ".dist-info")
+_DEPENDENCY_DIR_EXACT = frozenset({"site-packages", "dist-packages"})
+
+
+def _is_dependency_dir(lowered_name: str) -> bool:
+    """True for a directory that holds installed dependencies rather than authored work."""
+    return (
+        lowered_name in _DEPENDENCY_DIR_EXACT
+        or lowered_name.startswith(_DEPENDENCY_DIR_PREFIXES)
+        or lowered_name.endswith(_DEPENDENCY_DIR_SUFFIXES)
+    )
+
+
 BUILTIN_DENY_FILES: frozenset[str] = frozenset({"thumbs.db", "desktop.ini", ".ds_store"})
 
 
@@ -130,7 +152,8 @@ class IgnoreRules:
         if not rel:
             return False
         name = rel.rsplit("/", 1)[-1]
-        if name.lower() in BUILTIN_DENY_DIRS:
+        lowered = name.lower()
+        if lowered in BUILTIN_DENY_DIRS or _is_dependency_dir(lowered):
             return True
         return self.is_ignored(rel, is_dir=True)
 

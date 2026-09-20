@@ -87,7 +87,55 @@ All notable changes to this project are documented here. Format: Keep a Changelo
   image: 428 passed, 1 skipped** (`tests/unit/test_contracts_uri.py:206`, Windows junction reparse
   points — a platform skip, not a failure).
 
+- 2026-09-17 — P9-T01 (A09): hybrid retrieval — vector + keyword candidates, RRF fusion, boosts
+  (`packages/aimemory/retrieval/{candidates,fusion,boosts,pipeline,config,filters,types}.py`).
+  MEASURED: 518 passed, 2 skipped; mypy clean on all 8 retrieval modules; end-to-end `retrieve()`
+  over a 16-chunk fixture corpus with real MiniLM vectors, median 16.8–17.2 ms across 3 queries ×
+  5 samples. Deliberate, documented deviation: `since` is evaluated on `source_versions.observed_at`
+  (observation axis), not `chunks.created_at`.
+- 2026-09-17 — P10-T01/T02 (A09): graph expansion, temporal filter, provenance, context assembly
+  (`packages/aimemory/retrieval/{context,expansion,logs,provenance,temporal}.py`,
+  `packages/aimemory/gateway/*`); `memory-api` REST — health, metrics, logs, OpenAPI export
+  (`apps/memory-api/*`, `schemas/api/openapi.json`). **`memory-api` reaches healthy for the first
+  time** — the previous restart loop was a placeholder CMD that could never import (`apps/memory-api`'s
+  hyphen is illegal in a Python module path). MEASURED: 107 passed in the retrieval/gateway subset;
+  OpenAPI 14 paths, `--check` enforced. Degradation proved by simulated outage (Neo4j `ConnectionError`
+  still returns cited hits, no invented boost, warning recorded); `/health` treats Neo4j/embedder-down
+  as "degraded", not "down".
+- 2026-09-17 — P7-T01/T02 (A07a): **first real vault ingest.** MEASURED against `D:\My-Vault`
+  (read-only, confirmed): 176 sources registered (143 INDEX_CONTENT, 2 MIRROR, 31 CATALOG_ONLY),
+  2,838 chunks, 2,779 embeddings, 27 projects (7 from `me.md` + 21 from `project-graph.md` − 1 merged
+  on slug — P7-T01 acceptance met exactly), 64 aliases, 35 deterministic entities, 2m33s, reproducible
+  across three runs with identical counters, **zero LLM and zero cloud calls**. P7-T02 coverage is
+  **98.6% (143/145), not rounded up to 100%** — both shortfalls are settled outcomes (one frontmatter-
+  only file correctly yields 0 chunks; one file is byte-identical to another and embedded under its
+  twin). Six ingestion bugs fixed in the process, including a `--tier 0` then `--tier 1` sequence that
+  produced nothing (tiers are now a ceiling *and* a debt) and a CATALOG_ONLY downgrade that was rolled
+  back by the very exception that triggered it. Restartability proved by killing and resuming mid-scan.
+- 2026-09-17 — P8-T02 wiring fix (A08): `aimemory-ingest tier2` reported "not built yet" although the
+  native engine was already committed — `knowledge/__init__.py` was a bare docstring, masked by a
+  broad `except`. Added `get_engine`/`get_writer` factories; `run_tier2` now refuses to run without a
+  writer (previously it would have called the LLM for every episode and discarded every result).
+  Enabled a deliberately scoped **P8-T04 pilot**: 15 of 144 queued episodes (Bedrock Haiku 4.5),
+  0 failed, 199.6s total (~13.3 s/episode), 129 entities / 147 facts / 81 artifacts / 145 mentions,
+  0 facts with incomplete provenance. Scoped to exclude sensitive personal/career paths; verified via
+  `facts.source_uri` that none reached the model. 129 episodes remain `pending`.
+- 2026-09-17 — Full suite MEASURED by the orchestrator: **627 passed, 1 skipped**
+  (`docker compose --profile tools run --rm tools pytest -q`), superseding the 2026-09-15 figure of
+  428 passed, 1 skipped. The one skip is the Windows-junction test; the former "no Tier-1 corpus" skip
+  is gone because a real corpus now exists (P7-T02).
+
 ### Changed
+- 2026-09-17 — Bedrock credentials wired into containers (A03, commit `755b06f`): optional read-only
+  `~/.aws` bind mount (`HOST_AWS_DIR`, defaults to a checked-in empty dir), `AWS_PROFILE=mohabehb`,
+  `us-east-1`, and the `bedrock` extra added to the ingestion and tools images. Before this, no compose
+  service passed AWS credentials and neither image installed the `bedrock` extra, so `LLM_PROVIDER=bedrock`
+  (the ADR-0012/ADR-0014 default) could not authenticate from any container — boto3 was absent entirely.
+- 2026-09-17 — `docs/architecture/retrieval.md` corrected against the shipped P9-T01 code (A02, commit
+  `ff19689`): §1's `since` filter used ingestion time (`chunks.created_at`) instead of the observation
+  axis (`source_versions.observed_at`), contradicting §5 and `temporal.md`; §2's keyword-search SQL
+  was invalid (`c` out of scope in its own `ON` clause), confirmed against the live database. The code
+  was right; the doc was wrong.
 - 2026-09-14 — Plan §AC rewritten as a decision table (AC-9 now "cap WSL2 at 12 GB", AC-11 added);
   frugal-RAM defaults: `OLLAMA_KEEP_ALIVE=5m`, Neo4j heap 512M / page cache 256M; idle-profile
   expectations added to §Z.
@@ -103,6 +151,25 @@ All notable changes to this project are documented here. Format: Keep a Changelo
   as unconstrained by this boundary (it bypasses `GraphStore`).
 
 ### Fixed
+- 2026-09-17 — `docker compose up -d` could never complete (A03, commit `3b80de9`): `apps/ingestion/Dockerfile`
+  never `COPY`ed `infra/postgres/alembic` or `infra/neo4j/schema`, so `cli/migrate.py` failed with
+  "No 'script_location' key found in configuration" on every attempt. Fixed by copying both trees into
+  the image; `migrate.py`'s own path logic was already correct.
+- 2026-09-17 — Test suite destroyed the ingested vault corpus (A12, commit `670f516`): `test_migrations.py`
+  ran `alembic downgrade base` against the shared dev database; two agents independently lost the real
+  vault corpus to a plain `pytest -q` run (evidence: the `sources` table's OID changed across a run
+  while `pg_stat_user_tables.n_tup_del` stayed 0 — a DROP + CREATE, not a DELETE). Fixed by running the
+  whole module against a throwaway database created per module and dropped at teardown. A second bug
+  found while verifying: the scratch-DB fixture's `str(url)` masked the password as `***`
+  (SQLAlchemy's `URL.__str__()`), failing authentication for every test using that DSN — fixed with
+  `hide_password=False`.
+- 2026-09-17 — Two chunker defects bounded (A07b, commit `78561f3`), both MEASURED on the real vault:
+  a fence-open transition in the markdown chunker never flushed the buffer, so prose absorbed an
+  entire fenced block, producing a 28,446-char (~8,366-token) chunk against a 200-token target; and
+  the code chunker could never cut below one whole physical line, so a one-line 12,623-char JSON file
+  became one chunk that the embedding service rejected with `422 texts[0] exceeds 8000 characters`.
+  Both fixed. Remaining limitation, by design: a standalone fence larger than the budget is still one
+  oversized chunk (module rule 1) — measured at 10,191 chars, still above the 8,000-char embed limit.
 - 2026-09-14 — P6-T02 chunking bug (A07b/fix in `8e495ca`): the markdown chunker's hard-split path
   computed its slice size once from the full `max_tokens` budget rather than from the buffer's
   remaining headroom, so a long unbroken run of characters (observed on a real-vault LinkedIn
@@ -126,3 +193,15 @@ All notable changes to this project are documented here. Format: Keep a Changelo
   (see `tests/memory/test_change_detection.py::test_allow_model_mix_is_the_only_way_past_the_guard`
   and `reports/test-summary.md`) rather than silently worked around; closing it is an ADR decision for
   A04/A08.
+- 2026-09-17 — **Neo4j holds 0 nodes.** All knowledge is Postgres-only at HEAD; graph expansion
+  (P10-T01) has nothing to expand on real data and the `entity_linked` boost cannot fire.
+  `aimemory-ingest rebuild-graph` fails outright — the CLI imports `knowledge.structural.rebuild_graph`,
+  which does not exist; `structural.py` exports `StructuralIndex`, `structural_plan`, and
+  `document_node_id` but no driver function. P7-T03, still open.
+- 2026-09-17 — **0 of 81 P8-T04-pilot artifacts carry an evidence quote.**
+- 2026-09-17 — **`embeddings` has `UNIQUE(text_hash, model_id)`** while the semantic retrieval SQL
+  joins `chunks c ON c.id = e.object_id` — a chunk whose text duplicates another is invisible to
+  *semantic* retrieval (keyword search still finds it). Raised by A09 during P9-T01; needs an explicit
+  accept-or-fix decision.
+- 2026-09-17 — **P8-T04 is 15/144 episodes**, a deliberately scoped pilot, not the full background run.
+  P13 (`joblab-de` pilot ingest) not started. P11, P12, P14–P17 not started.

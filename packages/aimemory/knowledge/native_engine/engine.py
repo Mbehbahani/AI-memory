@@ -94,8 +94,9 @@ class NativeTemporalEngine:
         settings: Settings | None = None,
         session_factory: Callable[[], AbstractContextManager[Any]] | None = None,
         graph: Any = None,
-        max_body_chars: int = MAX_BODY_CHARS,
+        max_body_chars: int | None = None,
         allow_relationship_retry: bool = True,
+        call_sink: Callable[[Any], None] | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         if provider is None:
@@ -105,9 +106,52 @@ class NativeTemporalEngine:
         self._provider = provider
         self._session_factory = session_factory
         self._graph = graph
-        self._max_body_chars = max_body_chars
+        # None means "ask the settings", which derive it from the provider's context window. An
+        # explicit value still wins, so tests can pin a small budget.
+        self._max_body_chars = (
+            max_body_chars if max_body_chars is not None
+            else self._settings.llm.resolved_max_body_chars()
+        )
         self._allow_retry = allow_relationship_retry
+        #: Optional callback receiving one `telemetry.CallRecord` per provider call. The provider
+        #: already measures tokens and latency; without a sink that measurement is discarded and the
+        #: system cannot answer what its own work cost. Default None keeps tests and offline use
+        #: free of any database dependency.
+        self._call_sink = call_sink
         self._identity: ExtractionModel | None = None
+
+    def _record(
+        self,
+        purpose: str,
+        response: Any,
+        episode_id: Any = None,
+        *,
+        ok: bool = True,
+        error: str | None = None,
+    ) -> None:
+        """Hand one call's measurements to the sink. Never raises - see telemetry.record_call."""
+        if self._call_sink is None:
+            return
+        try:
+            from ..telemetry import CallRecord  # noqa: PLC0415 - avoid an import cycle
+
+            identity = self.model_identity()
+            self._call_sink(
+                CallRecord(
+                    provider=identity.provider,
+                    model_id=identity.id,
+                    purpose=purpose,
+                    episode_id=episode_id,
+                    prompt_tokens=getattr(response, "prompt_tokens", None),
+                    completion_tokens=getattr(response, "completion_tokens", None),
+                    duration_ms=getattr(response, "duration_ms", None),
+                    attempts=int(getattr(response, "attempts", 1) or 1),
+                    ok=ok,
+                    error=error,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - measuring must not break the measured
+            logger.warning("engine.telemetry_failed", error=f"{type(exc).__name__}: {exc}"[:200])
 
     # ---- identity ---------------------------------------------------------------------------
 
@@ -132,9 +176,31 @@ class NativeTemporalEngine:
         started = utc_now()
         clock = time.perf_counter()
         model_id = self._safe_model_id()
-        body = (episode.body or "")[: self._max_body_chars]
+        full_body = episode.body or ""
+        body = full_body[: self._max_body_chars]
         errors: list[str] = []
         attempts = 0
+        # Reset per episode. Instance state is safe here because extraction is serial by design
+        # (``INGEST_LLM_CONCURRENCY=1``, ADR-0006); a concurrent engine would need this on the result.
+        self._relationship_call_failed = False
+
+        # Truncation used to be invisible: the model saw a prefix, returned confident facts about it,
+        # and nothing anywhere recorded that the rest of the document was never read. A partial
+        # extraction that announces itself can be re-run; one that does not is indistinguishable from
+        # a document that simply had less in it.
+        if len(full_body) > self._max_body_chars:
+            dropped = len(full_body) - self._max_body_chars
+            logger.warning(
+                "engine.episode_truncated",
+                episode_id=str(episode.id),
+                kept_chars=self._max_body_chars,
+                dropped_chars=dropped,
+                dropped_pct=round(100.0 * dropped / len(full_body), 1),
+            )
+            errors.append(
+                f"episode truncated to {self._max_body_chars} of {len(full_body)} characters; "
+                f"{dropped} characters were not read"
+            )
 
         def finish(
             *,
@@ -172,7 +238,9 @@ class NativeTemporalEngine:
             )
         except Exception as exc:  # noqa: BLE001 - a provider failure is a failed episode, not a crash
             errors.append(_sanitize(f"episode call failed: {type(exc).__name__}: {exc}"))
+            self._record("episode", None, episode.id, ok=False, error=type(exc).__name__)
             return finish(valid=False)
+        self._record("episode", response, episode.id)
         attempts += getattr(response, "attempts", 1)
         extraction = self._parse(response, EpisodeExtraction, "episode_extraction", errors)
         if extraction is None:
@@ -211,7 +279,17 @@ class NativeTemporalEngine:
         )
         # Dropped endpoints are a data-quality note, not a failure: the episode's entities, artifacts
         # and remaining facts are all still valid knowledge and must not be thrown away.
-        return finish(valid=True, extraction=extraction, facts=kept)
+        #
+        # A relationship call that never completed is a different matter. "The model found no
+        # relationships" and "nobody asked the model" produce the same empty list, and only the first
+        # is a result. Reporting the second as valid retires the episode with entities and no edges,
+        # so a single timeout on call 2 silently costs a document its entire contribution to the
+        # graph, permanently, with nothing on screen to say so.
+        return finish(
+            valid=not getattr(self, "_relationship_call_failed", False),
+            extraction=extraction,
+            facts=kept,
+        )
 
     def invalidate(self, fact_id: UUID, at: datetime, by_episode: UUID | None = None) -> None:
         """ADR-0005 ``close()``: set ``valid_to``, mark ``historical``, record who. Idempotent.
@@ -274,7 +352,14 @@ class NativeTemporalEngine:
                 errors.append(
                     _sanitize(f"relationship call failed: {type(exc).__name__}: {exc}")
                 )
+                self._record("relationship", None, episode.id, ok=False, error=type(exc).__name__)
+                # The call never happened, so "no relationships" is unknown, not measured. Saying so
+                # is what keeps the episode in the queue; returning an empty list as though the model
+                # had answered would retire it permanently with entities and no edges - and a
+                # transient timeout on call 2 would quietly cost a document its whole graph.
+                self._relationship_call_failed = True
                 return [], attempts + 1
+            self._record("relationship", response, episode.id)
             attempts += getattr(response, "attempts", 1)
             parsed = self._parse(
                 response, RelationshipExtraction, "relationship_extraction", errors

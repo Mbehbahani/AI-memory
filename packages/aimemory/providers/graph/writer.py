@@ -26,9 +26,16 @@ from uuid import UUID
 
 from ...common.logging import get_logger
 from ...domain.ports import GraphNode, GraphStore
+from ...ontology import Ontology, load_ontology
 from .projection import ProjectionPlan
 
-__all__ = ["GraphProjector", "ProjectionReport"]
+__all__ = [
+    "GraphProjector",
+    "ProjectionReport",
+    "merge_nodes",
+    "prune_dangling",
+    "wipe_projection",
+]
 
 logger = get_logger(__name__)
 
@@ -96,6 +103,87 @@ class GraphProjector:
 
     def close_edges(self, fact_ids: Sequence[UUID | str], at: datetime) -> int:
         return sum(1 for fact_id in fact_ids if self.close_edge(fact_id, at))
+
+
+def merge_nodes(plan: ProjectionPlan) -> ProjectionPlan:
+    """Collapse nodes that share an id, merging their properties. Mutates and returns ``plan``.
+
+    The structural layer and the semantic layer legitimately describe the same node: a registry
+    project whose Tier 0 seed also produced an ``entities`` row is one ``:Project``, written once from
+    ``projects`` (registry name, status, parent) and once from ``entities`` (canonical name, summary,
+    normalized name). Without this, the second ``MERGE`` would simply overwrite the first one's
+    properties with nothing where it has nothing to say.
+
+    First occurrence wins the *label*; later occurrences win a *property* they actually set (``None``
+    is already stripped by :func:`~aimemory.providers.graph.projection._clean`, so "later wins" can
+    never blank a value the earlier node had).
+    """
+    merged: dict[str, GraphNode] = {}
+    for node in plan.nodes:
+        key = str(node.id)
+        existing = merged.get(key)
+        if existing is None:
+            merged[key] = node
+            continue
+        merged[key] = existing.model_copy(
+            update={"properties": {**existing.properties, **node.properties}}
+        )
+    plan.nodes = list(merged.values())
+    return plan
+
+
+def prune_dangling(plan: ProjectionPlan) -> ProjectionPlan:
+    """Drop edges whose endpoints are not in ``plan.nodes``. Mutates and returns ``plan``.
+
+    :meth:`Neo4jGraphStore.upsert_relationships` *raises* on a missing endpoint, and it writes the
+    whole batch in one call - so one unprojectable edge would take every other edge down with it.
+    A full rebuild replays the graph from an empty database, where "in the plan" and "in the graph"
+    are the same thing, so this is exactly the set that cannot be written. Each one is recorded in
+    ``plan.dropped`` with a reason and reported, never silently discarded.
+    """
+    known = {str(node.id) for node in plan.nodes}
+    kept = []
+    for rel in plan.relationships:
+        missing = [
+            side
+            for side, value in (("from", str(rel.from_id)), ("to", str(rel.to_id)))
+            if value not in known
+        ]
+        if missing:
+            plan.dropped.append(
+                (str(rel.fact_id), f"{rel.predicate} endpoint not projected ({'+'.join(missing)})")
+            )
+            continue
+        kept.append(rel)
+    plan.relationships = kept
+    return plan
+
+
+def wipe_projection(store: GraphStore, *, ontology: Ontology | None = None) -> int:
+    """Delete every node this system projects, and nothing else. Returns the node count removed.
+
+    Deliberately **not** :meth:`Neo4jGraphStore.clear`, which is ``MATCH (n) DETACH DELETE n``. The
+    same Neo4j database also stores NeoDash's saved dashboards (``:_Neodash_Dashboard``), which this
+    system did not create and must not destroy on a rebuild. The wipe is therefore scoped to the
+    ontology's own stored labels (``ontology.md`` §5), which is also what A08's brief asks for:
+    "wipe only labels/relationships this system created".
+
+    ``DETACH DELETE`` removes the relationships along with the nodes, so no separate edge pass is
+    needed: every relationship this system writes has both endpoints inside those labels.
+    """
+    onto = ontology or load_ontology()
+    labels = list(onto.stored_labels)
+    counted = store.query(
+        "MATCH (n) WHERE any(l IN labels(n) WHERE l IN $labels) RETURN count(n) AS n",
+        {"labels": labels},
+    )
+    total = int(counted[0]["n"]) if counted else 0
+    if total:
+        # `apply_schema` is the store's public "run these statements" door; `clear()` is too broad
+        # (see above) and the driver itself is private. Labels are from the ontology, never user input.
+        store.apply_schema([f"MATCH (n:`{label}`) DETACH DELETE n" for label in labels])
+    logger.info("graph.wiped", nodes=total, labels=len(labels))
+    return total
 
 
 def _fold_property_updates(plan: ProjectionPlan, report: ProjectionReport) -> list[GraphNode]:

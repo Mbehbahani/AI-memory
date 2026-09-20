@@ -77,6 +77,9 @@ FUNCTION apply_fact(new_fact, episode, ontology, repo):
             record_warning("stated supersession target not found"); fall through
 
   # ---- 1. functional predicates: one current object (ADR-0005 rule 1) ------------------
+  # ADR-0015: `is_functional` is True for HAS_STATUS, HAS_STAGE and SELECTED_OPTION only. It was
+  # True for HAS_OWNER, USES_ARCHITECTURE and DEPLOYED_ON until 2026-09-17, and closing *those*
+  # here is what filed concurrently-true facts as `historical`.
   IF ontology.is_functional(new_fact.predicate):
         open := repo.find_open_fact(subject = new_fact.subject_entity_id,
                                     predicate = new_fact.predicate)   # valid_to IS NULL
@@ -135,6 +138,28 @@ replay the `temporal` stage after a crash.
 `uq_facts_functional_current` (see `data-model.md` §3) is a partial unique index on
 `(subject_entity_id, predicate) WHERE valid_to IS NULL AND predicate IN <functional list>`. If a bug
 ever tried to leave two open functional facts, the insert fails instead of corrupting the timeline.
+
+The index's predicate list and `schemas/ontology.yaml: functional_predicates` **must name the same
+predicates**, and `tests/integration/test_contracts_functional_index.py` asserts it. A predicate the
+ontology treats as multi-valued while the index still covers it turns a legitimate second current
+fact into an `IntegrityError`; the reverse removes the backstop silently. Narrowing the list is
+always safe on existing rows (the new set is a subset of the old), widening it is not.
+
+### Supersession for multi-valued predicates
+
+Rule 1 no longer applies to `USES_ARCHITECTURE`, `HAS_OWNER` or `DEPLOYED_ON` (ADR-0015), so those
+facts accumulate. They still supersede, through the other two rules:
+
+* **rule 2** — the document says so ("we migrated from Snowflake to Databricks"), or an artifact
+  carries `supersedes_if_stated`, or a caller passes `record_decision(supersedes=…)`. Explicit
+  statement was always authoritative over inference;
+* **rule 3** — a value the new version of the source no longer states becomes `unconfirmed`: still
+  current, ranked lower, flagged for review. That is the correct answer for "JobLab used to use
+  SvelteKit and the overview no longer mentions it", and it is *not* the same claim as "JobLab
+  stopped using SvelteKit on the day some other technology was extracted".
+
+A choice that genuinely replaces its predecessor is modelled as a `Decision` whose `SELECTED_OPTION`
+changed — still functional, still rule 1.
 
 ## 5. Rule 3 — source edits never delete knowledge
 
@@ -231,4 +256,4 @@ Any engine that fails this fails gate criterion C4 regardless of its latency.
 ## Related
 
 `data-model.md` §3 (columns, the partial unique index) · `ontology.md` §4 (functional predicates) ·
-`retrieval.md` §5 (temporal filter and the unconfirmed penalty) · ADR-0005, ADR-0002, ADR-0006.
+`retrieval.md` §5 (temporal filter and the unconfirmed penalty) · ADR-0005, ADR-0002, ADR-0006, ADR-0015.

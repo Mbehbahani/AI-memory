@@ -33,8 +33,9 @@ from aimemory.common.logging import get_logger
 from deps import Runtime, build_runtime
 from errors import install_error_handlers
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from metrics import COUNTERS
-from routes import read, search, system, write
+from routes import ops, read, search, system, write
 
 __all__ = ["DEFAULT_BIND_HOST", "app", "create_app"]
 
@@ -64,6 +65,24 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.runtime = None
 
 
+
+#: Methods that can change state, and so are worth protecting from a cross-origin trigger.
+_STATE_CHANGING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _allowed_origins(request: Request) -> frozenset[str]:
+    """Origins treated as this service's own.
+
+    Built from the request's own ``Host`` rather than hard-coded, so the service keeps working on a
+    non-default port without a second setting to keep in sync. Both schemes are accepted because the
+    page is served over plain HTTP on loopback.
+    """
+    host = request.headers.get("host", "")
+    if not host:
+        return frozenset()
+    return frozenset({f"http://{host}", f"https://{host}"})
+
+
 def create_app() -> FastAPI:
     """Build the ASGI application. Tests call this with their own runtime injected afterwards."""
     application = FastAPI(
@@ -75,6 +94,46 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url=None,
     )
+
+    @application.middleware("http")
+    async def reject_cross_origin_writes(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Refuse state-changing requests that carry a foreign ``Origin`` (SEC-02, A13's P15 review).
+
+        The `/ops` page posts plain HTML forms with no CSRF token, and the same-origin policy does
+        **not** stop a cross-origin form POST. A13 reproduced it: a page on another site could post
+        ``action=scan&tier=2`` to `/ops/runs` and enqueue a run that the always-on worker executes -
+        a paid Bedrock run triggered by a page the owner merely visited. Nothing could be read back
+        (no CORS headers are sent), so this is a trigger, not a data leak - but triggering paid,
+        state-changing work from a foreign page is enough.
+
+        Why `Origin` and not a token: browsers attach `Origin` to every cross-origin state-changing
+        request and cannot be talked out of it, which is exactly the threat here. Requests with **no**
+        `Origin` are allowed through on purpose - that is server-to-server traffic (the MCP server
+        calling this API over the compose network, `curl`, the test client), which a browser cannot
+        forge. Adding a token would also mean session state, which this single-user local service
+        deliberately does not have.
+        """
+        if request.method in _STATE_CHANGING_METHODS:
+            origin = request.headers.get("origin")
+            if origin and origin not in _allowed_origins(request):
+                logger.warning(
+                    "memory_api.cross_origin_write_rejected",
+                    method=request.method,
+                    path=request.url.path,
+                    origin=origin[:200],
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": "cross_origin_write_rejected",
+                        "message": (
+                            "State-changing requests from a different origin are refused. This API "
+                            "is loopback-only and has no browser clients other than its own /ops page."
+                        ),
+                        "context": {"origin": origin[:200]},
+                    },
+                )
+        return await call_next(request)
 
     @application.middleware("http")
     async def count_requests(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -96,6 +155,7 @@ def create_app() -> FastAPI:
     application.include_router(search.router)
     application.include_router(read.router)
     application.include_router(write.router)
+    application.include_router(ops.router)
     logger.info("memory_api.app_created", paths=len(application.openapi()["paths"]))
     return application
 

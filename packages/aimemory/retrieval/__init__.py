@@ -13,6 +13,7 @@ Stage                                            Module
 3. Reciprocal Rank Fusion (``rrf_k`` = 60)       :mod:`aimemory.retrieval.fusion`
 4. graph expansion (Neo4j, 1 hop, bounded)       :mod:`aimemory.retrieval.expansion`
 5. temporal filter (``as_of`` / ``since``)       :mod:`aimemory.retrieval.temporal`
+5b. calibrated relevance (cosine + IDF cover)    :mod:`aimemory.retrieval.relevance`
 6. boosts + deterministic final ranking          :mod:`aimemory.retrieval.boosts`
 7. provenance attachment + citations             :mod:`aimemory.retrieval.provenance`
 8. context assembly (ordered, budgeted)          :mod:`aimemory.retrieval.context`
@@ -47,13 +48,26 @@ from .filters import ScopeFilters
 from .fusion import reciprocal_rank_fusion, rrf_contribution
 from .logs import effective_params, write_retrieval_log
 from .pipeline import EMBEDDING_DEGRADED_WARNING, HybridRetriever, RetrievalOutcome
+from .staleness import DISABLED_ROOT_WARNING, STALE_CORPUS_WARNING, staleness_warnings
 from .provenance import attach_provenance, load_provenance, render_citation
+from .relevance import (
+    LEXICAL_DEGRADED_WARNING,
+    QueryLexicon,
+    RelevanceScore,
+    analyse_query,
+    lexical_coverage,
+    score_relevance,
+)
 from .temporal import FactRow, current_facts, facts_for_entities, filter_hits
 from .types import HitKey, HitMetadata, RankedCandidate, RetrieverOutput, ScoredCandidate
 
 __all__ = [
     "EMBEDDING_DEGRADED_WARNING",
+    "DISABLED_ROOT_WARNING",
     "GRAPH_DEGRADED_WARNING",
+    "STALE_CORPUS_WARNING",
+    "staleness_warnings",
+    "LEXICAL_DEGRADED_WARNING",
     "ContextInputs",
     "DecisionRow",
     "FactRow",
@@ -62,11 +76,14 @@ __all__ = [
     "HitMetadata",
     "HybridRetriever",
     "ProjectSummary",
+    "QueryLexicon",
     "RankedCandidate",
+    "RelevanceScore",
     "RetrievalOutcome",
     "RetrieverOutput",
     "ScopeFilters",
     "ScoredCandidate",
+    "analyse_query",
     "apply_boosts",
     "assemble_context",
     "attach_provenance",
@@ -78,6 +95,7 @@ __all__ = [
     "facts_for_entities",
     "filter_hits",
     "keyword_candidates",
+    "lexical_coverage",
     "load_provenance",
     "load_retrieval_config",
     "rank_candidates",
@@ -85,6 +103,7 @@ __all__ = [
     "reciprocal_rank_fusion",
     "render_citation",
     "rrf_contribution",
+    "score_relevance",
     "seed_entity_ids",
     "semantic_candidates",
     "write_retrieval_log",

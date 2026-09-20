@@ -48,9 +48,13 @@ class SearchQuery(DomainModel):
     """A scoped, time-aware retrieval request.
 
     ``project_ids`` scopes to one or more registry slugs (empty = all projects). ``as_of`` applies the
-    ADR-0005 point-in-time predicate to facts and artifacts; ``since`` filters on
-    ``observed_at``/version time and answers "what changed lately". ``limit`` is the number of hits
-    returned (``candidates.final_k`` is the default), not the number of candidates retrieved.
+    ADR-0005 point-in-time predicate to facts and artifacts, **and selects which version of each
+    file's text is visible** - a search sees exactly one version per source, the newest observed at or
+    before ``as_of`` (``retrieval.filters.CURRENT_VERSION_PREDICATE``). Before that predicate existed,
+    every version of an edited file stayed searchable at once and a hit could quote text no longer in
+    the file. ``since`` filters on ``observed_at``/version time and answers "what changed lately".
+    ``limit`` is the number of hits returned (``candidates.final_k`` is the default), not the number
+    of candidates retrieved.
 
     ``include_unconfirmed`` defaults to true because ADR-0005 rule 3 keeps unconfirmed facts
     *current*; they are penalised by ``boosts.unconfirmed_penalty`` and flagged in the context rather

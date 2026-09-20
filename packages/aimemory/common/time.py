@@ -14,6 +14,7 @@ Rules encoded here (ADR-0005 §6 and plan §I):
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime
 
 __all__ = [
@@ -49,12 +50,29 @@ def ensure_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+#: Reduced-precision ISO 8601 dates the standard allows but ``fromisoformat`` rejects.
+_YEAR_RE = re.compile(r"\d{4}")
+_YEAR_MONTH_RE = re.compile(r"\d{4}-(?:0[1-9]|1[0-2])")
+
+
 def parse_timestamp(value: str | datetime | date | None) -> datetime | None:
     """Parse an ISO-8601 string / date / datetime into an aware UTC datetime.
 
     Accepts the ``Z`` suffix and bare dates (``2026-09-14`` → midnight UTC). Returns ``None`` for
     ``None`` or an empty string. Raises :class:`ValueError` on anything else, so callers can turn an
     LLM-stated date into a validation failure rather than a silent wrong answer.
+
+    **Reduced precision** (``2022`` and ``2022-03``) is accepted and resolved to the earliest instant
+    the statement admits - ``2022-01-01`` and ``2022-03-01``, both midnight UTC. ISO 8601 defines
+    these as valid reduced-precision dates; ``datetime.fromisoformat`` is simply stricter than the
+    standard. They are not a hypothetical: MEASURED on the real vault, seven career documents were
+    lost outright because a CV line dated ``2022-03`` raised here, and the exception took the whole
+    episode down with it - every other fact in that document included. Widening to the earliest
+    instant keeps the stated precision honest (March 2022 did begin on 2022-03-01) and is strictly
+    better than the alternatives of discarding the date, discarding the fact, or defaulting to now,
+    which would assert that a decade-old CV entry became true today.
+
+    Garbage still raises. Only the two genuinely reduced-precision ISO forms are added.
     """
     if value is None:
         return None
@@ -67,6 +85,11 @@ def parse_timestamp(value: str | datetime | date | None) -> datetime | None:
         return None
     if text.endswith(("Z", "z")):
         text = text[:-1] + "+00:00"
+    if _YEAR_RE.fullmatch(text):
+        return datetime(int(text), 1, 1, tzinfo=UTC)
+    if _YEAR_MONTH_RE.fullmatch(text):
+        year, month = text.split("-")
+        return datetime(int(year), int(month), 1, tzinfo=UTC)
     return ensure_utc(datetime.fromisoformat(text))
 
 

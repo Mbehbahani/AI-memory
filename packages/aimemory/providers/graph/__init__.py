@@ -10,6 +10,7 @@ may be the only place a fact exists.
 """
 
 from ...persistence.graph_store import Neo4jGraphStore
+from .factory import open_graph_store
 from .projection import (
     ARTIFACT_LABELS,
     FUNCTIONAL_NODE_PROPERTY,
@@ -23,7 +24,13 @@ from .projection import (
     structural_edge,
     supersedes_edge,
 )
-from .writer import GraphProjector, ProjectionReport
+from .writer import (
+    GraphProjector,
+    ProjectionReport,
+    merge_nodes,
+    prune_dangling,
+    wipe_projection,
+)
 
 __all__ = [
     "ARTIFACT_LABELS",
@@ -37,7 +44,11 @@ __all__ = [
     "artifact_node",
     "entity_node",
     "fact_edges",
+    "merge_nodes",
+    "open_graph_store",
+    "prune_dangling",
     "registry_node",
     "structural_edge",
     "supersedes_edge",
+    "wipe_projection",
 ]

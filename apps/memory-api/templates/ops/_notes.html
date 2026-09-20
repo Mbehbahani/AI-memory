@@ -1,0 +1,78 @@
+{% import "ops/_macros.html" as ui %}
+{#
+  "What have I saved?" — the one question nothing else on this page or in the API answers.
+
+  Coverage counts files the scanner found. `/v1/sources` lists files. `memory_search` needs
+  embeddings. But a session recorded through MCP produces an episode and *no chunks*, so its
+  sentences exist in no index at all: real, extracted knowledge that no text search can reach. Before
+  this panel the only way to know such an entry existed was to query Postgres by hand.
+#}
+{% set open = notes.has_any %}
+{% call ui.panel(
+     id='notes',
+     title='Saved notes and sessions',
+     help='Knowledge that did not come from a file the scanner found on its own: sessions and
+           decisions written through MCP, hand-written notes, and the session notes this project
+           writes into the vault. Everything else on this page counts files; this counts the things
+           you would otherwise have no way to list.',
+     label=notes.total ~ ' entr' ~ ('y' if notes.total == 1 else 'ies'),
+     badge_text=(notes.unsearchable ~ ' not text-searchable') if notes.unsearchable else none,
+     badge_class='notice' if notes.unsearchable else none,
+     open=open) %}
+
+  {% if not notes.has_any %}
+    <p class="muted">
+      Nothing saved by hand yet. A session becomes memory either as a note in the vault (searchable
+      text plus facts) or through an MCP write (facts only).
+    </p>
+  {% else %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>How it arrived
+            {{ ui.helptag('“session note” is a file in the vault, so its words are chunked and
+                           embedded. “mcp” and “manual” were written straight into the database by an
+                           agent or by hand: those create facts but never chunks, so the sentences
+                           themselves cannot be found by meaning-search.') }}
+          </th>
+          <th>Title</th>
+          <th>Project</th>
+          <th class="num">Facts</th>
+          <th class="num">Artifacts</th>
+          <th>Text searchable
+            {{ ui.helptag('Whether the original wording can be found by searching. “no” does not mean
+                           the knowledge is missing — the facts and decisions drawn from it are in
+                           the graph and answer questions normally. It means the passage itself is
+                           unreachable, so ask for the fact rather than the phrasing.') }}
+          </th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in notes.rows %}
+        <tr>
+          <td class="nowrap">{{ row.at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ row.kind }}</td>
+          <td>{{ ui.longtext(row.title, limit=70, label='full title') }}</td>
+          <td>{{ row.project_id or '—' }}</td>
+          <td class="num">{{ row.facts | fmt_int }}</td>
+          <td class="num">{{ row.artifacts | fmt_int }}</td>
+          <td>{% if row.searchable %}yes{% else %}<span class="badge notice">no</span>{% endif %}</td>
+          <td>{{ row.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if notes.unsearchable %}
+  <p class="muted">
+    {{ notes.unsearchable }} of {{ notes.total }} hold knowledge no text search can reach. To make a
+    session's wording searchable as well as its facts, save it as a note under
+    <code>01 Projects/AI Memory/</code> in the vault and scan.
+  </p>
+  {% endif %}
+  {% endif %}
+{% endcall %}

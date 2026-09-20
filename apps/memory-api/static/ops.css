@@ -1,0 +1,431 @@
+/* AI Memory - /ops dashboard (ADR-0011). Plain CSS, no build step, no external fonts.
+
+   Theme: light is the default palette below. Dark applies (a) automatically when the OS/browser
+   reports `prefers-color-scheme: dark` and the visitor has not chosen otherwise, and (b) whenever
+   `<html data-theme="dark">` is set - the toggle button in the header does that and remembers the
+   choice in localStorage (base.html). Every colour a section actually renders with (text, borders,
+   status badges, table rules, buttons) is a variable here so both themes stay readable; nothing
+   below hardcodes a light-only colour outside this block. */
+
+:root {
+  color-scheme: light dark; /* native form controls/scrollbars follow the active theme too */
+  --fg: #1a1a1a;
+  --bg: #ffffff;
+  --muted: #5a5a5a;
+  --border: #d8d8d8;
+  --panel: #f7f7f7;
+  --ok: #1a7a3c;
+  --warn: #9a6300;
+  --notice: #a4373a;
+  --info: #2a5da0;
+  --link: #1a4fa0;
+  font-size: 16px;
+}
+
+/* Dark, by OS preference - only while the visitor has not overridden it with the toggle. Contrast
+   checked against WCAG AA (4.5:1) for body text and the status colours on both --bg and --panel. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fg: #e9e9ea;
+    --bg: #14161a;
+    --muted: #a9adb4;
+    --border: #3c4048;
+    --panel: #1e2126;
+    --ok: #4fd18a;
+    --warn: #e3ab4a;
+    --notice: #f28086;
+    --info: #7fb2ff;
+    --link: #8db8ff;
+  }
+}
+
+/* Dark, forced by the toggle regardless of OS preference. */
+:root[data-theme="dark"] {
+  --fg: #e9e9ea;
+  --bg: #14161a;
+  --muted: #a9adb4;
+  --border: #3c4048;
+  --panel: #1e2126;
+  --ok: #4fd18a;
+  --warn: #e3ab4a;
+  --notice: #f28086;
+  --info: #7fb2ff;
+  --link: #8db8ff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  margin: 0;
+  padding: 0 0 3rem 0;
+  line-height: 1.45;
+}
+
+header.ops-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+header.ops-header h1 { font-size: 1.3rem; margin: 0; }
+header.ops-header .meta { color: var(--muted); font-size: 0.85rem; }
+header.ops-header nav a { margin-right: 0.9rem; font-size: 0.9rem; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 0 1rem; }
+
+section.ops-section {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1.1rem 1.1rem 1.1rem;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------------------------------------------
+   Collapsible panels.
+
+   Every section is a <details> whose <summary> is the heading row, so clicking the heading folds the
+   section away. The open/closed choice is remembered per section (base.html) and survives the HTMX
+   refresh that replaces that section's contents.
+   ------------------------------------------------------------------------------------------------ */
+
+section.ops-section > details.panel > summary.panel-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  cursor: pointer;
+  list-style: none;              /* default triangle replaced below, for position and size */
+  padding: 0.1rem 0.25rem 0.1rem 1.15rem;
+  margin: -0.1rem -0.25rem 0.1rem -0.25rem;
+  position: relative;
+  border-radius: 4px;
+}
+section.ops-section > details.panel > summary.panel-summary::-webkit-details-marker { display: none; }
+section.ops-section > details.panel > summary.panel-summary::before {
+  content: "\25B8";              /* right-pointing triangle; rotates a quarter turn when open */
+  position: absolute;
+  left: 0.2rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 0.12s ease-in-out;
+  display: inline-block;
+}
+section.ops-section > details.panel[open] > summary.panel-summary::before { transform: rotate(90deg); }
+section.ops-section > details.panel > summary.panel-summary:hover { background: var(--panel); }
+section.ops-section > details.panel > summary.panel-summary:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+section.ops-section h2 {
+  font-size: 1.05rem;
+  margin: 0;
+  display: inline;
+  font-weight: 600;
+}
+
+/* The status line sits at the right of the heading row and wraps beneath it on a narrow screen. */
+section.ops-section summary.panel-summary .label {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 0.8rem;
+  margin-left: auto;
+  text-align: right;
+}
+
+.panel-body { padding-top: 0.35rem; }
+
+/* ------------------------------------------------------------------------------------------------
+   Help notes: the small "?" that says what a section or a number actually means.
+   ------------------------------------------------------------------------------------------------ */
+
+.helptag-wrap { position: relative; display: inline-block; }
+
+details.helptag { display: inline-block; position: relative; }
+details.helptag > summary {
+  list-style: none;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--panel);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+details.helptag > summary::-webkit-details-marker { display: none; }
+details.helptag > summary:hover { color: var(--link); border-color: var(--link); }
+details.helptag[open] > summary { color: var(--bg); background: var(--link); border-color: var(--link); }
+
+/* The note floats above the page rather than reflowing it: opening a "?" beside a table cell must not
+   shove every row below it downwards. Anchored left so it cannot open off the right edge. */
+details.helptag > p {
+  position: absolute;
+  z-index: 20;
+  top: 1.4rem;
+  left: 0;
+  width: min(30rem, 78vw);
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--link);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 0.82rem;
+  font-weight: normal;
+  line-height: 1.45;
+  white-space: normal;
+  text-align: left;
+}
+
+/* ------------------------------------------------------------------------------------------------
+   Long text. One database error is routinely 2,000 characters on a single unbroken line; rendered
+   raw it pushed every other column of the Runs table off the screen.
+   ------------------------------------------------------------------------------------------------ */
+
+details.longtext { display: block; }
+details.longtext > summary { list-style: none; cursor: pointer; display: block; }
+details.longtext > summary::-webkit-details-marker { display: none; }
+/* Errors run for long stretches with no spaces at all (SQL, UUIDs), so normal word wrapping does
+   nothing for them. */
+.longtext-head { overflow-wrap: anywhere; }
+details.longtext > summary .more {
+  display: inline-block;
+  margin-left: 0.35rem;
+  color: var(--link);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  border-bottom: 1px dotted currentColor;
+}
+details.longtext[open] > summary .more::after { content: " (hide)"; }
+pre.longtext-full {
+  margin: 0.4rem 0 0.2rem 0;
+  padding: 0.55rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 22rem;             /* a 4,000-character traceback must not become the whole page */
+  overflow-y: auto;
+}
+
+/* The message column is the one that used to blow the table open. Cap it; let the rest breathe. */
+td.msg-cell { max-width: 34rem; overflow-wrap: anywhere; }
+td.nowrap, th.nowrap { white-space: nowrap; }
+
+/* ------------------------------------------------------------------------------------------------
+   Smaller shared pieces.
+   ------------------------------------------------------------------------------------------------ */
+
+/* A wide table scrolls inside its own box instead of making the whole page scroll sideways. */
+.table-scroll { overflow-x: auto; }
+
+details.note { margin: 0.45rem 0 0.2rem 0; }
+details.note > summary { cursor: pointer; font-size: 0.78rem; color: var(--link); width: fit-content; }
+details.note > p, details.note > ul { font-size: 0.78rem; color: var(--muted); margin: 0.3rem 0 0 0; }
+
+h3.chart-title { font-size: 0.88rem; margin: 0.85rem 0 0.2rem 0; font-weight: 600; }
+ul.tight-list { margin: 0.25rem 0 0.4rem 0; padding-left: 1.1rem; font-size: 0.82rem; }
+.muted { color: var(--muted); }
+.runs-meta { margin: 0.5rem 0 0.35rem 0; }
+.runs-meta .label { color: var(--muted); font-size: 0.8rem; }
+
+table.ops-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+table.ops-table th, table.ops-table td {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+table.ops-table th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid currentColor;
+}
+.badge.ok { color: var(--ok); }
+.badge.warn, .badge.warning { color: var(--warn); }
+.badge.notice, .badge.down { color: var(--notice); }
+.badge.info, .badge.degraded { color: var(--info); }
+.badge.queued, .badge.running { color: var(--info); }
+.badge.failed { color: var(--notice); }
+.badge.done { color: var(--ok); }
+
+.attention-item {
+  border-left: 4px solid var(--info);
+  padding: 0.4rem 0.7rem;
+  margin: 0.5rem 0;
+  background: var(--panel);
+}
+.attention-item.warning { border-left-color: var(--warn); }
+.attention-item.notice { border-left-color: var(--notice); }
+.attention-item h3 { margin: 0 0 0.15rem 0; font-size: 0.95rem; }
+.attention-item p { margin: 0.15rem 0; color: var(--muted); font-size: 0.85rem; }
+.attention-item ul { margin: 0.3rem 0 0 0; padding-left: 1.1rem; font-size: 0.82rem; }
+
+form.ops-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.4rem 0;
+  padding: 0.5rem;
+  background: var(--panel);
+  border-radius: 4px;
+}
+form.ops-form label { font-size: 0.8rem; color: var(--muted); }
+form.ops-form select, form.ops-form input[type=text], form.ops-form textarea {
+  font-size: 0.9rem;
+  padding: 0.25rem 0.4rem;
+}
+form.ops-form textarea { width: 100%; min-height: 2.2rem; }
+
+button {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--link);
+  background: var(--bg);
+  color: var(--link);
+  cursor: pointer;
+}
+/* var(--bg), not a hardcoded white: in dark theme --link is a light blue, so the hover text needs
+   to stay dark (var(--bg)) to keep the contrast that made this readable in the light theme too. */
+button:hover { background: var(--link); color: var(--bg); }
+
+/* Header controls (Refresh now / Auto-refresh / theme). Deliberately quieter than a form's submit
+   button: these change how the page behaves, they do not start work. */
+.ghost-btn {
+  margin-left: 0.4rem;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.55rem;
+  border-color: var(--border);
+  color: var(--muted);
+}
+.ghost-btn:hover { background: var(--panel); color: var(--fg); border-color: var(--link); }
+/* Paused has to be visible at a glance, or a frozen page looks exactly like a live one. */
+.ghost-btn.is-paused { color: var(--warn); border-color: var(--warn); font-weight: 600; }
+.ghost-btn.is-paused:hover { background: var(--warn); color: var(--bg); }
+
+.review-card {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.7rem;
+}
+.review-card .evidence {
+  font-style: italic;
+  background: var(--panel);
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  margin: 0.35rem 0;
+  font-size: 0.88rem;
+}
+.review-card .citation { font-size: 0.78rem; color: var(--muted); }
+
+.chart-caption { font-size: 0.78rem; color: var(--muted); margin: 0.15rem 0 0.6rem 0; }
+.chart-empty { font-size: 0.85rem; color: var(--muted); font-style: italic; }
+svg.sparkline { color: var(--link); display: block; }
+
+.quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+
+.stat-row { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-bottom: 0.6rem; }
+.stat-row .stat { font-size: 0.85rem; }
+.stat-row .stat b { display: block; font-size: 1.15rem; }
+
+footer.ops-footer {
+  max-width: 1100px;
+  margin: 1.5rem auto 0 auto;
+  padding: 0 1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  :root { font-size: 15px; }
+  main { padding: 0 0.6rem; }
+  section.ops-section { padding: 0.7rem 0.7rem 0.9rem 0.7rem; }
+  table.ops-table { font-size: 0.8rem; }
+  header.ops-header { padding: 0.8rem; }
+}
+
+
+/* ------------------------------------------------------------------------------------------------
+   Stale-tab banner. Deliberately loud: its whole job is to stop someone debugging a version of the
+   page that is no longer running.
+   ------------------------------------------------------------------------------------------------ */
+
+.stale-banner {
+  max-width: 1100px;
+  margin: 0.9rem auto 0 auto;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--warn);
+  border-left: 4px solid var(--warn);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 0.87rem;
+}
+.stale-banner[hidden] { display: none; }   /* `hidden` alone loses to the rules above in some engines */
+.stale-banner a { color: var(--link); }
+
+
+/* ------------------------------------------------------------------------------------------------
+   Freshness - "is the memory out of date?"
+
+   Three states, and the colours are chosen so the *safe* one is quiet. Green for up-to-date would
+   make the common case shout; amber only when there is something to do, and a neutral grey when the
+   check has never run - because "unknown" must not read as "fine".
+   ------------------------------------------------------------------------------------------------ */
+
+.freshness {
+  margin: 0.4rem 0 0.6rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+.freshness-line { display: flex; align-items: baseline; gap: 0.45rem; flex-wrap: wrap; }
+.freshness-meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.2rem; }
+
+/* A dot as well as a colour: colour alone is not an accessible signal. */
+.freshness-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.freshness.is-clean { border-left-color: var(--ok); }
+.freshness.is-clean .freshness-dot { color: var(--ok); }
+
+.freshness.is-stale { border-left-color: var(--warn); }
+.freshness.is-stale .freshness-dot { color: var(--warn); }
+.freshness.is-stale b { color: var(--warn); }
+
+.freshness.is-unknown { border-left-color: var(--muted); }
+.freshness.is-unknown .freshness-dot { color: var(--muted); }

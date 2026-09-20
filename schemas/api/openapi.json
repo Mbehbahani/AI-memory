@@ -233,6 +233,73 @@
         "title": "AssembledContext",
         "type": "object"
       },
+      "Body_create_review_ops_review_post": {
+        "properties": {
+          "episode_id": {
+            "default": "",
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "model_id": {
+            "default": "",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "object_id": {
+            "format": "uuid",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "object_type": {
+            "title": "Object Type",
+            "type": "string"
+          },
+          "sample_batch": {
+            "default": "",
+            "title": "Sample Batch",
+            "type": "string"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "object_type",
+          "object_id",
+          "verdict"
+        ],
+        "title": "Body_create_review_ops_review_post",
+        "type": "object"
+      },
+      "Body_create_run_request_ops_runs_post": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "root_id": {
+            "default": "",
+            "title": "Root Id",
+            "type": "string"
+          },
+          "tier": {
+            "default": 2,
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "Body_create_run_request_ops_runs_post",
+        "type": "object"
+      },
       "ComponentHealth": {
         "additionalProperties": false,
         "description": "One dependency's liveness. ``detail`` is sanitized - never a DSN, path or credential.",
@@ -1096,6 +1163,136 @@
         "title": "IngestionSummary",
         "type": "object"
       },
+      "McpAuditReceipt": {
+        "additionalProperties": false,
+        "description": "What the MCP server needs back: the id actually stored, so a retry is traceable.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "stored": {
+            "title": "Stored",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stored",
+          "id"
+        ],
+        "title": "McpAuditReceipt",
+        "type": "object"
+      },
+      "McpAuditRecord": {
+        "additionalProperties": false,
+        "description": "``POST /v1/mcp/audit`` body - one ``mcp_audit_log`` row, as the MCP server emits it.\n\nField names match the table columns exactly, so the record the MCP server logs locally when this\nsink is unreachable and the row stored here are the same shape.",
+        "properties": {
+          "allowed": {
+            "default": true,
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "arguments": {
+            "additionalProperties": true,
+            "title": "Arguments",
+            "type": "object"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "confirmed": {
+            "default": false,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "denied_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Denied Reason"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "default": "read",
+            "maxLength": 20,
+            "title": "Kind",
+            "type": "string"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "result_ref": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Ref"
+          },
+          "tool": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "title": "McpAuditRecord",
+        "type": "object"
+      },
       "MetricsSnapshotView": {
         "additionalProperties": false,
         "description": "``GET /metrics`` - simple in-process counters plus a few corpus totals (plan section Q).\n\nCounters are MEASURED since process start; corpus totals are MEASURED at request time. Nothing\nhere is an estimate, and nothing here is a target.",
@@ -1872,7 +2069,7 @@
       },
       "SearchQuery": {
         "additionalProperties": false,
-        "description": "A scoped, time-aware retrieval request.\n\n``project_ids`` scopes to one or more registry slugs (empty = all projects). ``as_of`` applies the\nADR-0005 point-in-time predicate to facts and artifacts; ``since`` filters on\n``observed_at``/version time and answers \"what changed lately\". ``limit`` is the number of hits\nreturned (``candidates.final_k`` is the default), not the number of candidates retrieved.\n\n``include_unconfirmed`` defaults to true because ADR-0005 rule 3 keeps unconfirmed facts\n*current*; they are penalised by ``boosts.unconfirmed_penalty`` and flagged in the context rather\nthan hidden (risk R6).",
+        "description": "A scoped, time-aware retrieval request.\n\n``project_ids`` scopes to one or more registry slugs (empty = all projects). ``as_of`` applies the\nADR-0005 point-in-time predicate to facts and artifacts, **and selects which version of each\nfile's text is visible** - a search sees exactly one version per source, the newest observed at or\nbefore ``as_of`` (``retrieval.filters.CURRENT_VERSION_PREDICATE``). Before that predicate existed,\nevery version of an edited file stayed searchable at once and a hit could quote text no longer in\nthe file. ``since`` filters on ``observed_at``/version time and answers \"what changed lately\".\n``limit`` is the number of hits returned (``candidates.final_k`` is the default), not the number\nof candidates retrieved.\n\n``include_unconfirmed`` defaults to true because ADR-0005 rule 3 keeps unconfirmed facts\n*current*; they are penalised by ``boosts.unconfirmed_penalty`` and flagged in the context rather\nthan hidden (risk R6).",
         "properties": {
           "artifact_types": {
             "items": {
@@ -2453,6 +2650,151 @@
         ]
       }
     },
+    "/ops": {
+      "get": {
+        "operationId": "ops_page_ops_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "The offline operator dashboard",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/ops/parts/{section}": {
+      "get": {
+        "operationId": "ops_part_ops_parts__section__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One dashboard section (HTMX poll target)",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/ops/review": {
+      "post": {
+        "operationId": "create_review_ops_review_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_review_ops_review_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record one extraction_reviews verdict (ADR-0010)",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/ops/runs": {
+      "post": {
+        "operationId": "create_run_request_ops_runs_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_run_request_ops_runs_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue a run_requests row (ADR-0011)",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
     "/v1/artifacts/{artifact_id}": {
       "get": {
         "operationId": "get_artifact_v1_artifacts__artifact_id__get",
@@ -2797,6 +3139,48 @@
         "summary": "Provenance chain: object -> episode -> version -> source -> root/device + models + run",
         "tags": [
           "read"
+        ]
+      }
+    },
+    "/v1/mcp/audit": {
+      "post": {
+        "description": "The sink for ``mcp_audit_log``.\n\nThe MCP server holds no database credentials (the ADR-0008 boundary), so it posts its audit\nrecords here. This route is deliberately **not** gated on ``GATEWAY_WRITE_ENABLED``: the records\nthat matter most are refusals, and a refusal only ever happens while writes are disabled - gating\nit would guarantee that exactly those records were never stored. It appends to an append-only\nobservability table and cannot touch an entity, fact or artifact.",
+        "operationId": "record_mcp_audit_v1_mcp_audit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpAuditRecord"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuditReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Persist one MCP audit record (ADR-0008; intentionally not behind GATEWAY_WRITE_ENABLED)",
+        "tags": [
+          "write"
         ]
       }
     },

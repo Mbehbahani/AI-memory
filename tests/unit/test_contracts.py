@@ -726,6 +726,8 @@ def test_settings_read_every_env_name_in_env_example(monkeypatch: pytest.MonkeyP
         "OLLAMA_CPUS",
         "HOST_VAULT_ROOT",
         "HOST_PILOT_ROOT",
+        "HOST_WAGTAIL_ROOT",  # optional root; Compose mounts it, Settings never reads it
+        "HOST_AIMEMORY_ROOT",  # same: the project indexing its own design docs
         "NEODASH_HOST_PORT",
         "NEODASH_IMAGE_TAG",
         "MEMORY_API_HOST_PORT",

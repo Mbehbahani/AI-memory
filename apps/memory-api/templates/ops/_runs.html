@@ -1,0 +1,80 @@
+{% import "ops/_macros.html" as ui %}
+{#
+  The Runs *controls*. Rendered once by the full page and never replaced by a poll.
+
+  This split exists because of a real defect: the whole section used to refresh every 4 seconds, and
+  each refresh rebuilt these <select> elements from scratch. Choosing a root was therefore impossible
+  - the dropdown reset under the operator's hand within four seconds, every time. Live data now lives
+  in `_runs_activity.html` behind `#runs-activity`, and the POST below targets that same id, so
+  submitting a run updates the table without disturbing anything typed or chosen up here.
+#}
+{% call ui.panel(
+     'runs',
+     'Runs',
+     help='Start work and watch it happen. Nothing on this page performs an ingest itself - each
+           button only adds a row to a queue table. A separate always-on worker picks rows up one at
+           a time and runs them. That is why a button click is instant and the result appears in the
+           table below a moment later.') %}
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs-activity" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="scan">
+    <label>Run scan — root
+      <select name="root_id">
+        <option value="">(all enabled roots)</option>
+        {% for root in runs.roots %}
+        <option value="{{ root.root_id }}">{{ root.label }} ({{ root.root_id }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>tier
+      <select name="tier">
+        {% for value, name in tiers %}
+        <option value="{{ value }}" {{ 'selected' if value == 2 else '' }}>{{ value }} — {{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Run scan</button>
+    {{ ui.helptag('Reads a source folder and brings the database up to date with it. Tier 1 finds and
+                   indexes the files; Tier 2 additionally sends each document to the language model to
+                   extract facts, which is the step that costs money.') }}
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs-activity" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="retry_failed">
+    <input type="hidden" name="tier" value="2">
+    <label>Retry failed — root
+      <select name="root_id">
+        <option value="">(all roots)</option>
+        {% for root in runs.roots %}
+        <option value="{{ root.root_id }}">{{ root.label }} ({{ root.root_id }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Retry failed</button>
+    {{ ui.helptag('Puts every document that failed back in the queue. Safe to press more than once -
+                   documents that already succeeded are not touched and are not paid for again.') }}
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs-activity" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="eval">
+    <input type="hidden" name="tier" value="2">
+    <button type="submit">Run gold-set eval</button>
+    {{ ui.helptag('Scores search quality against your own list of test questions with known answers.
+                   Not wired up yet: the request is created and appears below, and the worker records
+                   it as unsupported because this job belongs to scripts/eval (ADR-0010).') }}
+  </form>
+
+  <form class="ops-form" hx-post="/ops/runs" hx-target="#runs-activity" hx-swap="innerHTML">
+    <input type="hidden" name="action" value="benchmark">
+    <input type="hidden" name="tier" value="2">
+    <button type="submit">Run benchmark</button>
+    {{ ui.helptag('Measures extraction speed and quality for the current model. Same status as the
+                   gold-set eval above: the request is recorded, the worker reports it unsupported.') }}
+  </form>
+
+  {# The one part of this section that refreshes on a timer. #}
+  <div id="runs-activity" data-ops-poll hx-get="/ops/parts/runs-activity"
+       hx-trigger="every 5s [opsLive()], ops:refresh" hx-swap="innerHTML">
+    {% include "ops/_runs_activity.html" %}
+  </div>
+{% endcall %}

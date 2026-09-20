@@ -181,7 +181,11 @@ def assert_single_extraction_model(
     :func:`aimemory.persistence.ingest_repo.extraction_models_in_use`.
     """
     in_use = ingest_repo.extraction_models_in_use(session, project_id=project_id, root_id=root_id)
-    others = {mid: count for mid, count in in_use.items() if mid != model_id}
+    # Every id naming the same model, not just the one being written. ADR-0014 rule 2 refuses a
+    # *second model*, and two routes to Claude Haiku 4.5 are one model (ADR-0017); refusing between
+    # them would demand a full re-extraction to change nothing about the corpus.
+    equivalent = set(ingest_repo.equivalent_model_ids(model_id))
+    others = {mid: count for mid, count in in_use.items() if mid not in equivalent}
     if not others:
         return in_use
     if allow_model_mix:
@@ -418,8 +422,27 @@ def run_tier2(
             report.failed += 1
             continue
         if writer is not None:
-            with scope.session() as session:
-                writer(result, episode)
+            # Guarded for the same reason `process_episode` above is: one episode must not be able
+            # to end the run. The guard used to cover only extraction, so a *persistence* failure -
+            # a constraint violation on one entity, say - propagated out of the loop and abandoned
+            # the remaining queue, leaving the episode stuck in `running`. MEASURED: a single
+            # entities.project_id foreign-key violation stopped a 129-episode run after 4, with the
+            # LLM cost for those episodes already paid.
+            try:
+                with scope.session() as session:
+                    writer(result, episode)
+            except Exception as exc:  # noqa: BLE001 - the queue outlives any one bad result
+                with scope.session() as session:
+                    EpisodeRepo(session).mark_failed(
+                        episode.id, f"persist: {type(exc).__name__}: {exc}"[:500]
+                    )
+                report.failed += 1
+                logger.warning(
+                    "tier2.persist_failed",
+                    episode_id=str(episode.id),
+                    error=f"{type(exc).__name__}: {exc}"[:300],
+                )
+                continue
         with scope.session() as session:
             EpisodeRepo(session).mark_extracted(episode.id, report.engine or "native")
         report.extracted += 1

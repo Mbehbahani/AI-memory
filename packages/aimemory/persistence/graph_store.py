@@ -167,7 +167,15 @@ class Neo4jGraphStore:
                         "Relationship endpoint does not exist in the graph.",
                         detail=f"{predicate}: from={from_id!r} to={to_id!r}",
                     )
-                self._ontology.validate_relationship(predicate, from_label, to_label)
+                try:
+                    self._ontology.validate_relationship(predicate, from_label, to_label)
+                except OntologyError:
+                    # Second of two checks (the projection ran the first). Both must agree, or an
+                    # edge the projection deliberately kept and marked would die silently here.
+                    # `ontology_violation` on the edge is that mark, so its presence is the
+                    # projection saying "I know, and I decided to keep it".
+                    if not rel.properties.get("ontology_violation"):
+                        raise
                 props = {k: _iso(v) for k, v in rel.properties.items()}
                 props["fact_id"] = str(rel.fact_id)
                 missing = self._ontology.relationship_properties.missing(props)

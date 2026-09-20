@@ -1,0 +1,88 @@
+{% import "ops/_macros.html" as ui %}
+{#
+  The live half of the Runs section: the queue counters and the recent-request table. This is the only
+  part that refreshes on a timer, so the controls in `_runs.html` keep whatever the operator selected.
+
+  Also the target of POST /ops/runs - enqueueing a run re-renders exactly this, which is why pressing
+  "Run scan" no longer resets the dropdown next to it.
+#}
+{#
+  Is the memory out of date? Nothing else on this page can answer that: Coverage counts files the
+  system already knows about, so a file edited after its last scan still reads as fully embedded, and
+  the only symptom of the difference is a confidently wrong answer.
+
+  Measured by the ingestion worker (the only container that can see the source folders) and read from
+  `service_stats` here - so it is always *as of* a moment, which is why the age is printed next to it.
+#}
+{% set fresh = runs.freshness %}
+<div class="freshness {{ 'is-stale' if fresh.is_stale else ('is-unknown' if not fresh.has_check else 'is-clean') }}">
+  <div class="freshness-line">
+    <span class="freshness-dot" aria-hidden="true"></span>
+    <b>{{ fresh.headline }}</b>
+    {{ ui.helptag('Compares every file on disk against the copy in the database. It checks size and
+                   timestamp first and only reads a file when one of those moved - so a file merely
+                   touched by a sync client or a git checkout is not reported as changed. Nothing is
+                   processed and nothing is written by this check; it only tells you whether a scan
+                   would find work.') }}
+  </div>
+  {% if fresh.has_check %}
+  <div class="freshness-meta">
+    checked {{ fresh.age_seconds | fmt_seconds }} ago · {{ fresh.files_on_disk | fmt_int }} file(s) on disk ·
+    {{ fresh.hashed | fmt_int }} re-read to be sure · took {{ fresh.duration_ms | fmt_ms }}
+    {%- if fresh.touched_not_changed %} · {{ fresh.touched_not_changed }} touched but identical (not counted){% endif %}
+    {%- if fresh.check_is_old %} <span class="badge notice">this check is old — the worker may be down</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if fresh.is_stale %}
+  <details class="note">
+    <summary>Which files?</summary>
+    <ul class="tight-list">
+      {% for line in fresh.changed_sample %}<li><b>changed</b> — {{ line }}</li>{% endfor %}
+      {% for line in fresh.added_sample %}<li><b>new</b> — {{ line }}</li>{% endfor %}
+      {% for line in fresh.removed_sample %}<li><b>removed</b> — {{ line }}</li>{% endfor %}
+      {% if fresh.stale_files > (fresh.changed_sample | length) + (fresh.added_sample | length) + (fresh.removed_sample | length) %}
+      <li>… and more; this list shows the first few of each kind.</li>
+      {% endif %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if fresh.errors %}
+  <div class="freshness-meta">{{ ui.longtext(fresh.errors | join(' · '), limit=140, label='full errors') }}</div>
+  {% endif %}
+</div>
+
+<div class="runs-meta">
+  <span class="label">{{ runs.pending_episodes }} document(s) waiting to be extracted ·
+    {{ runs.queued_or_running }} request(s) queued or running</span>
+  {{ ui.helptag('What the status column means. queued = waiting for the worker. running = in progress
+                 right now, with Progress counting up. done = finished. failed = stopped with the
+                 error shown alongside; the work already committed before the failure is kept, so a
+                 failed row does not mean nothing happened.') }}
+</div>
+
+<table class="ops-table runs-table">
+  <thead>
+    <tr>
+      <th>Requested</th><th>Action</th><th>Root</th><th>Tier</th><th>Status</th><th>Progress</th>
+      <th>Message / error</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in runs.recent %}
+    <tr>
+      <td class="nowrap">{{ r.requested_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ r.action }}</td>
+      <td>{{ r.root_id or '(all)' }}</td>
+      <td>{{ r.tier }}</td>
+      <td><span class="badge {{ r.status }}">{{ r.status }}</span></td>
+      <td class="nowrap">{{ r.progress_pct }}%</td>
+      {# A failed run puts a full Python traceback and the offending SQL in this cell - routinely over
+         2,000 characters on one line. Truncated to a recognisable opening, full text one click away. #}
+      <td class="msg-cell">{{ ui.longtext(r.error or r.message, limit=110, label='full error') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">No run requests yet — use one of the buttons above. The always-on worker polls
+      this table and executes requests one at a time.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
