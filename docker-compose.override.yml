@@ -55,6 +55,11 @@ services:
       - ./.relay:/relay
       # The project's own design docs as a source root (config/source-roots.yaml: ai-memory).
       - ${HOST_AIMEMORY_ROOT:-./infra/docker/empty-root}:/sources/ai-memory:ro
+      - ${HOST_WAGTAIL_ROOT:-./infra/docker/empty-root}:/sources/wagtail:ro
+      - ${HOST_SENIOR_AI_ENG_ROOT:-./infra/docker/empty-root}:/sources/senior-ai-eng:ro
+      - ${HOST_APPLY_FILES_ROOT:-./infra/docker/empty-root}:/sources/apply-files:ro
+      - ${HOST_APPLY_FILES_INTERVIEW_ROOT:-./infra/docker/empty-root}:/sources/apply-files-interview:ro
+      - ${HOST_CONTENT_CENTER_ROOT:-./infra/docker/empty-root}:/sources/content-center:ro
       - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
       # Optional, read-only — see docker-compose.yml `ingestion` service comment and
       # docs/operations/bedrock-extraction.md. tools.Dockerfile also creates uid 1000 => /home/app.

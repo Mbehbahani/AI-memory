@@ -107,7 +107,7 @@
     <tbody>
       {% for r in usage.recent %}
       <tr>
-        <td class="nowrap">{{ r.at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td class="nowrap">{{ r.at | fmt_amsterdam_time }}</td>
         <td class="msg-cell">{{ ui.longtext(r.model_id, limit=28, label='full model id') }}</td>
         <td>{{ r.purpose }}</td>
         <td>{{ r.prompt_tokens | fmt_int }}</td>

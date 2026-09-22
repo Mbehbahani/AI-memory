@@ -457,6 +457,8 @@ class AttentionItem:
     severity: str  # "notice" | "warning" | "info"
     title: str
     detail: str
+    first_observed_at: datetime | None = None
+    first_observed_label: str = "First observed"
     items: list[str] = field(default_factory=list)
 
 

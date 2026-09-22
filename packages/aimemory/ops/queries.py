@@ -767,9 +767,11 @@ def notes_view(session: Session, *, limit: int = 50) -> NotesView:
 def attention_view(session: Session) -> AttentionView:
     items: list[AttentionItem] = []
 
-    pending = int(
-        session.execute(text("SELECT count(*) FROM episodes WHERE status = 'pending'")).scalar() or 0
-    )
+    pending_row = session.execute(
+        text("SELECT count(*), min(created_at) FROM episodes WHERE status = 'pending'")
+    ).one()
+    pending = int(pending_row[0] or 0)
+    pending_first_observed = pending_row[1]
     total_episodes = int(session.execute(text("SELECT count(*) FROM episodes")).scalar() or 0)
     if pending:
         items.append(
@@ -780,16 +782,27 @@ def attention_view(session: Session) -> AttentionView:
                     "Tier 2 (LLM knowledge extraction) has not run on these yet - use Run scan below "
                     "to queue them. This is the single most useful number on this page."
                 ),
+                first_observed_at=pending_first_observed,
             )
         )
 
     unembeddable = ingest_repo.unembeddable_sources(session, limit=25)
     if unembeddable:
+        unembeddable_first_seen = session.execute(
+            text(
+                "SELECT min(s.first_seen_at) FROM sources s "
+                "WHERE s.policy IN ('INDEX_CONTENT', 'MIRROR') "
+                "AND s.status <> 'deleted' "
+                "AND NOT EXISTS (SELECT 1 FROM chunks c WHERE c.source_id = s.id)"
+            )
+        ).scalar()
         items.append(
             AttentionItem(
                 severity="info",
                 title=f"{len(unembeddable)} INDEX_CONTENT/MIRROR source(s) produced no chunk",
                 detail="Settled outcomes, not pending retries - each one has a named reason:",
+                first_observed_at=unembeddable_first_seen,
+                first_observed_label="Earliest source first observed",
                 items=[f"{u['path']} ({u['root_id']}): {u['reason']}" for u in unembeddable],
             )
         )
@@ -797,7 +810,7 @@ def attention_view(session: Session) -> AttentionView:
     fallback_rows = session.execute(
         text(
             """
-            SELECT relative_path, root_id, policy_reason
+                        SELECT relative_path, root_id, policy_reason, min(first_seen_at) OVER ()
               FROM sources
              WHERE policy = 'CATALOG_ONLY'
                AND status <> 'deleted'
@@ -817,6 +830,8 @@ def attention_view(session: Session) -> AttentionView:
                     "Not excluded by config (policies.yaml) - these hit an extractor failure, a "
                     "duplicate, or the secret detector:"
                 ),
+                first_observed_at=fallback_rows[0][3],
+                first_observed_label="Earliest source first observed",
                 items=[f"{r[0]} ({r[1]}): {r[2]}" for r in fallback_rows],
             )
         )

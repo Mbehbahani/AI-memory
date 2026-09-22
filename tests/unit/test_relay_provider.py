@@ -28,7 +28,9 @@ from pathlib import Path
 import pytest
 
 from aimemory.providers.llm.relay_provider import (
+    LUNA_MODEL_ID,
     MODEL_ID,
+    LunaRelayProvider,
     RelayPending,
     RelayProvider,
 )
@@ -174,6 +176,44 @@ def test_the_factory_builds_it_from_the_setting() -> None:
     provider = get_provider(LLMSettings(LLM_PROVIDER="relay"))
 
     assert provider.model_identity().id == MODEL_ID
+
+
+def test_the_luna_factory_uses_distinct_provenance() -> None:
+    from aimemory.common.config import LLMSettings
+    from aimemory.providers.llm import get_provider
+
+    provider = get_provider(LLMSettings(LLM_PROVIDER="luna"))
+
+    assert isinstance(provider, LunaRelayProvider)
+    identity = provider.model_identity()
+    assert identity.id == LUNA_MODEL_ID == "codex:gpt-5.6-luna"
+    assert identity.provider == "codex"
+    assert identity.parameters["route"] == "codex-luna-subagent"
+
+
+def test_luna_request_identifies_the_answering_model(tmp_path: Path) -> None:
+    provider = LunaRelayProvider(root=tmp_path)
+
+    with pytest.raises(RelayPending) as raised:
+        provider.complete_json("extract this", SCHEMA)
+
+    request = json.loads(
+        (tmp_path / "requests" / f"{raised.value.key}.json").read_text(encoding="utf-8")
+    )
+    assert request["model"] == "gpt-5.6-luna"
+    assert "gpt-5.6-luna" in request["instructions"]
+
+
+def test_luna_keys_do_not_reuse_the_claude_relay_cache(tmp_path: Path) -> None:
+    relay = RelayProvider(root=tmp_path)
+    luna = LunaRelayProvider(root=tmp_path)
+
+    with pytest.raises(RelayPending) as old_request:
+        relay.complete_json("same prompt", SCHEMA)
+    with pytest.raises(RelayPending) as luna_request:
+        luna.complete_json("same prompt", SCHEMA)
+
+    assert old_request.value.key != luna_request.value.key
 
 
 def test_health_reports_what_is_outstanding(relay, tmp_path) -> None:

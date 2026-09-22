@@ -56,6 +56,9 @@ _TYPE_GUIDANCE = (
     + "- A named personal initiative or system being built (for example 'Personal Harness') is a "
     "Project, not a Technology." + NEWLINE
     + "- A tool you use (an editor, an assistant, a library, a CLI) is a Technology, not a Project." + NEWLINE
+    + "- Application means a deployed or deployable software product. A job vacancy, target role, "
+    "interview, CV, or application letter is not an Application; use Concept for a role or "
+    "interview topic and Document for a file." + NEWLINE
     + "- A human name is a Person. Never type a person as an Organization or an "
     "InfrastructureComponent." + NEWLINE
     + "- A company, university or community is an Organization."

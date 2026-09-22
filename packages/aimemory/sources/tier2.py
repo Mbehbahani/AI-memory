@@ -390,14 +390,21 @@ def run_tier2(
         # The scope guard above covers the requested scope; this covers each project an unscoped run
         # actually reaches, so "extracting into a project" is checked for every project touched.
         if episode.project_id and episode.project_id not in checked_projects:
+            try:
+                with scope.session() as session:
+                    assert_single_extraction_model(
+                        session,
+                        report.model_id,
+                        project_id=episode.project_id,
+                        allow_model_mix=allow_model_mix,
+                    )
+            except ExtractionModelMismatch:
+                # The episode was already claimed. Leave it available for the explicit
+                # re-extraction remedy instead of stranding it in `running`.
+                with scope.session() as session:
+                    ingest_repo.requeue_episode(session, episode.id)
+                raise
             checked_projects.add(episode.project_id)
-            with scope.session() as session:
-                assert_single_extraction_model(
-                    session,
-                    report.model_id,
-                    project_id=episode.project_id,
-                    allow_model_mix=allow_model_mix,
-                )
         processed += 1
         report.processed += 1
         if progress is not None:

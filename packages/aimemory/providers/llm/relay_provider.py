@@ -3,9 +3,9 @@
 Why this exists
 ---------------
 The extraction engine runs inside the ``ingestion`` container and calls a model over the network -
-Ollama on this machine, or Claude Haiku 4.5 through AWS Bedrock. The owner asked for a third route:
-the *same* Haiku 4.5, answered by a Claude Code subagent in the operator's session rather than billed
-through Bedrock. Same model, same quality; a different delivery path and a different bill.
+Ollama on this machine, or Claude Haiku 4.5 through AWS Bedrock. The relay routes answer through an
+operator-session subagent instead: the historical ``relay`` route uses Claude Haiku, while the
+``luna`` route uses the Codex GPT-5.6 Luna subagent. Each route has a distinct provenance identity.
 
 A subagent cannot be called from inside a container, so the call is turned inside out. Instead of
 "send a prompt, block, receive a reply", this provider does:
@@ -47,7 +47,14 @@ from ...common.logging import get_logger
 from ...domain.models import ExtractionModel
 from ...domain.ports import LLMResponse
 
-__all__ = ["RelayPending", "RelayProvider", "MODEL_ID", "relay_dir"]
+__all__ = [
+    "LUNA_MODEL_ID",
+    "MODEL_ID",
+    "RelayPending",
+    "RelayProvider",
+    "LunaRelayProvider",
+    "relay_dir",
+]
 
 logger = get_logger(__name__)
 
@@ -88,11 +95,33 @@ def _key(prompt: str, schema: dict[str, Any] | None, system: str | None) -> str:
 class RelayProvider:
     """Answers from ``<relay>/responses/``; records unanswered prompts in ``<relay>/requests/``."""
 
-    def __init__(self, settings: Settings | None = None, *, root: Path | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        root: Path | None = None,
+        model_id: str = MODEL_ID,
+        model_name: str = MODEL_NAME,
+        provider_name: str = PROVIDER_NAME,
+        route_name: str = "claude-code-subagent",
+    ) -> None:
         self._settings = settings or get_settings()
         self._root = root or relay_dir(self._settings)
         self._requests = self._root / "requests"
         self._responses = self._root / "responses"
+        self._model_id = model_id
+        self._model_name = model_name
+        self._provider_name = provider_name
+        self._route_name = route_name
+
+    def _request_key(
+        self, prompt: str, schema: dict[str, Any] | None, system: str | None
+    ) -> str:
+        """Build a stable key, separating non-default model routes from the legacy relay cache."""
+        if self._model_id == MODEL_ID:
+            return _key(prompt, schema, system)
+        route_system = f"{system or ''}\x00model:{self._model_id}"
+        return _key(prompt, schema, route_system)
 
     # ------------------------------------------------------------------ LLMProvider
 
@@ -105,7 +134,7 @@ class RelayProvider:
         max_retries: int | None = None,
     ) -> LLMResponse:
         started = time.perf_counter()
-        key = _key(prompt, json_schema, system)
+        key = self._request_key(prompt, json_schema, system)
         answer = self._read_response(key)
         if answer is None:
             self._write_request(key, prompt, json_schema, system)
@@ -131,7 +160,7 @@ class RelayProvider:
         return LLMResponse(
             text=answer.get("text") or json.dumps(parsed),
             parsed=parsed,
-            model=MODEL_NAME,
+            model=self._model_name,
             model_digest=None,
             attempts=int(answer.get("attempts") or 1),
             duration_ms=int((time.perf_counter() - started) * 1000),
@@ -143,7 +172,7 @@ class RelayProvider:
 
     def complete_text(self, prompt: str, *, system: str | None = None) -> LLMResponse:
         started = time.perf_counter()
-        key = _key(prompt, None, system)
+        key = self._request_key(prompt, None, system)
         answer = self._read_response(key)
         if answer is None:
             self._write_request(key, prompt, None, system)
@@ -151,19 +180,19 @@ class RelayProvider:
         return LLMResponse(
             text=str(answer.get("text") or ""),
             parsed=None,
-            model=MODEL_NAME,
+            model=self._model_name,
             duration_ms=int((time.perf_counter() - started) * 1000),
             valid=True,
         )
 
     def model_identity(self) -> ExtractionModel:
         return ExtractionModel(
-            id=MODEL_ID,
-            provider=PROVIDER_NAME,
-            name=MODEL_NAME,
+            id=self._model_id,
+            provider=self._provider_name,
+            name=self._model_name,
             digest=None,
             parameters={
-                "route": "claude-code-subagent",
+                "route": self._route_name,
                 "temperature": 0.0,
                 "structured_output": "relay_file",
             },
@@ -172,8 +201,8 @@ class RelayProvider:
     def health(self) -> dict[str, Any]:
         """Outstanding vs answered, so the operator can see how much work is left without counting."""
         return {
-            "provider": PROVIDER_NAME,
-            "model": MODEL_NAME,
+            "provider": self._provider_name,
+            "model": self._model_name,
             "relay_dir": str(self._root),
             "requests": len(list(self._requests.glob("*.json"))) if self._requests.is_dir() else 0,
             "responses": len(list(self._responses.glob("*.json"))) if self._responses.is_dir() else 0,
@@ -215,9 +244,9 @@ class RelayProvider:
             "system": system,
             "prompt": prompt,
             "json_schema": schema,
-            "model": MODEL_NAME,
+            "model": self._model_name,
             "instructions": (
-                "Answer as claude-haiku-4-5 at temperature 0. Reply with a JSON object conforming to "
+                f"Answer as {self._model_name} at temperature 0. Reply with a JSON object conforming to "
                 "json_schema and write it to responses/<key>.json as {\"parsed\": <object>}."
             ),
         }
@@ -230,6 +259,27 @@ class RelayProvider:
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         logger.info(
             "relay.request_recorded", key=key, chars=len(prompt), retry=previous_error is not None
+        )
+
+
+LUNA_MODEL_ID = "codex:gpt-5.6-luna"
+
+
+class LunaRelayProvider(RelayProvider):
+    """Relay provider answered by the Codex Luna subagent.
+
+    It shares the relay protocol with the Claude route while carrying a distinct provenance
+    identity, so the normal engine and KnowledgeWriter can persist Luna-produced facts unchanged.
+    """
+
+    def __init__(self, settings: Settings | None = None, *, root: Path | None = None) -> None:
+        super().__init__(
+            settings,
+            root=root,
+            model_id=LUNA_MODEL_ID,
+            model_name="gpt-5.6-luna",
+            provider_name="codex",
+            route_name="codex-luna-subagent",
         )
 
 

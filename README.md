@@ -14,11 +14,17 @@ Sources (my-vault, project repos; read-only mounts)
 
 ## Status
 
-**Scaffold only.** The architecture and implementation plan is recorded in
-[docs/architecture/v0.1-plan.md](docs/architecture/v0.1-plan.md). No service has been built or
-started yet. Development begins on the explicit instruction **START DEVELOPMENT** and then runs
-phases P0–P17 (see [docs/development/task-plan.md](docs/development/task-plan.md)) without
-per-phase approval.
+**Implemented V0.1 with documented gaps.** The repository has running services, PostgreSQL
+migrations, incremental Tier 0/1 ingestion, a native Tier 2 extraction engine, hybrid retrieval,
+provenance-aware Gateway endpoints, MCP tooling, security checks, and a clean-start verification.
+The architecture target remains documented in
+[docs/architecture/v0.1-plan.md](docs/architecture/v0.1-plan.md); the measured implementation
+status is in [reports/final-build-report.md](reports/final-build-report.md).
+
+The current limitations matter: the latest reconciliation reports an empty Neo4j projection,
+Tier 2 is a 15/144 episode pilot rather than a complete background run, the JobLab DE deep pilot
+is not complete, and several security/data-quality follow-ups remain open. Do not read the design
+documents as proof that every planned capability is complete.
 
 ## Principles
 
@@ -44,7 +50,7 @@ per-phase approval.
 | `reports/` | Build Observer output (agent runs, ledger, timeline, tests, final report) |
 | `.claude/agents/` | Development agent definitions (workers only; not runtime components) |
 
-## Quick start (after development completes)
+## Quick start (local Docker Compose)
 
 ```powershell
 copy .env.example .env      # then generate passwords with scripts/init-env.ps1
@@ -60,6 +66,7 @@ Neo4j Browser `http://127.0.0.1:7474`, NeoDash `http://127.0.0.1:5005`.
 - [V0.1 plan](docs/architecture/v0.1-plan.md) · [ADRs](docs/adr/README.md)
 - [Agent matrix](docs/development/agent-matrix.md) · [Task plan](docs/development/task-plan.md)
 - [Reports](reports/README.md) · [CHANGELOG](CHANGELOG.md)
+- [Manager review package](docs/manager-review-package.md) · [Repository tree](docs/repository-tree.txt)
 
 
 - [Start message](docs/development/START-MESSAGE.md) — what to paste to begin development

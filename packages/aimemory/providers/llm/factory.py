@@ -37,9 +37,15 @@ def get_provider(settings: LLMSettings | None = None, *, provider: str | None = 
         from .relay_provider import RelayProvider  # noqa: PLC0415
 
         return RelayProvider()
+    if name == "luna":
+        # Luna is the operator-session subagent route. It uses the same file relay protocol as
+        # ``relay`` but has a distinct extraction_models identity for provenance.
+        from .relay_provider import LunaRelayProvider  # noqa: PLC0415
+
+        return LunaRelayProvider()
 
     raise LLMProviderError(
-        f"unknown LLM_PROVIDER {name!r}; expected 'ollama', 'bedrock' or 'relay'"
+        f"unknown LLM_PROVIDER {name!r}; expected 'ollama', 'bedrock', 'relay' or 'luna'"
     )
 
 

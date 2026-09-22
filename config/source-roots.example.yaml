@@ -38,5 +38,81 @@ roots:
       - "data/"
 
   # Future roots (disabled until enabled by the owner; must also be mounted in docker-compose):
-  - {root_id: senior-ai-eng, scheme: localfs, label: senior-ai-eng, container_path: /sources/senior-ai-eng, enabled: false, default_policy: INDEX_CONTENT, default_project_id: senior-ai-engineering}
+  - root_id: senior-ai-eng
+    scheme: localfs
+    label: senior-ai-eng
+    container_path: /sources/senior-ai-eng
+    enabled: false  # set true after mounting HOST_SENIOR_AI_ENG_ROOT
+    default_policy: INDEX_CONTENT
+    default_project_id: senior-ai-eng
+    kind: directory
+    priority_paths:
+      - "AGENTS.md"
+      - "00 AI Engineering - Map.md"
+      - "AI Engineering - Competency and Learning Roadmap.md"
+      - "06 Program/00 Program - Architecture and Run Book.md"
+      - "06 Program/research/05-evidence-baseline.md"
+      - "01 Agents and Harness Engineering/Harness Engineering - Key Concepts and Sources.md"
+      - "02 RAG and Knowledge Systems/Welcome - GraphRAG.md"
+      - "04 Infrastructure and Databases/Vector and Graph Databases - Options and Tradeoffs.md"
+    origin_overrides:
+      - {path: "01 Agents and Harness Engineering/anthropicscwc-long-running-agents.md", origin: external, trust: low}
+      - {path: "01 Agents and Harness Engineering/Ralph Wiggum as a software engineer.md", origin: external, trust: low}
+      - {path: "01 Agents and Harness Engineering/Scaling Managed Agents Decoupling the brain from the hands.md", origin: external, trust: low}
+      - {path: "02 RAG and Knowledge Systems/Welcome - GraphRAG.md", origin: external, trust: low}
+      - {path: "03 LLM Research/Recursive Language Models.md", origin: external, trust: low}
+      - {path: "04 Infrastructure and Databases/Amazon DynamoDB now supports real-time vector search at any scale.md", origin: external, trust: low}
+    exclude_extra:
+      - "06 Program/tracker/"
+  - root_id: wagtail
+    scheme: localfs
+    label: wagtail
+    container_path: /sources/wagtail
+    enabled: false
+    default_policy: INDEX_CONTENT
+    default_project_id: oploy-website
+    kind: repository
+    priority_paths: ["README.md", "docs/", "blog_posts/", "wagtailio/", "conf/"]
+    exclude_extra:
+      - "migrations/"
+      - "public/"
+      - "database_dumps/"
+      - "wagtailio/static/"
+      - "wagtailio/project_styleguide/"
+      - "package-lock.json"
+      - "poetry.lock"
+      - "db.sqlite3"
   - {root_id: jobpilot,      scheme: git,     label: jobpilot,      container_path: /sources/jobpilot,      enabled: false, default_policy: INDEX_CONTENT, default_project_id: jobpilot}
+
+  - root_id: apply-files
+    scheme: localfs
+    label: apply-files
+    container_path: /sources/apply-files
+    enabled: false
+    default_policy: INDEX_CONTENT
+    default_project_id: apply-files
+    kind: directory
+    priority_paths: ["prompt.txt", "reports/", "prepared/"]
+    exclude_extra: ["interview/", "original hesam/"]
+
+  - root_id: apply-files-interview
+    scheme: localfs
+    label: apply-files-interview
+    container_path: /sources/apply-files-interview
+    enabled: false
+    default_policy: INDEX_CONTENT
+    default_project_id: apply-files-interview
+    kind: directory
+    priority_paths: ["ofi/", "KLM/", "slides/ofi/"]
+
+  - root_id: content-center
+    scheme: localfs
+    label: content-center
+    container_path: /sources/content-center
+    enabled: false
+    default_policy: INDEX_CONTENT
+    default_project_id: content-center
+    kind: directory
+    priority_paths: ["CLAUDE.md", "CONTENT_LOG.md", "Brand/", "Linkedin/", "Youtube/", "Website/", "_Workflow/"]
+    origin_overrides:
+      - {path: "Sources/railway-usage-2026-08-18/raw/", origin: external, trust: low}

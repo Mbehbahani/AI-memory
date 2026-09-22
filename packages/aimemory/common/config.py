@@ -152,10 +152,10 @@ class LLMSettings(BaseSettings):
 
     model_config = _BASE
 
-    #: ``relay`` is Claude Haiku 4.5 answered by a Claude Code subagent rather than by Bedrock - the
-    #: same model, a different route and a different bill. Prompts and answers pass through files
-    #: (see ``providers.llm.relay_provider``), so extraction runs in two passes rather than one.
-    provider: Literal["ollama", "bedrock", "relay"] = Field(
+    #: ``relay`` and ``luna`` answer through an operator-session subagent rather than Bedrock.
+    #: Prompts and answers pass through files (see ``providers.llm.relay_provider``), so extraction
+    #: runs in two passes rather than one.
+    provider: Literal["ollama", "bedrock", "relay", "luna"] = Field(
         default="bedrock", validation_alias="LLM_PROVIDER"
     )
     model: str = Field(default="qwen3:4b", validation_alias="LLM_MODEL")

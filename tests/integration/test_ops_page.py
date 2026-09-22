@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,37 @@ if str(APP_DIR) not in sys.path:
 pytestmark = [pytest.mark.integration]
 
 SECTIONS = ("health", "runs", "coverage", "quality", "usage", "review", "attention")
+
+
+def test_ops_timestamps_render_in_amsterdam_time_with_a_zone_label() -> None:
+    from routes.ops import _fmt_amsterdam_time
+
+    assert _fmt_amsterdam_time(datetime(2026, 9, 21, 9, 47, 31, tzinfo=UTC)) == (
+        "2026-09-21 11:47:31 CEST"
+    )
+    assert _fmt_amsterdam_time(datetime(2026, 1, 21, 9, 47, 31, tzinfo=UTC)) == (
+        "2026-01-21 10:47:31 CET"
+    )
+
+
+def test_attention_item_renders_its_first_observed_timestamp() -> None:
+    from aimemory.ops.viewmodels import AttentionItem, AttentionView
+    from routes.ops import templates
+
+    rendered = templates.get_template("ops/_attention.html").render(
+        attention=AttentionView(
+            items=[
+                AttentionItem(
+                    severity="notice",
+                    title="1 episode is still unextracted",
+                    detail="Tier 2 has not run yet.",
+                    first_observed_at=datetime(2026, 9, 21, 9, 47, 31, tzinfo=UTC),
+                )
+            ]
+        )
+    )
+
+    assert "First observed: 2026-09-21 11:47:31 CEST" in rendered
 
 
 @pytest.fixture(scope="module")

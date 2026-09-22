@@ -70,7 +70,7 @@
   <tbody>
     {% for r in runs.recent %}
     <tr>
-      <td class="nowrap">{{ r.requested_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td class="nowrap">{{ r.requested_at | fmt_amsterdam_time }}</td>
       <td>{{ r.action }}</td>
       <td>{{ r.root_id or '(all)' }}</td>
       <td>{{ r.tier }}</td>

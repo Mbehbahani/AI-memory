@@ -1,0 +1,69 @@
+AI Memory V0.1/
+|-- README.md
+|-- CLAUDE.md
+|-- docker-compose.yml
+|-- docker-compose.override.yml
+|-- .env.example
+|-- .memoryignore
+|-- pyproject.toml
+|-- apps/
+|   |-- ingestion/              # worker, CLI, source mounts, extraction pipeline
+|   |-- embedding-service/     # offline MiniLM HTTP service
+|   |-- memory-api/            # Memory Gateway REST API and Ops page
+|   `-- mcp-server/             # MCP transport and guarded tools
+|-- packages/aimemory/
+|   |-- domain/                # typed contracts and DTOs
+|   |-- common/                # config, ids, hashing, time, logging
+|   |-- sources/               # discovery, URI/path guards, policies, secrets
+|   |-- extractors/             # markdown, code, PDF, DOCX, notebook, structured text
+|   |-- chunking/               # heading-aware and code chunkers
+|   |-- providers/
+|   |   |-- embedding/          # HTTP embedding client
+|   |   |-- llm/                # Ollama, Bedrock and relay providers
+|   |   `-- graph/              # Neo4j projection/writer contracts
+|   |-- knowledge/              # native engine, entity resolution, temporal rules
+|   |-- persistence/            # PostgreSQL repositories and graph store
+|   |-- provenance/             # explain chains and citations
+|   |-- retrieval/              # candidates, RRF, filters, expansion, context
+|   |-- gateway/                # Memory Gateway service functions
+|   |-- ontology/               # YAML contract loader and validation
+|   |-- ops/                    # offline operations dashboard support
+|   `-- cli/                    # migrate, ingest, status and rebuild commands
+|-- infra/
+|   |-- postgres/               # extensions and Alembic migrations
+|   |-- neo4j/                  # constraints, indexes and read-only limitation note
+|   |-- ollama/                 # Qwen3 model pull and optional Modelfile
+|   |-- neodash/                # dashboard definition and loader
+|   `-- docker/                 # pinned dependency locks and tools image
+|-- schemas/
+|   |-- ontology.yaml
+|   |-- extraction/              # episode and relationship JSON Schemas
+|   |-- mcp/tools.json           # 10 read + 2 write tool contract
+|   `-- api/openapi.json
+|-- config/
+|   |-- source-roots.yaml
+|   |-- policies.yaml
+|   `-- retrieval.yaml
+|-- scripts/                    # PowerShell and bash operations wrappers
+|-- tests/
+|   |-- unit/
+|   |-- integration/
+|   |-- memory/
+|   |-- evaluation/
+|   `-- fixtures/
+|-- docs/
+|   |-- architecture/
+|   |-- adr/
+|   |-- development/
+|   |-- operations/
+|   |-- security/
+|   |-- manager-review-package.md
+|   `-- repository-tree.txt
+`-- reports/
+    |-- final-build-report.md
+    |-- test-summary.md
+    |-- known-limitations.md
+    |-- deploy-verification.md
+    `-- image-pins.md
+
+Excluded from any handoff: .env, backups/, Docker volumes, .relay/, caches, generated runtime files.

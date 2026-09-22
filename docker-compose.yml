@@ -1,8 +1,8 @@
 # AI Memory V0.1 — base Compose topology (production-shaped: minimal host exposure).
 # Dev conveniences (loopback exposure of DBs/Ollama, tools/viz profiles) live in docker-compose.override.yml.
-# STATUS: Dockerfiles + pinned image tags done (P2-T02, A03). Image digests recorded in
-# reports/image-pins.md. apps/memory-api, apps/mcp-server application code still pending (P10/P11);
-# their Dockerfiles build successfully but the CMD entrypoint modules do not exist until then.
+# STATUS: Dockerfiles, service entrypoints and pinned image tags are implemented. Image digests are
+# recorded in reports/image-pins.md. The latest completeness and deployment evidence is in
+# reports/final-build-report.md and reports/deploy-verification.md.
 
 name: ai-memory
 
@@ -211,10 +211,17 @@ services:
       # Read-only source roots. Container paths are stable; host paths come from .env.
       - ${HOST_VAULT_ROOT:?set HOST_VAULT_ROOT in .env}:/sources/vault:ro
       - ${HOST_PILOT_ROOT:?set HOST_PILOT_ROOT in .env}:/sources/joblab-de:ro
+      - ${HOST_JOBLAB_DATA_PIPELINE_ROOT:-./infra/docker/empty-root}:/sources/joblab-data-pipeline:ro
+      - ${HOST_JOBLAB_AGENT_API_ROOT:-./infra/docker/empty-root}:/sources/joblab-agent-api:ro
+      - ${HOST_JOBLAB_ANALYTICS_FRONTEND_ROOT:-./infra/docker/empty-root}:/sources/joblab-analytics-frontend:ro
       # Optional roots use a default rather than `:?` so an unset variable cannot stop the stack
       # from starting. An unmounted root is reported by `scripts/doctor` and skipped by the scan.
       - ${HOST_WAGTAIL_ROOT:-./infra/docker/empty-root}:/sources/wagtail:ro
       - ${HOST_AIMEMORY_ROOT:-./infra/docker/empty-root}:/sources/ai-memory:ro
+      - ${HOST_SENIOR_AI_ENG_ROOT:-./infra/docker/empty-root}:/sources/senior-ai-eng:ro
+      - ${HOST_APPLY_FILES_ROOT:-./infra/docker/empty-root}:/sources/apply-files:ro
+      - ${HOST_APPLY_FILES_INTERVIEW_ROOT:-./infra/docker/empty-root}:/sources/apply-files-interview:ro
+      - ${HOST_CONTENT_CENTER_ROOT:-./infra/docker/empty-root}:/sources/content-center:ro
       - ./config:/app/config:ro
       - ./.memoryignore:/app/.memoryignore:ro
       # LLM_PROVIDER=relay writes prompts here and reads answers back. A bind mount, not a named

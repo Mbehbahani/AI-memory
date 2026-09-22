@@ -33,9 +33,11 @@ loopback-only page for the one operator of this machine.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from aimemory.common.logging import get_logger
 from aimemory.domain.enums import ObjectType, ReviewVerdict, RunAction, Tier
@@ -156,12 +158,21 @@ def _fmt_ms(value: float | None) -> str:
     return f"{seconds:.2f}s" if seconds >= 1 else f"{value:.0f}ms"
 
 
+def _fmt_amsterdam_time(value: datetime | None) -> str:
+    if value is None:
+        return "unknown"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(ZoneInfo("Europe/Amsterdam")).strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
 templates.env.filters["fmt_bytes"] = _fmt_bytes
 templates.env.filters["fmt_seconds"] = _fmt_seconds
 templates.env.filters["fmt_pct"] = _fmt_pct
 templates.env.filters["fmt_usd"] = _fmt_usd
 templates.env.filters["fmt_int"] = _fmt_int
 templates.env.filters["fmt_ms"] = _fmt_ms
+templates.env.filters["fmt_amsterdam_time"] = _fmt_amsterdam_time
 
 
 # --------------------------------------------------------------------------------------------------

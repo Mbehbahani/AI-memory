@@ -11,6 +11,9 @@
   <div class="attention-item {{ item.severity }}">
     <h3>{{ item.title }}</h3>
     <p>{{ ui.longtext(item.detail, limit=240, label='full detail') }}</p>
+    {% if item.first_observed_at %}
+    <p>{{ item.first_observed_label }}: {{ item.first_observed_at | fmt_amsterdam_time }}</p>
+    {% endif %}
     {% if item.items %}
     <ul class="tight-list">
       {% for line in item.items[:15] %}<li>{{ ui.longtext(line, limit=160) }}</li>{% endfor %}
