@@ -54,6 +54,7 @@ from aimemory.domain.models import (
     SourceVersion,
 )
 from aimemory.domain.provenance import Provenance
+from aimemory.knowledge.temporal import SqlArtifactStore
 from aimemory.persistence.repositories import (
     ArtifactRepo,
     AuditRepo,
@@ -373,6 +374,24 @@ def test_artifact_insert_and_supersede(session: Session, project: Project, episo
     assert refreshed.superseded_by_id == new.id
     repo.link_entity(ArtifactEntity(artifact_id=new.id, entity_id=entity.id, role="about"))
     repo.link_entity(ArtifactEntity(artifact_id=new.id, entity_id=entity.id, role="about"))  # idempotent
+
+
+def test_artifact_lookup_accepts_unscoped_nullable_parameters(
+    session: Session, episode: Episode
+) -> None:
+    """A NULL project/exclusion must be typed for PostgreSQL (JobLab retry regression)."""
+    artifact = ArtifactRepo(session).insert(
+        KnowledgeArtifact(
+            id=uuid4(), type=ArtifactType.FINDING, title="Nullable lookup", body="body",
+            valid_from=NOW, provenance=_prov(episode_id=episode.id),
+        )
+    )
+
+    found = SqlArtifactStore(session).find_by_title(
+        "nullable lookup", project_id=None, exclude_id=None
+    )
+
+    assert found is not None and found.id == artifact.id
 
 
 # ---- RunRepo / JobRepo -------------------------------------------------------------------------

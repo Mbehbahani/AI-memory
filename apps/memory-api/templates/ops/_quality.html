@@ -6,7 +6,7 @@
            after a run, oldest on the left. You are looking for the shape, not the exact values: a
            line that drifts the wrong way means the model started producing worse output, and that is
            the signal to change model or prompt (ADR-0010).',
-     label=('latest snapshot ' ~ quality.latest_at.strftime('%Y-%m-%d %H:%M UTC')) if quality.has_snapshots else 'no snapshots yet — run a scan to populate this section') %}
+      label=('latest snapshot ' ~ (quality.latest_at | fmt_amsterdam_time)) if quality.has_snapshots else 'no snapshots yet — run a scan to populate this section') %}
 
   <div class="stat-row">
     <div class="stat">

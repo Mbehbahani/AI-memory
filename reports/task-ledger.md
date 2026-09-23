@@ -103,3 +103,11 @@ re-run the tests, except where stated. Full per-field detail is in `reports/agen
 - `embeddings` has `UNIQUE(text_hash, model_id)` while the semantic retrieval SQL joins `chunks c ON c.id = e.object_id` — a chunk whose text duplicates another is invisible to *semantic* retrieval (keyword search still finds it). Raised by A09; needs an explicit accept-or-fix decision.
 - The `extraction_models_in_use` under-reporting limitation (recorded in the previous reconciliation note above) is still open — ADR decision owed by A04/A08.
 - P13 (`joblab-de` pilot ingest), P11, P12, P14–P17: not started.
+
+## 2026-09-22 — P12-T02 Follow-up
+
+| Task | Phase | Agent | Status | Started | Finished | Files | Tests | Handoff | Commit |
+|---|---|---|---|---|---|---|---|---|---|
+| P12-T02 (timestamp localization) | P12 | A16 | done | 2026-09-22 (exact time not available) | 2026-09-22 (exact time not available) | Modified: `apps/memory-api/templates/ops/_health.html`, `_notes.html`, `_quality.html`, `_review.html`, `tests/integration/test_ops_page.py` | `docker compose --profile tools run --rm tools python -m pytest tests/integration/test_ops_page.py -q` → 26 passed, 2 warnings, exit 0; compileall and diff-check passed | A12, A13, A14 | Not committed; HEAD `f4c07f44a184f3c3fc274e79bdc43af892fdceda` |
+
+Host virtual-environment attempts were blocked by missing `uv`/dependencies. Exact commands, timestamps, and raw warning text were not provided. This entry records only the P12-T02 follow-up; other task statuses remain as found.

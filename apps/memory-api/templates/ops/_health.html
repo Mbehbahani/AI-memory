@@ -7,7 +7,7 @@
            called, with how long it took. "down" means unreachable at this moment, not broken
            forever. The four boxes underneath are resource facts - what is loaded, how much memory
            the worker itself is using, how much disk is left, and when you last took a backup.',
-     label='generated ' ~ health.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC') ~ ' · writes_enabled=' ~ health.writes_enabled) %}
+      label='generated ' ~ (health.generated_at | fmt_amsterdam_time) ~ ' · writes_enabled=' ~ health.writes_enabled) %}
 
   <table class="ops-table">
     <thead><tr><th>Component</th><th>OK</th><th>Detail</th><th>Latency</th></tr></thead>
@@ -30,7 +30,7 @@
                                   at AWS, nothing is loaded locally, and "not loaded" here is correct
                                   rather than a fault. Taken from the worker\'s own /api/ps snapshot.') }}
       {% if health.worker.seen %}
-        <div class="chart-caption">as of {{ health.worker.at.strftime('%Y-%m-%d %H:%M:%S UTC') }}
+        <div class="chart-caption">as of {{ health.worker.at | fmt_amsterdam_time }}
           {% if health.worker.stale %}<span class="badge notice">stale &gt; {{ health.worker.stale_after_seconds }}s — worker may be down</span>{% endif %}
         </div>
       {% else %}
@@ -54,7 +54,7 @@
     <div class="stat">
       {% if health.backup.mounted and health.backup.newest_at %}
         <b>{{ health.backup.age_seconds | fmt_seconds }} old</b>
-        last backup: {{ health.backup.newest_name }} ({{ health.backup.newest_at.strftime('%Y-%m-%d %H:%M') }})
+        last backup: {{ health.backup.newest_name }} ({{ health.backup.newest_at | fmt_amsterdam_time }})
       {% else %}
         <b>UNKNOWN</b>
         last backup {{ ui.helptag(health.backup.note) }}

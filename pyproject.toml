@@ -20,6 +20,9 @@ dependencies = [
   "pyyaml>=6,<7",
   "pypdf>=5,<6",
   "python-docx>=1.1,<2",
+  # Relay providers enforce every handoff against the frozen extraction JSON Schema.
+  # This is required at ingestion runtime, not only in development/test environments.
+  "jsonschema>=4.23,<5",
 ]
 
 [project.optional-dependencies]

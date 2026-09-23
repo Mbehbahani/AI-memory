@@ -53,7 +53,7 @@
       <tbody>
         {% for row in notes.rows %}
         <tr>
-          <td class="nowrap">{{ row.at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td class="nowrap">{{ row.at | fmt_amsterdam_time }}</td>
           <td>{{ row.kind }}</td>
           <td>{{ ui.longtext(row.title, limit=70, label='full title') }}</td>
           <td>{{ row.project_id or '—' }}</td>

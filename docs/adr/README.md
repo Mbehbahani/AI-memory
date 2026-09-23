@@ -24,3 +24,4 @@ the memory system applies to itself). Index maintained by A01 (Build Observer).
 | [0016](ADR-0016-relay-provider-haiku-without-bedrock.md) | A third extraction route: `LLM_PROVIDER=relay` runs Claude Haiku 4.5 via a Claude Code subagent instead of Bedrock. Extends ADR-0012/0014 | accepted | 2026-09-19 |
 | [0018](ADR-0018-luna-relay-provider.md) | `LLM_PROVIDER=luna` routes Tier 2 through the Codex GPT-5.6 Luna subagent with distinct provenance | accepted | 2026-09-21 |
 | [0017](ADR-0017-keep-marked-knowledge-over-clean-loss.md) | Equivalent model routes are one model; ontology-violating edges are projected with `ontology_violation` rather than dropped. Amends ADR-0014 §2 and the ADR-0015 projection | accepted | 2026-09-19 |
+| [0019](ADR-0019-temporal-source-semantics.md) | Classify sources so absence semantics are intentional, while unclassified sources retain snapshot behaviour | proposed | 2026-09-22 |

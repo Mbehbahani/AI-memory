@@ -126,6 +126,10 @@ All notable changes to this project are documented here. Format: Keep a Changelo
   is gone because a real corpus now exists (P7-T02).
 
 ### Changed
+- 2026-09-22 — P12-T02 Ops dashboard timestamp-localization follow-up (A16): use the existing
+  `fmt_amsterdam_time` Jinja filter for actual timestamp instants across the health, notes, quality,
+  and review templates; date-only values remain unchanged. Focused integration validation reported
+  26 passed, 2 warnings, exit 0.
 - 2026-09-17 — Bedrock credentials wired into containers (A03, commit `755b06f`): optional read-only
   `~/.aws` bind mount (`HOST_AWS_DIR`, defaults to a checked-in empty dir), `AWS_PROFILE=mohabehb`,
   `us-east-1`, and the `bedrock` extra added to the ingestion and tools images. Before this, no compose

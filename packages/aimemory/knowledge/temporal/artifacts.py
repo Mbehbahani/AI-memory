@@ -191,8 +191,8 @@ class SqlArtifactStore:
                 """
                 SELECT id FROM knowledge_artifacts
                  WHERE lower(title) = lower(:title)
-                   AND (:project_id IS NULL OR project_id = :project_id)
-                   AND (:exclude IS NULL OR id <> :exclude)
+                   AND (CAST(:project_id AS text) IS NULL OR project_id = :project_id)
+                   AND (CAST(:exclude AS uuid) IS NULL OR id <> :exclude)
                  ORDER BY valid_from DESC
                  LIMIT 1
                 """

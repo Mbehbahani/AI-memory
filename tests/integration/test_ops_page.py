@@ -59,6 +59,100 @@ def test_attention_item_renders_its_first_observed_timestamp() -> None:
     assert "First observed: 2026-09-21 11:47:31 CEST" in rendered
 
 
+def test_ops_sections_render_instants_in_amsterdam_time() -> None:
+    from uuid import uuid4
+
+    from aimemory.ops.viewmodels import (
+        BackupStatus,
+        DiskStatus,
+        HealthView,
+        NoteRow,
+        NotesView,
+        QualityView,
+        ReviewCandidate,
+        ReviewQueueView,
+        WorkerStatus,
+    )
+    from routes.ops import _quality_charts, templates
+
+    at = datetime(2026, 9, 21, 9, 47, 31, tzinfo=UTC)
+    health = HealthView(
+        status="ok",
+        writes_enabled=False,
+        checks=[],
+        worker=WorkerStatus(seen=True, at=at, model_loaded=True, model_name="test-model"),
+        backup=BackupStatus(mounted=True, newest_at=at, newest_name="backup.sql", age_seconds=60),
+        disk=DiskStatus(total_bytes=1000, used_bytes=400, free_bytes=600, path="/tmp"),
+        generated_at=at,
+    )
+    health_html = templates.get_template("ops/_health.html").render(health=health)
+    notes_html = templates.get_template("ops/_notes.html").render(
+        notes=NotesView(
+            rows=[
+                NoteRow(
+                    at=at,
+                    kind="manual",
+                    title="Timezone probe",
+                    project_id=None,
+                    status="saved",
+                    facts=0,
+                    artifacts=0,
+                    searchable=False,
+                    source_uri=None,
+                )
+            ],
+            total=1,
+            unsearchable=1,
+        )
+    )
+    quality = QualityView(
+        has_snapshots=True,
+        latest_at=at,
+        schema_validity_rate=[],
+        failed_episode_share=[],
+        median_seconds_per_episode=[],
+        duplicate_entity_rate=[],
+        unconfirmed_fact_share=[],
+        review_total=0,
+        review_accept=0,
+        review_wrong=0,
+        review_partial=0,
+        acceptance_rate=None,
+        benchmark_reports=[],
+        upgrade_notice=None,
+    )
+    quality_html = templates.get_template("ops/_quality.html").render(
+        quality=quality, charts=_quality_charts(quality)
+    )
+    review_html = templates.get_template("ops/_review.html").render(
+        review=ReviewQueueView(
+            sample=[
+                ReviewCandidate(
+                    object_type="fact",
+                    object_id=uuid4(),
+                    headline="Timezone probe",
+                    evidence="Evidence",
+                    citation="[source]",
+                    project_id=None,
+                    observed_at=at,
+                    episode_id=None,
+                    model_id=None,
+                )
+            ],
+            sample_batch="probe",
+            already_reviewed_today=0,
+        ),
+        verdicts=["accept", "wrong", "partial"],
+    )
+
+    assert "generated 2026-09-21 11:47:31 CEST" in health_html
+    assert "as of 2026-09-21 11:47:31 CEST" in health_html
+    assert "backup.sql (2026-09-21 11:47:31 CEST)" in health_html
+    assert "2026-09-21 11:47:31 CEST" in notes_html
+    assert "latest snapshot 2026-09-21 11:47:31 CEST" in quality_html
+    assert "observed 2026-09-21 11:47:31 CEST" in review_html
+
+
 @pytest.fixture(scope="module")
 def client(postgres_available: bool):
     from app import create_app

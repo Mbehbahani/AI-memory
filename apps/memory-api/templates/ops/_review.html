@@ -13,7 +13,7 @@
   {% for c in review.sample %}
   <div class="review-card">
     <div><b>[{{ c.object_type }}]</b> {{ ui.longtext(c.headline, limit=180, label='full statement') }}
-      <span class="chart-caption">{{ c.project_id or '(no project)' }}{% if c.observed_at %} · observed {{ c.observed_at.strftime('%Y-%m-%d') }}{% endif %}{% if c.model_id %} · {{ c.model_id }}{% endif %}</span>
+      <span class="chart-caption">{{ c.project_id or '(no project)' }}{% if c.observed_at %} · observed {{ c.observed_at | fmt_amsterdam_time }}{% endif %}{% if c.model_id %} · {{ c.model_id }}{% endif %}</span>
     </div>
     {% if c.evidence %}<div class="evidence">&ldquo;{{ ui.longtext(c.evidence, limit=280, label='full quote') }}&rdquo;</div>{% endif %}
     <div class="citation">{{ c.citation }}</div>
